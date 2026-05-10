@@ -1,48 +1,136 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Werewolf Host</title>
+
+<style>
+
+body{
+    margin:0;
+    background:#111827;
+    color:white;
+    font-family:sans-serif;
+    padding:20px;
+}
+
+.card{
+    background:#1f2937;
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:16px;
+}
+
+button{
+    padding:10px 14px;
+    border:none;
+    border-radius:10px;
+    background:#2563eb;
+    color:white;
+    cursor:pointer;
+    margin:4px;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+select{
+    padding:10px;
+    border:none;
+    border-radius:10px;
+    background:#374151;
+    color:white;
+}
+
+.player{
+    background:#374151;
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:10px;
+}
+
+.dead{
+    opacity:0.5;
+}
+
+.roleBox{
+    background:#374151;
+    padding:12px;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+</style>
+
+</head>
 <body>
 
-<h1>HOST PANEL</h1>
+<div class="card">
 
-<h2>
-ROOM CODE:
-<span id="room">...</span>
-</h2>
+    <h1>HOST PANEL</h1>
 
-<hr>
+    <h2>
+        ROOM:
+        <span id="room">...</span>
+    </h2>
 
-<h3>ROLE CONFIG</h3>
+</div>
 
-<p>
-หมาป่า:
-<input id="wolf" type="number" value="1" min="0">
-</p>
+<div class="card">
 
-<p>
-หมอ:
-<input id="doctor" type="number" value="1" min="0">
-</p>
+    <h2>ROLE CONFIG</h2>
 
-<button onclick="updateConfig()">
-UPDATE ROLES
-</button>
+    <select id="roleSelect">
 
-<button onclick="startGame()">
-START GAME
-</button>
+        <option value="หมาป่า">หมาป่า</option>
+        <option value="หมอ">หมอ</option>
+        <option value="เซียร์">เซียร์</option>
+        <option value="บอดี้การ์ด">บอดี้การ์ด</option>
+        <option value="นักล่า">นักล่า</option>
+        <option value="แม่มด">แม่มด</option>
+        <option value="ชาวบ้าน">ชาวบ้าน</option>
 
-<hr>
+    </select>
 
-<h2>PLAYERS</h2>
+    <button onclick="addRole()">
+        ADD ROLE
+    </button>
 
-<ul id="list"></ul>
+    <div id="roles"></div>
+
+    <br>
+
+    <button onclick="updateConfig()">
+        UPDATE ROLES
+    </button>
+
+    <button onclick="startGame()">
+        START GAME
+    </button>
+
+</div>
+
+<div class="card">
+
+    <h2>PLAYERS</h2>
+
+    <div id="list"></div>
+
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
+
 const socket = io();
 
 let roomId = "";
+
+const roleConfig = {};
 
 const hostName =
     prompt("ชื่อโฮสต์") || "HOST";
@@ -53,12 +141,13 @@ socket.emit(
     {
         name: hostName
     },
+
     (id) => {
 
         roomId = id;
 
-        document.getElementById("room").innerText =
-            roomId;
+        document.getElementById("room")
+            .innerText = roomId;
 
     }
 );
@@ -73,73 +162,155 @@ socket.on("room_update", (room) => {
 
     room.players.forEach((p) => {
 
-        const li =
-            document.createElement("li");
+        const div =
+            document.createElement("div");
 
-        li.innerHTML = `
-            <hr>
+        div.className =
+            "player " +
+            (!p.alive ? "dead" : "");
+
+        div.innerHTML = `
 
             <b>${p.name}</b>
 
-            <br>
+            <br><br>
 
             ROLE:
             ${p.role || "?"}
 
+            <br><br>
+
+            ${
+                p.alive
+                ? "🟢 ALIVE"
+                : "🔴 DEAD"
+            }
+
             <br>
 
-            STATUS:
-            ${p.alive ? "🟢 ALIVE" : "🔴 DEAD"}
+            ${
+                p.protected
+                ? "🛡 PROTECTED"
+                : ""
+            }
 
-            <br>
-
-            ${p.protected ? "🛡 PROTECTED" : ""}
-
-            ${p.killed ? "☠ MARKED" : ""}
+            ${
+                p.killed
+                ? "☠ MARKED"
+                : ""
+            }
 
             <br><br>
 
             <button onclick="toggle('${p.id}','alive')">
-                TOGGLE DEAD
+                DEAD
             </button>
 
             <button onclick="toggle('${p.id}','protected')">
-                TOGGLE PROTECT
+                PROTECT
             </button>
 
             <button onclick="toggle('${p.id}','killed')">
-                TOGGLE KILLED
+                MARK
             </button>
+
         `;
 
-        list.appendChild(li);
+        list.appendChild(div);
 
     });
 
 });
 
+// ROLE UI
+function renderRoles() {
+
+    const rolesDiv =
+        document.getElementById("roles");
+
+    rolesDiv.innerHTML = "";
+
+    Object.keys(roleConfig).forEach((role) => {
+
+        if (roleConfig[role] <= 0) {
+
+            delete roleConfig[role];
+            return;
+
+        }
+
+        const div =
+            document.createElement("div");
+
+        div.className = "roleBox";
+
+        div.innerHTML = `
+
+            <b>${role}</b>
+
+            x${roleConfig[role]}
+
+            <button onclick="changeRole('${role}',1)">
+                +
+            </button>
+
+            <button onclick="changeRole('${role}',-1)">
+                -
+            </button>
+
+        `;
+
+        rolesDiv.appendChild(div);
+
+    });
+
+}
+
+// ADD ROLE
+function addRole() {
+
+    const role =
+        document.getElementById("roleSelect").value;
+
+    if (!roleConfig[role]) {
+
+        roleConfig[role] = 1;
+
+    } else {
+
+        roleConfig[role]++;
+
+    }
+
+    renderRoles();
+
+}
+
+// CHANGE ROLE
+function changeRole(role, amount) {
+
+    if (!roleConfig[role]) return;
+
+    roleConfig[role] += amount;
+
+    if (roleConfig[role] <= 0) {
+
+        delete roleConfig[role];
+
+    }
+
+    renderRoles();
+
+}
+
 // UPDATE CONFIG
 function updateConfig() {
-
-    const wolfCount =
-        Number(
-            document.getElementById("wolf").value
-        );
-
-    const doctorCount =
-        Number(
-            document.getElementById("doctor").value
-        );
 
     socket.emit(
         "update_config",
         {
             roomId,
-
-            config: {
-                wolf: wolfCount,
-                doctor: doctorCount
-            }
+            config: roleConfig
         }
     );
 
@@ -168,6 +339,7 @@ function toggle(playerId, key) {
     );
 
 }
+
 </script>
 
 </body>
