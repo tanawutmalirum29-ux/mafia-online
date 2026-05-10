@@ -186,7 +186,9 @@ socket.on("room_update", (roomData) => {
 
     players.innerHTML = "";
 
-    roomData.players.forEach((p) => {
+    roomData.players
+    .filter(p => p.role !== "HOST")
+    .forEach((p) => {
 
         const div =
             document.createElement("div");
@@ -209,7 +211,7 @@ socket.on("room_update", (roomData) => {
 
         players.appendChild(div);
 
-    });
+});
 
 });
 
