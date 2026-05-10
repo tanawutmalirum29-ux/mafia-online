@@ -299,6 +299,12 @@ realPlayers.forEach((p, i) => {
 });
 
 // RANDOM HUNT TARGET
+// บทที่ล่าไม่ได้
+const cannotBeHuntedRoles = [
+    "ผู้เฒ่า"
+];
+
+// RANDOM HUNT TARGET
 realPlayers.forEach((p) => {
 
     // เฉพาะนักล่า
@@ -313,7 +319,9 @@ realPlayers.forEach((p) => {
 
             x.id !== p.id &&
 
-            !x.cannotBeHunted
+            !cannotBeHuntedRoles.includes(
+                x.role
+            )
         );
 
     if (
@@ -328,8 +336,12 @@ realPlayers.forEach((p) => {
             )
         ];
 
-    p.huntTarget =
+    // เก็บทั้ง id และชื่อ
+    p.huntTargetId =
         randomTarget.id;
+
+    p.huntTarget =
+        randomTarget.name;
 
 });
 
@@ -350,6 +362,12 @@ realPlayers.forEach((p) => {
     );
 
 });
+room.started = true;
+
+io.to(roomId).emit(
+    "room_update",
+    room
+);
 
     // TOGGLE STATE
     socket.on(
