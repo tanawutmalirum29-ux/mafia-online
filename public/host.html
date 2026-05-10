@@ -221,6 +221,11 @@ socket.on("room_update", (room) => {
     });
 
 });
+socket.on("host_error", (msg) => {
+
+    alert(msg);
+
+});
 
 // ROLE UI
 function renderRoles() {
