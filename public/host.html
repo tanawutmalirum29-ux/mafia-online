@@ -99,11 +99,44 @@ select{
 }
 
 .roleBox{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:fit-content;
+
     background:rgba(55,65,81,.75);
     border-radius:16px;
-    padding:14px;
+    padding:10px 14px;
     margin-top:12px;
     border:1px solid rgba(255,255,255,.05);
+}
+
+.roleBtn{
+    width:34px;
+    height:34px;
+    padding:0;
+    margin:0;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border:none;
+    border-radius:10px;
+
+    background:
+    linear-gradient(135deg,#7c3aed,#4f46e5);
+
+    color:white;
+    font-size:18px;
+    font-weight:bold;
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+.roleBtn:hover{
+    transform:scale(1.08);
 }
 
 .realRole{
@@ -464,25 +497,26 @@ function renderRoles() {
             x${roleConfig[role]}
 
             <button
-                onclick="
-                changeRole(
-                    '${role}',
-                    1
-                )"
-            >
-                +
-            </button>
+    class="roleBtn"
+    onclick="
+    changeRole(
+        '${role}',
+        1
+    )"
+>
+    +
+</button>
 
-            <button
-                onclick="
-                changeRole(
-                    '${role}',
-                    -1
-                )"
-            >
-                -
-            </button>
-
+<button
+    class="roleBtn"
+    onclick="
+    changeRole(
+        '${role}',
+        -1
+    )"
+>
+    -
+</button>
         `;
 
         rolesDiv.appendChild(div);
