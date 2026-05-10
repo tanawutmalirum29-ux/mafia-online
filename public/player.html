@@ -161,6 +161,62 @@ button:hover{
     }
 
 }
+#chatBox{
+    height:320px;
+    overflow-y:auto;
+    margin-bottom:14px;
+    padding:12px;
+    border-radius:18px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.06);
+}
+
+.chatRow{
+    display:flex;
+    gap:10px;
+}
+
+.chatRow input{
+    margin:0;
+}
+
+.sendBtn{
+    width:120px;
+}
+
+.msg{
+    padding:10px 12px;
+    border-radius:14px;
+    margin-bottom:10px;
+    animation:fade .2s ease;
+    line-height:1.5;
+    word-break:break-word;
+}
+
+.msgGlobal{
+    background:rgba(59,130,246,.15);
+    border:1px solid rgba(59,130,246,.25);
+}
+
+.msgWolf{
+    background:rgba(239,68,68,.15);
+    border:1px solid rgba(239,68,68,.25);
+}
+
+.msgHost{
+    background:rgba(168,85,247,.15);
+    border:1px solid rgba(168,85,247,.25);
+}
+
+.msgName{
+    font-weight:bold;
+    margin-bottom:4px;
+}
+
+.msgType{
+    font-size:12px;
+    opacity:.7;
+}
 
 </style>
 
@@ -221,17 +277,32 @@ button:hover{
 <div class="card">
 
     <h3>
-        Updates / Future Features
+        GAME CHAT
     </h3>
 
+    <div id="chatBox"></div>
+
+    <div class="chatRow">
+
+        <input
+            id="chatInput"
+            placeholder="พิมพ์ข้อความ..."
+            maxlength="200"
+        >
+
+        <button
+            class="sendBtn"
+            onclick="sendChat()"
+        >
+            SEND
+        </button>
+
+    </div>
+
     <div class="small">
-
-        • ระบบกลางคืน/กลางวัน<br>
-        • แชทในเกม<br>
-        • เสียงเอฟเฟกต์<br>
-        • ระบบโหวต<br>
-        • animation ตอนแจกบท
-
+        🔵 แชทรวม<br>
+        🔴 แชทหมาป่า<br>
+        🟣 ข้อความจากโฮสต์
     </div>
 
 </div>
@@ -243,6 +314,8 @@ button:hover{
 const socket = io();
 
 let joined = false;
+
+let myRole = "";
 
 // JOIN ROOM
 function join() {
@@ -302,7 +375,7 @@ function join() {
 socket.on(
     "your_role",
     (data) => {
-
+myRole = data.role;
     // ROLE DISPLAY
     document.getElementById("role")
         .innerHTML = `
@@ -438,6 +511,133 @@ socket.on(
         alert(
             "ขาดการเชื่อมต่อเซิร์ฟเวอร์"
         );
+
+    }
+
+});
+
+// SEND CHAT
+function sendChat() {
+
+    const input =
+        document.getElementById(
+            "chatInput"
+        );
+
+    const text =
+        input.value.trim();
+
+    if (!text) return;
+
+    const roomId =
+        document.getElementById(
+            "room"
+        ).value
+        .trim()
+        .toUpperCase();
+
+    socket.emit(
+        "send_chat",
+        {
+            roomId,
+            text
+        }
+    );
+
+    input.value = "";
+
+}
+
+// RECEIVE CHAT
+socket.on(
+    "chat_message",
+    (msg) => {
+
+    // แชทหมาป่า
+    if (
+        msg.type === "wolf" &&
+        myRole !== "หมาป่า" &&
+        !msg.isHost
+    ) return;
+
+    const chatBox =
+        document.getElementById(
+            "chatBox"
+        );
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    let className =
+        "msg msgGlobal";
+
+    if (
+        msg.type === "wolf"
+    ) {
+
+        className =
+            "msg msgWolf";
+
+    }
+
+    if (
+        msg.isHost
+    ) {
+
+        className =
+            "msg msgHost";
+
+    }
+
+    div.className =
+        className;
+
+    div.innerHTML = `
+
+        <div class="msgName">
+
+            ${msg.name}
+
+        </div>
+
+        <div>
+
+            ${msg.text}
+
+        </div>
+
+        <div class="msgType">
+
+            ${
+                msg.type === "wolf"
+                ? "🐺 แชทหมาป่า"
+                : "💬 แชทรวม"
+            }
+
+        </div>
+
+    `;
+
+    chatBox.appendChild(div);
+
+    chatBox.scrollTop =
+        chatBox.scrollHeight;
+
+});
+
+// ENTER SEND
+document.addEventListener(
+    "keydown",
+    (e) => {
+
+    if (
+    e.key === "Enter" &&
+    document.activeElement.id === "chatInput"
+)  {
+
+        sendChat();
 
     }
 
