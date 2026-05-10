@@ -611,82 +611,60 @@ socket.emit(
 }
 
 // RECEIVE CHAT
-socket.on(
-    "chat_message",
-    (msg) => {
+socket.on("chat_message", (msg) => {
 
-    // แชทหมาป่า
+    // กรองแชทหมาป่าเหมือนเดิม
     if (
-    msg.type === "wolf" &&
-    !wolfRoles.includes(myRole) &&
-    !msg.isHost
-) return;
+        msg.type === "wolf" &&
+        !wolfRoles.includes(myRole) &&
+        !msg.isHost
+    ) return;
 
     const chatBox =
-        document.getElementById(
-            "chatBox"
-        );
+        document.getElementById("chatBox");
 
     const div =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
-    let className =
-        "msg msgGlobal";
+    let className = "msg msgGlobal";
 
-    if (
-        msg.type === "wolf"
-    ) {
-
-        className =
-            "msg msgWolf";
-
+    if (msg.type === "wolf") {
+        className = "msg msgWolf";
     }
 
-    if (
-        msg.isHost
-    ) {
-
-        className =
-            "msg msgHost";
-
+    if (msg.isHost) {
+        className = "msg msgHost";
     }
 
-    div.className =
-        className;
+    // ✅ FIX: private ต้อง override ทุกอย่าง
+    if (msg.type === "private") {
+        className = "msg msgPrivate";
+    }
+
+    div.className = className;
 
     div.innerHTML = `
-
         <div class="msgName">
-
             ${msg.name}
-
         </div>
 
         <div>
-
             ${msg.text}
-
         </div>
 
         <div class="msgType">
-
             ${
-                msg.type === "wolf"
+                msg.type === "private"
+                ? "🟣 PRIVATE"
+                : msg.type === "wolf"
                 ? "🐺 แชทหมาป่า"
                 : "💬 แชทรวม"
             }
-
         </div>
-
     `;
 
     chatBox.appendChild(div);
-
-    chatBox.scrollTop =
-        chatBox.scrollHeight;
-
+    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // ENTER SEND
@@ -704,41 +682,7 @@ document.addEventListener(
     }
 
 });
-socket.on(
-    "private_message",
-    (msg) => {
 
-    const chatBox =
-        document.getElementById("chatBox");
-
-    const div =
-        document.createElement("div");
-
-    div.className =
-        "msg msgPrivate";
-
-    div.innerHTML = `
-
-        <div class="msgName">
-            🟣 HOST
-        </div>
-
-        <div>
-            ${msg.text}
-        </div>
-
-        <div class="msgType">
-            PRIVATE
-        </div>
-
-    `;
-
-    chatBox.appendChild(div);
-
-    chatBox.scrollTop =
-        chatBox.scrollHeight;
-
-});
 
 
 </script>
