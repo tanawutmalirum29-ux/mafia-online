@@ -435,7 +435,8 @@ socket.on(
     "send_chat",
     ({
         roomId,
-        text
+        text,
+        type
     }) => {
 
     const room =
@@ -449,39 +450,39 @@ socket.on(
         );
 
     if (!player) return;
-if (
-    typeof text !== "string"
-) return;
 
-text = text.trim();
+    if (
+        typeof text !== "string"
+    ) return;
 
-if (
-    text.length <= 0 ||
-    text.length > 200
-) return;
+    text = text.trim();
+
+    if (
+        text.length <= 0 ||
+        text.length > 200
+    ) return;
 
     // DEAD ห้ามพิมพ์
     if (!player.alive) return;
 
-    // หมาป่า = แชทหมาป่า
-    const type =
-        wolfRoles.includes(
-    player.role
-)
-        ? "wolf"
-        : "global";
-
-    // CHAT WOLF
+    // ถ้าจะส่ง wolf chat
     if (
         type === "wolf"
     ) {
+
+        // ต้องเป็นหมาป่าเท่านั้น
+        if (
+            !wolfRoles.includes(
+                player.role
+            )
+        ) return;
 
         room.players.forEach((p) => {
 
             if (
                 wolfRoles.includes(
-    p.role
-)
+                    p.role
+                )
             ) {
 
                 io.to(p.id).emit(
@@ -489,7 +490,7 @@ if (
                     {
                         name: player.name,
                         text,
-                        type
+                        type:"wolf"
                     }
                 );
 
@@ -507,7 +508,7 @@ if (
         {
             name: player.name,
             text,
-            type
+            type:"global"
         }
     );
 
