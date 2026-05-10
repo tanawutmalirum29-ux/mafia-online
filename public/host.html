@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>HOST PANEL</h2>
+
+<p>Room: <span id="room"></span></p>
+
+<h3>Role Config</h3>
+
+หมาป่า: <input id="wolf" type="number" value="1"><br>
+หมอ: <input id="doctor" type="number" value="1"><br>
+
+<button onclick="update()">Update Roles</button>
+<button onclick="start()">Start Game</button>
+
+<h3>Players</h3>
+<ul id="list"></ul>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+let roomId;
+
+socket.emit("create_room", (id) => {
+  roomId = id;
+  document.getElementById("room").innerText = id;
+});
+
+socket.on("room_update", (room) => {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  room.players.forEach(p => {
+    const li = document.createElement("li");
+    li.innerText = p.name;
+    list.appendChild(li);
+  });
+});
+
+function update() {
+  socket.emit("update_config", {
+    roomId,
+    config: {
+      wolf: +wolf.value,
+      doctor: +doctor.value
+    }
+  });
+}
+
+function start() {
+  socket.emit("start_game", roomId);
+}
+</script>
+
+</body>
+</html>
