@@ -203,10 +203,10 @@ select{
 
 <div class="card">
 
-    <h1>HOST PANEL</h1>
+    <h1>สร้างเกม</h1>
 
     <h2>
-        ROOM:
+        ห้อง:
         <span id="room">...</span>
     </h2>
 
@@ -214,7 +214,7 @@ select{
 
 <div class="card">
 
-    <h2>ROLE CONFIG</h2>
+    <h2>ตั้งค่าบทบาท</h2>
 
     <select id="roleSelect">
 
@@ -301,7 +301,7 @@ select{
     </select>
 
     <button onclick="addRole()">
-        ADD ROLE
+        เพิ่มบทบาท
     </button>
 
     <div id="roles"></div>
@@ -309,14 +309,14 @@ select{
     <br>
 
     <button onclick="startGame()">
-        START GAME
+        เริ่มเกม
     </button>
 
 </div>
 
 <div class="card">
 
-    <h2>PLAYERS</h2>
+    <h2>ผู้เล่น</h2>
 
     <div id="list"></div>
 
@@ -324,7 +324,7 @@ select{
 <div class="card">
 
     <h2>
-        HOST CHAT
+        แชท
     </h2>
 
     <select id="chatType">
@@ -345,7 +345,7 @@ select{
     >
 
     <button onclick="sendHostMsg()">
-        SEND MESSAGE
+        ส่งข้อความ
     </button>
 
 </div>
@@ -491,13 +491,13 @@ ${
 
             ${
                 p.protected
-                ? "🛡 PROTECTED"
+                ? "🛡ถูกปกป้อง"
                 : ""
             }
 
             ${
                 p.killed
-                ? "☠ MARKED"
+                ? "☠ ถูกเล็งฆ่า"
                 : ""
             }
 
