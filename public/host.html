@@ -357,6 +357,7 @@ select{
 const socket = io();
 
 let roomId = "";
+let currentRoom = null;
 
 const roleConfig = {};
 
@@ -400,6 +401,7 @@ socket.emit(
 socket.on(
     "room_update",
     (room) => {
+currentRoom = room;
 
     const list =
         document.getElementById(
@@ -422,6 +424,7 @@ socket.on(
                 ? "dead"
                 : ""
             );
+div.setAttribute("data-id", p.id);
 
         div.innerHTML = `
 
@@ -458,6 +461,10 @@ socket.on(
                     ${p.role}
 
                 </div>
+
+<div class="selectionInfo" id="sel-${p.id}">
+    ยังไม่เลือก
+</div>
 
                 `
 
@@ -582,6 +589,45 @@ ${
     });
 
 });
+
+socket.on("selection_update", (data) => {
+
+    const el = document.querySelector(`[data-id="${data.from}"]`);
+
+    if (!el) return;
+
+    const target = document.querySelector(`[data-id="${data.targetId}"]`);
+
+    if (!target) return;
+
+    el.dataset.target = data.targetId;
+
+    renderSelections();
+});
+
+function renderSelections() {
+
+    if (!currentRoom) return;
+
+    currentRoom.players.forEach(p => {
+
+        const box = document.getElementById(`sel-${p.id}`);
+        if (!box) return;
+
+        const el = document.querySelector(`[data-id="${p.id}"]`);
+        const targetId = el?.dataset?.target;
+
+        if (!targetId) {
+            box.innerText = "ยังไม่เลือก";
+            return;
+        }
+
+        const targetEl = document.querySelector(`[data-id="${targetId}"]`);
+        const name = targetEl?.querySelector("b")?.innerText || "unknown";
+
+        box.innerText = `📍 กำลังเลือก: ${name}`;
+    });
+}
 
 // HOST ERROR
 socket.on(
