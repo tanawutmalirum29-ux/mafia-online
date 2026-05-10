@@ -590,44 +590,16 @@ ${
 
 });
 
+
+
 socket.on("selection_update", (data) => {
 
-    const el = document.querySelector(`[data-id="${data.from}"]`);
+    const box = document.getElementById(`sel-${data.from}`);
+    if (!box) return;
 
-    if (!el) return;
+    box.innerText = `📍 กำลังเลือก: ${data.targetName || "?"}`;
 
-    const target = document.querySelector(`[data-id="${data.targetId}"]`);
-
-    if (!target) return;
-
-    el.dataset.target = data.targetId;
-
-    renderSelections();
 });
-
-function renderSelections() {
-
-    if (!currentRoom) return;
-
-    currentRoom.players.forEach(p => {
-
-        const box = document.getElementById(`sel-${p.id}`);
-        if (!box) return;
-
-        const el = document.querySelector(`[data-id="${p.id}"]`);
-        const targetId = el?.dataset?.target;
-
-        if (!targetId) {
-            box.innerText = "ยังไม่เลือก";
-            return;
-        }
-
-        const targetEl = document.querySelector(`[data-id="${targetId}"]`);
-        const name = targetEl?.querySelector("b")?.innerText || "unknown";
-
-        box.innerText = `📍 กำลังเลือก: ${name}`;
-    });
-}
 
 // HOST ERROR
 socket.on(
