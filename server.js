@@ -140,72 +140,82 @@ io.on("connection", (socket) => {
     });
 
     // START GAME
-    socket.on(
-        "start_game",
-        (roomId) => {
+socket.on(
+    "start_game",
+    (roomId) => {
 
-        const room =
-            rooms[roomId];
+    const room =
+        rooms[roomId];
 
-        if (!room) return;
+    if (!room) return;
 
-        const roles = [];
+    const roles = [];
 
-        Object.keys(room.config)
-            .forEach((role) => {
+    Object.keys(room.config)
+        .forEach((role) => {
 
-            const count =
-                room.config[role];
+        const count =
+            room.config[role];
 
-            for (
-                let i = 0;
-                i < count;
-                i++
-            ) {
-
-                roles.push(role);
-
-            }
-
-        });
-
-        const realPlayers =
-            room.players.filter(
-                p => p.role !== "HOST"
-            );
-
-        while (
-            roles.length <
-            realPlayers.length
+        for (
+            let i = 0;
+            i < count;
+            i++
         ) {
 
-            roles.push("ชาวบ้าน");
+            roles.push(role);
 
         }
 
-        roles.sort(
-            () => Math.random() - 0.5
+    });
+
+    const realPlayers =
+        room.players.filter(
+            p => p.role !== "HOST"
         );
 
-        realPlayers.forEach((p, i) => {
+    // จำนวน role ไม่ตรง
+    if (
+        roles.length !==
+        realPlayers.length
+    ) {
 
-            p.role = roles[i];
+        io.to(room.host).emit(
+            "host_error",
+            `จำนวน role (${roles.length})
+            ไม่เท่ากับจำนวนผู้เล่น
+            (${realPlayers.length})`
+        );
 
-            io.to(p.id).emit(
-                "your_role",
-                p.role
-            );
+        return;
 
-        });
+    }
 
-        room.started = true;
+    // shuffle
+    roles.sort(
+        () => Math.random() - 0.5
+    );
 
-        io.to(roomId).emit(
-            "room_update",
-            room
+    // assign
+    realPlayers.forEach((p, i) => {
+
+        p.role = roles[i];
+
+        io.to(p.id).emit(
+            "your_role",
+            p.role
         );
 
     });
+
+    room.started = true;
+
+    io.to(roomId).emit(
+        "room_update",
+        room
+    );
+
+});
 
     // TOGGLE STATE
     socket.on(
