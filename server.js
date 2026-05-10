@@ -530,17 +530,14 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
     room.selectedTargets[socket.id] = targetId;
 
-    const payload = {
-        from: socket.id,
-        targetId
-    };
+    const targetPlayer = room.players.find(p => p.id === targetId);
 
-    // ส่งให้ host + ทุกคน (debug / sync)
     io.to(roomId).emit("selection_update", {
-    from: socket.id,
-    targetId,
-    targetName: target.name
-});
+        from: socket.id,
+        targetId: targetId,
+        targetName: targetPlayer ? targetPlayer.name : null
+    });
+
 });
     // =========================
     // SEND CHAT
