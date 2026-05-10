@@ -18,6 +18,31 @@ const wolfRoles = [
     "ลูกหมาป่า",
     "หมาป่าขาว"
 ];
+const roleMessages = {
+
+    "หมอ":[
+        "คืนนี้เลือกคนที่จะรักษา",
+        "คุณช่วยตัวเองได้",
+        "คืนนี้ไม่มีคนตาย"
+    ],
+
+    "เซียร์":[
+        "คืนนี้เลือกคนที่จะส่อง",
+        "คนนี้เป็นฝ่ายดี",
+        "คนนี้เป็นฝ่ายร้าย"
+    ],
+
+    "หมาป่า":[
+        "เลือกเหยื่อคืนนี้",
+        "รอหมาป่าตัวอื่นโหวต"
+    ],
+
+    "นักล่า":[
+        "เป้าหมายของคุณยังมีชีวิต",
+        "คุณชนะทันทีถ้าเป้าหมายตาย"
+    ]
+
+};
 
 function genId() {
 
@@ -586,6 +611,55 @@ if (
     );
 
 });
+// HOST PRIVATE MESSAGE
+socket.on(
+    "host_private_msg",
+    ({
+        roomId,
+        playerId,
+        text
+    }) => {
+
+    const room =
+        rooms[roomId];
+
+    if (!room) return;
+
+    // ต้องเป็น host
+    if (
+        socket.id !== room.host
+    ) return;
+
+    const player =
+        room.players.find(
+            p => p.id === playerId
+        );
+
+    if (!player) return;
+
+    // เช็คว่า text อยู่ใน preset ของ role นี้
+    const presets =
+        roleMessages[
+            player.role
+        ] || [];
+
+    if (
+        !presets.includes(text)
+    ) return;
+
+    // ส่งเฉพาะคนเดียว
+    io.to(player.id).emit(
+        "chat_message",
+        {
+            name:"HOST",
+            text,
+            type:"private",
+            isHost:true
+        }
+    );
+
+});
+
 
     // DISCONNECT
     socket.on(
