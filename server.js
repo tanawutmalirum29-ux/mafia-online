@@ -283,37 +283,73 @@ io.on("connection", (socket) => {
         shuffle(roleCards);
 
         // ASSIGN
-        realPlayers.forEach((p, i) => {
+realPlayers.forEach((p, i) => {
 
-            const card =
-                roleCards[i];
+    const card =
+        roleCards[i];
 
-            p.role =
-                card.role;
+    p.role =
+        card.role;
 
-            p.displayRole =
-                card.displayRole;
+    p.displayRole =
+        card.displayRole;
 
-            // PLAYER SEE
-            io.to(p.id).emit(
-                "your_role",
-                {
-                    role: p.role,
-                    displayRole:
-                        p.displayRole
-                }
-            );
+    p.huntTarget = null;
 
-        });
+});
 
-        room.started = true;
+// RANDOM HUNT TARGET
+realPlayers.forEach((p) => {
 
-        io.to(roomId).emit(
-            "room_update",
-            room
+    // เฉพาะนักล่า
+    if (
+        p.role !== "นักล่า"
+    ) return;
+
+    // เป้าหมายที่ล่าได้
+    const targets =
+        realPlayers.filter(
+            x =>
+
+            x.id !== p.id &&
+
+            !x.cannotBeHunted
         );
 
-    });
+    if (
+        targets.length <= 0
+    ) return;
+
+    const randomTarget =
+        targets[
+            Math.floor(
+                Math.random()
+                * targets.length
+            )
+        ];
+
+    p.huntTarget =
+        randomTarget.id;
+
+});
+
+// SEND ROLE
+realPlayers.forEach((p) => {
+
+    io.to(p.id).emit(
+        "your_role",
+        {
+            role: p.role,
+
+            displayRole:
+                p.displayRole,
+
+            huntTarget:
+                p.huntTarget
+        }
+    );
+
+});
 
     // TOGGLE STATE
     socket.on(
