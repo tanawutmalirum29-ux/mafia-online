@@ -8,49 +8,99 @@
 
 <h3>Role Config</h3>
 
-หมาป่า: <input id="wolf" type="number" value="1"><br>
-หมอ: <input id="doctor" type="number" value="1"><br>
+หมาป่า:
+<input id="wolf" type="number" value="1">
 
-<button onclick="update()">Update Roles</button>
-<button onclick="start()">Start Game</button>
+หมอ:
+<input id="doctor" type="number" value="1">
+
+<button onclick="updateConfig()">Update Roles</button>
+<button onclick="startGame()">Start Game</button>
 
 <h3>Players</h3>
 <ul id="list"></ul>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
 const socket = io();
 
 let roomId;
 
-socket.emit("create_room", (id) => {
-  roomId = id;
-  document.getElementById("room").innerText = id;
+const hostName = prompt("ชื่อโฮสต์") || "HOST";
+
+socket.emit("create_room", {
+    name: hostName
+}, (id) => {
+
+    roomId = id;
+
+    document.getElementById("room").innerText = id;
+
 });
 
 socket.on("room_update", (room) => {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
 
-  room.players.forEach(p => {
-    const li = document.createElement("li");
-    li.innerText = p.name;
-    list.appendChild(li);
-  });
+    const list = document.getElementById("list");
+
+    list.innerHTML = "";
+
+    room.players.forEach(p => {
+
+        const li = document.createElement("li");
+
+        li.innerHTML = `
+            <b>${p.name}</b>
+            | role: ${p.role || "?"}
+            | ${p.alive ? "🟢 alive" : "🔴 dead"}
+            | ${p.protected ? "🛡 protected" : ""}
+            | ${p.killed ? "☠ killed" : ""}
+
+            <button onclick="toggle('${p.id}','alive')">
+                kill/alive
+            </button>
+
+            <button onclick="toggle('${p.id}','protected')">
+                protect
+            </button>
+
+            <button onclick="toggle('${p.id}','killed')">
+                killed mark
+            </button>
+        `;
+
+        list.appendChild(li);
+
+    });
+
 });
 
-function update() {
-  socket.emit("update_config", {
-    roomId,
-    config: {
-      wolf: +wolf.value,
-      doctor: +doctor.value
-    }
-  });
+function updateConfig() {
+
+    socket.emit("update_config", {
+        roomId,
+        config: {
+            wolf: Number(wolf.value),
+            doctor: Number(doctor.value)
+        }
+    });
+
 }
 
-function start() {
-  socket.emit("start_game", roomId);
+function startGame() {
+
+    socket.emit("start_game", roomId);
+
+}
+
+function toggle(playerId, key) {
+
+    socket.emit("toggle_state", {
+        roomId,
+        playerId,
+        key
+    });
+
 }
 </script>
 
