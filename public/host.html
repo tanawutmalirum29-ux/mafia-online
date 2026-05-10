@@ -121,17 +121,24 @@ socket.on("room_update", (room) => {
 // UPDATE CONFIG
 function updateConfig() {
 
+    const wolfCount =
+        Number(
+            document.getElementById("wolf").value
+        );
+
+    const doctorCount =
+        Number(
+            document.getElementById("doctor").value
+        );
+
     socket.emit(
         "update_config",
         {
             roomId,
 
             config: {
-                wolf:
-                    Number(wolf.value),
-
-                doctor:
-                    Number(doctor.value)
+                wolf: wolfCount,
+                doctor: doctorCount
             }
         }
     );
