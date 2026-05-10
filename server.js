@@ -3,31 +3,40 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+
+const server =
+    http.createServer(app);
+
+const io =
+    new Server(server);
 
 app.use(express.static("public"));
 
 const rooms = {};
 
 function genId() {
-    return Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    return Math.random()
+        .toString(36)
+        .substring(2, 7)
+        .toUpperCase();
+
 }
 
 io.on("connection", (socket) => {
 
     // CREATE ROOM
-    socket.on("create_room", ({ name }, cb) => {
+    socket.on(
+        "create_room",
+        ({ name }, cb) => {
 
         const id = genId();
 
         rooms[id] = {
+
             host: socket.id,
 
-            config: {
-                wolf: 1,
-                doctor: 1
-            },
+            config: {},
 
             started: false,
 
@@ -45,47 +54,65 @@ io.on("connection", (socket) => {
 
         socket.join(id);
 
-        io.to(id).emit("room_update", rooms[id]);
+        io.to(id).emit(
+            "room_update",
+            rooms[id]
+        );
 
         cb(id);
 
     });
 
     // JOIN ROOM
-    socket.on("join_room", ({ roomId, name }, cb) => {
+    socket.on(
+        "join_room",
+        ({ roomId, name }, cb) => {
 
-        roomId = roomId.toUpperCase();
+        roomId =
+            roomId.toUpperCase();
 
-        const room = rooms[roomId];
+        const room =
+            rooms[roomId];
 
         if (!room) {
+
             return cb({
                 error: "room not found"
             });
+
         }
 
-        const already = room.players.find(
-            p => p.id === socket.id
-        );
+        const already =
+            room.players.find(
+                p => p.id === socket.id
+            );
 
         if (!already) {
 
             room.players.push({
+
                 id: socket.id,
-                name,
+
+                name: name,
+
                 role: null,
+
                 alive: true,
+
                 protected: false,
+
                 killed: false
+
             });
 
         }
 
         socket.join(roomId);
 
-        io.to(roomId).emit("room_update", room);
-
-        console.log(room.players);
+        io.to(roomId).emit(
+            "room_update",
+            room
+        );
 
         cb({
             ok: true
@@ -94,44 +121,71 @@ io.on("connection", (socket) => {
     });
 
     // UPDATE CONFIG
-    socket.on("update_config", ({ roomId, config }) => {
+    socket.on(
+        "update_config",
+        ({ roomId, config }) => {
 
-        const room = rooms[roomId];
+        const room =
+            rooms[roomId];
 
         if (!room) return;
 
         room.config = config;
 
-        io.to(roomId).emit("room_update", room);
+        io.to(roomId).emit(
+            "room_update",
+            room
+        );
 
     });
 
     // START GAME
-    socket.on("start_game", (roomId) => {
+    socket.on(
+        "start_game",
+        (roomId) => {
 
-        const room = rooms[roomId];
+        const room =
+            rooms[roomId];
 
         if (!room) return;
 
         const roles = [];
 
-        for (let i = 0; i < room.config.wolf; i++) {
-            roles.push("หมาป่า");
-        }
+        Object.keys(room.config)
+            .forEach((role) => {
 
-        for (let i = 0; i < room.config.doctor; i++) {
-            roles.push("หมอ");
-        }
+            const count =
+                room.config[role];
 
-        const realPlayers = room.players.filter(
-            p => p.role !== "HOST"
-        );
+            for (
+                let i = 0;
+                i < count;
+                i++
+            ) {
 
-        while (roles.length < realPlayers.length) {
+                roles.push(role);
+
+            }
+
+        });
+
+        const realPlayers =
+            room.players.filter(
+                p => p.role !== "HOST"
+            );
+
+        while (
+            roles.length <
+            realPlayers.length
+        ) {
+
             roles.push("ชาวบ้าน");
+
         }
 
-        roles.sort(() => Math.random() - 0.5);
+        roles.sort(
+            () => Math.random() - 0.5
+        );
 
         realPlayers.forEach((p, i) => {
 
@@ -154,23 +208,28 @@ io.on("connection", (socket) => {
     });
 
     // TOGGLE STATE
-    socket.on("toggle_state", ({
-        roomId,
-        playerId,
-        key
-    }) => {
+    socket.on(
+        "toggle_state",
+        ({
+            roomId,
+            playerId,
+            key
+        }) => {
 
-        const room = rooms[roomId];
+        const room =
+            rooms[roomId];
 
         if (!room) return;
 
-        const player = room.players.find(
-            p => p.id === playerId
-        );
+        const player =
+            room.players.find(
+                p => p.id === playerId
+            );
 
         if (!player) return;
 
-        player[key] = !player[key];
+        player[key] =
+            !player[key];
 
         io.to(roomId).emit(
             "room_update",
@@ -180,15 +239,23 @@ io.on("connection", (socket) => {
     });
 
     // DISCONNECT
-    socket.on("disconnect", () => {
+    socket.on(
+        "disconnect",
+        () => {
 
-        for (const roomId in rooms) {
+        for (
+            const roomId
+            in rooms
+        ) {
 
-            const room = rooms[roomId];
+            const room =
+                rooms[roomId];
 
-            room.players = room.players.filter(
-                p => p.id !== socket.id
-            );
+            room.players =
+                room.players.filter(
+                    p =>
+                    p.id !== socket.id
+                );
 
             io.to(roomId).emit(
                 "room_update",
@@ -201,6 +268,10 @@ io.on("connection", (socket) => {
 
 });
 
-server.listen(process.env.PORT || 3000, () => {
+server.listen(
+    process.env.PORT || 3000,
+    () => {
+
     console.log("server running");
+
 });
