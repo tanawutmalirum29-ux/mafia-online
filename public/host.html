@@ -3,7 +3,8 @@
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
 <title>Werewolf Host</title>
 
@@ -64,6 +65,18 @@ select{
     margin-top:10px;
 }
 
+.realRole{
+    color:#facc15;
+    margin-top:6px;
+    font-size:14px;
+}
+
+.randomRole{
+    color:#60a5fa;
+    margin-top:4px;
+    font-size:14px;
+}
+
 </style>
 
 </head>
@@ -86,24 +99,45 @@ select{
 
     <select id="roleSelect">
 
-        <option value="หมาป่า">หมาป่า</option>
-        <option value="หมอ">หมอ</option>
-        <option value="เซียร์">เซียร์</option>
-        <option value="บอดี้การ์ด">บอดี้การ์ด</option>
-        <option value="นักล่า">นักล่า</option>
-        <option value="แม่มด">แม่มด</option>
-        <option value="ชาวบ้าน">ชาวบ้าน</option>
-<option value="สุ่มชาวบ้าน">
-    สุ่มชาวบ้าน
-</option>
+        <option value="หมาป่า">
+            หมาป่า
+        </option>
 
-<option value="สุ่มหมาป่า">
-    สุ่มหมาป่า
-</option>
+        <option value="หมอ">
+            หมอ
+        </option>
 
-<option value="สุ่มบทบาทการโหวต">
-    สุ่มบทบาทการโหวต
-</option>
+        <option value="เซียร์">
+            เซียร์
+        </option>
+
+        <option value="บอดี้การ์ด">
+            บอดี้การ์ด
+        </option>
+
+        <option value="นักล่า">
+            นักล่า
+        </option>
+
+        <option value="แม่มด">
+            แม่มด
+        </option>
+
+        <option value="ชาวบ้าน">
+            ชาวบ้าน
+        </option>
+
+        <option value="สุ่มชาวบ้าน">
+            สุ่มชาวบ้าน
+        </option>
+
+        <option value="สุ่มหมาป่า">
+            สุ่มหมาป่า
+        </option>
+
+        <option value="สุ่มบทบาทการโหวต">
+            สุ่มบทบาทการโหวต
+        </option>
 
     </select>
 
@@ -144,7 +178,8 @@ let roomId = "";
 const roleConfig = {};
 
 const hostName =
-    prompt("ชื่อโฮสต์") || "HOST";
+    prompt("ชื่อโฮสต์")
+    || "HOST";
 
 // CREATE ROOM
 socket.emit(
@@ -157,39 +192,84 @@ socket.emit(
 
         roomId = id;
 
-        document.getElementById("room")
-            .innerText = roomId;
+        document
+        .getElementById("room")
+        .innerText = id;
 
     }
 );
 
 // ROOM UPDATE
-socket.on("room_update", (room) => {
+socket.on(
+    "room_update",
+    (room) => {
 
     const list =
-        document.getElementById("list");
+        document.getElementById(
+            "list"
+        );
 
     list.innerHTML = "";
 
     room.players.forEach((p) => {
 
         const div =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
         div.className =
             "player " +
-            (!p.alive ? "dead" : "");
+            (
+                !p.alive
+                ? "dead"
+                : ""
+            );
 
         div.innerHTML = `
 
-            <b>${p.name}</b>
+            <b>
+                ${p.name}
+            </b>
 
             <br><br>
 
             ROLE:
-            ${p.role || "?"}
+            ${
+                p.role
+                || "?"
+            }
 
-            <br><br>
+            ${
+                p.displayRole &&
+                p.displayRole !== p.role
+
+                ?
+
+                `
+
+                <div class="randomRole">
+
+                    สุ่มจาก:
+                    ${p.displayRole}
+
+                </div>
+
+                <div class="realRole">
+
+                    บทจริง:
+                    ${p.role}
+
+                </div>
+
+                `
+
+                :
+
+                ""
+            }
+
+            <br>
 
             ${
                 p.alive
@@ -213,15 +293,33 @@ socket.on("room_update", (room) => {
 
             <br><br>
 
-            <button onclick="toggle('${p.id}','alive')">
+            <button
+                onclick="
+                toggle(
+                    '${p.id}',
+                    'alive'
+                )"
+            >
                 DEAD
             </button>
 
-            <button onclick="toggle('${p.id}','protected')">
+            <button
+                onclick="
+                toggle(
+                    '${p.id}',
+                    'protected'
+                )"
+            >
                 PROTECT
             </button>
 
-            <button onclick="toggle('${p.id}','killed')">
+            <button
+                onclick="
+                toggle(
+                    '${p.id}',
+                    'killed'
+                )"
+            >
                 MARK
             </button>
 
@@ -232,45 +330,75 @@ socket.on("room_update", (room) => {
     });
 
 });
-socket.on("host_error", (msg) => {
 
-    alert(msg);
+// HOST ERROR
+socket.on(
+    "host_error",
+    (msg) => {
 
-});
+        alert(msg);
+
+    }
+);
 
 // ROLE UI
 function renderRoles() {
 
     const rolesDiv =
-        document.getElementById("roles");
+        document.getElementById(
+            "roles"
+        );
 
     rolesDiv.innerHTML = "";
 
-    Object.keys(roleConfig).forEach((role) => {
+    Object.keys(roleConfig)
+    .forEach((role) => {
 
-        if (roleConfig[role] <= 0) {
+        if (
+            roleConfig[role] <= 0
+        ) {
 
-            delete roleConfig[role];
+            delete roleConfig[
+                role
+            ];
+
             return;
 
         }
 
         const div =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
-        div.className = "roleBox";
+        div.className =
+            "roleBox";
 
         div.innerHTML = `
 
-            <b>${role}</b>
+            <b>
+                ${role}
+            </b>
 
             x${roleConfig[role]}
 
-            <button onclick="changeRole('${role}',1)">
+            <button
+                onclick="
+                changeRole(
+                    '${role}',
+                    1
+                )"
+            >
                 +
             </button>
 
-            <button onclick="changeRole('${role}',-1)">
+            <button
+                onclick="
+                changeRole(
+                    '${role}',
+                    -1
+                )"
+            >
                 -
             </button>
 
@@ -286,13 +414,17 @@ function renderRoles() {
 function addRole() {
 
     const role =
-        document.getElementById("roleSelect").value;
+        document.getElementById(
+            "roleSelect"
+        ).value;
 
     if (!roleConfig[role]) {
 
         roleConfig[role] = 1;
 
-    } else {
+    }
+
+    else {
 
         roleConfig[role]++;
 
@@ -303,15 +435,24 @@ function addRole() {
 }
 
 // CHANGE ROLE
-function changeRole(role, amount) {
+function changeRole(
+    role,
+    amount
+) {
 
-    if (!roleConfig[role]) return;
+    if (
+        !roleConfig[role]
+    ) return;
 
     roleConfig[role] += amount;
 
-    if (roleConfig[role] <= 0) {
+    if (
+        roleConfig[role] <= 0
+    ) {
 
-        delete roleConfig[role];
+        delete roleConfig[
+            role
+        ];
 
     }
 
@@ -343,7 +484,10 @@ function startGame() {
 }
 
 // TOGGLE
-function toggle(playerId, key) {
+function toggle(
+    playerId,
+    key
+) {
 
     socket.emit(
         "toggle_state",
