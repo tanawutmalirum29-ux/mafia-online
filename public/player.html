@@ -1,31 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Werewolf Player</title>
+
+<style>
+
+body{
+    margin:0;
+    background:#111827;
+    color:white;
+    font-family:sans-serif;
+    padding:20px;
+}
+
+.card{
+    background:#1f2937;
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:16px;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin-top:8px;
+    margin-bottom:12px;
+    border:none;
+    border-radius:10px;
+    background:#374151;
+    color:white;
+    box-sizing:border-box;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#2563eb;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+#role{
+    font-size:28px;
+    font-weight:bold;
+    margin-top:10px;
+}
+
+.player{
+    background:#374151;
+    padding:12px;
+    border-radius:12px;
+    margin-bottom:10px;
+}
+
+.dead{
+    opacity:0.5;
+}
+
+.status{
+    font-size:14px;
+    margin-top:4px;
+}
+
+.small{
+    opacity:0.7;
+    font-size:14px;
+}
+
+</style>
+
+</head>
 <body>
 
-<h2>Join Game</h2>
+<div class="card">
 
-<input id="name" placeholder="name">
-<input id="room" placeholder="room id">
-<button onclick="join()">Join</button>
+    <h2>Join Game</h2>
 
-<h3 id="role"></h3>
+    <input id="name" placeholder="ชื่อผู้เล่น">
+
+    <input id="room" placeholder="ROOM CODE">
+
+    <button onclick="join()">
+        JOIN ROOM
+    </button>
+
+</div>
+
+<div class="card">
+
+    <div class="small">
+        บทของคุณ
+    </div>
+
+    <div id="role">
+        ?
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h3>
+        ผู้เล่นในห้อง
+    </h3>
+
+    <div id="players"></div>
+
+</div>
+
+<div class="card">
+
+    <h3>
+        Updates / Future Features
+    </h3>
+
+    <div class="small">
+        • ระบบกลางคืน/กลางวัน<br>
+        • แชทในเกม<br>
+        • เสียงเอฟเฟกต์<br>
+        • ระบบโหวต<br>
+        • animation ตอนแจกบท
+    </div>
+
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
+
 const socket = io();
 
 function join() {
-  socket.emit("join_room", {
-    roomId: room.value,
-    name: name.value
-  }, (res) => {
-    if (res.error) alert("room not found");
-  });
+
+    socket.emit(
+        "join_room",
+        {
+            roomId:
+                room.value.toUpperCase(),
+
+            name:
+                name.value
+        },
+
+        (res) => {
+
+            if (res.error) {
+
+                alert("room not found");
+
+            }
+
+        }
+    );
+
 }
 
+// ROLE
 socket.on("your_role", (role) => {
-  document.getElementById("role").innerText = "Role: " + role;
+
+    document.getElementById("role")
+        .innerText = role;
+
 });
+
+// ROOM UPDATE
+socket.on("room_update", (roomData) => {
+
+    const players =
+        document.getElementById("players");
+
+    players.innerHTML = "";
+
+    roomData.players.forEach((p) => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "player " +
+            (!p.alive ? "dead" : "");
+
+        div.innerHTML = `
+            <b>${p.name}</b>
+
+            <div class="status">
+                ${
+                    p.alive
+                    ? "🟢 ยังรอด"
+                    : "🔴 ตายแล้ว"
+                }
+            </div>
+        `;
+
+        players.appendChild(div);
+
+    });
+
+});
+
 </script>
 
 </body>
