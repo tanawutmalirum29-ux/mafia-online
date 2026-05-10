@@ -1,82 +1,21 @@
 <!DOCTYPE html>
-<html lang="th">
-<head>
-
-<meta charset="UTF-8">
-
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0"
->
-
-<title>Mafia Online</title>
-
-<style>
-
-body{
-
-    margin:0;
-    background:#111;
-    color:white;
-    font-family:sans-serif;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-}
-
-.box{
-
-    background:#1e1e1e;
-    padding:30px;
-    border-radius:18px;
-    width:90%;
-    max-width:400px;
-}
-
-h1{
-
-    text-align:center;
-}
-
-input,button{
-
-    width:100%;
-    padding:14px;
-    margin-top:12px;
-    border:none;
-    border-radius:12px;
-    font-size:16px;
-}
-
-button{
-
-    background:#3b82f6;
-    color:white;
-}
-
-</style>
-
-</head>
+<html>
 <body>
 
-<div class="box">
+<h2>Werewolf Lobby</h2>
 
-    <h1>🎭 Mafia Online</h1>
+<button onclick="host()">Create Game (Host)</button>
+<button onclick="player()">Join Game (Player)</button>
 
-    <input
-        placeholder="ชื่อผู้เล่น"
-    >
+<script>
+function host() {
+  window.location.href = "host.html";
+}
 
-    <button>
-        สร้างห้อง
-    </button>
-
-    <button>
-        เข้าห้อง
-    </button>
-
-</div>
+function player() {
+  window.location.href = "player.html";
+}
+</script>
 
 </body>
 </html>
