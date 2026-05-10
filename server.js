@@ -24,6 +24,13 @@ io.on("connection", (socket) => {
         rooms[id] = {
             host: socket.id,
 
+            config: {
+                wolf: 1,
+                doctor: 1
+            },
+
+            started: false,
+
             players: [
                 {
                     id: socket.id,
@@ -33,14 +40,7 @@ io.on("connection", (socket) => {
                     protected: false,
                     killed: false
                 }
-            ],
-
-            config: {
-                wolf: 1,
-                doctor: 1
-            },
-
-            started: false
+            ]
         };
 
         socket.join(id);
@@ -54,30 +54,46 @@ io.on("connection", (socket) => {
     // JOIN ROOM
     socket.on("join_room", ({ roomId, name }, cb) => {
 
+        roomId = roomId.toUpperCase();
+
         const room = rooms[roomId];
 
         if (!room) {
-            return cb({ error: "room not found" });
+            return cb({
+                error: "room not found"
+            });
         }
 
-        room.players.push({
-            id: socket.id,
-            name,
-            role: null,
-            alive: true,
-            protected: false,
-            killed: false
-        });
+        const already = room.players.find(
+            p => p.id === socket.id
+        );
+
+        if (!already) {
+
+            room.players.push({
+                id: socket.id,
+                name,
+                role: null,
+                alive: true,
+                protected: false,
+                killed: false
+            });
+
+        }
 
         socket.join(roomId);
 
         io.to(roomId).emit("room_update", room);
 
-        cb({ ok: true });
+        console.log(room.players);
+
+        cb({
+            ok: true
+        });
 
     });
 
-    // UPDATE ROLE CONFIG
+    // UPDATE CONFIG
     socket.on("update_config", ({ roomId, config }) => {
 
         const room = rooms[roomId];
@@ -121,18 +137,28 @@ io.on("connection", (socket) => {
 
             p.role = roles[i];
 
-            io.to(p.id).emit("your_role", p.role);
+            io.to(p.id).emit(
+                "your_role",
+                p.role
+            );
 
         });
 
         room.started = true;
 
-        io.to(roomId).emit("room_update", room);
+        io.to(roomId).emit(
+            "room_update",
+            room
+        );
 
     });
 
     // TOGGLE STATE
-    socket.on("toggle_state", ({ roomId, playerId, key }) => {
+    socket.on("toggle_state", ({
+        roomId,
+        playerId,
+        key
+    }) => {
 
         const room = rooms[roomId];
 
@@ -146,7 +172,30 @@ io.on("connection", (socket) => {
 
         player[key] = !player[key];
 
-        io.to(roomId).emit("room_update", room);
+        io.to(roomId).emit(
+            "room_update",
+            room
+        );
+
+    });
+
+    // DISCONNECT
+    socket.on("disconnect", () => {
+
+        for (const roomId in rooms) {
+
+            const room = rooms[roomId];
+
+            room.players = room.players.filter(
+                p => p.id !== socket.id
+            );
+
+            io.to(roomId).emit(
+                "room_update",
+                room
+            );
+
+        }
 
     });
 
