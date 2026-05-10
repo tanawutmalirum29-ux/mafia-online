@@ -528,15 +528,15 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
     if (!room.selectedTargets) room.selectedTargets = {};
 
-    const player = room.players.find(p => p.id === socket.id);
-    if (!player) return;
-
     room.selectedTargets[socket.id] = targetId;
 
-    io.to(roomId).emit("selection_update", {
-        selectedTargets: room.selectedTargets
-    });
+    const payload = {
+        from: socket.id,
+        targetId
+    };
 
+    // ส่งให้ host + ทุกคน (debug / sync)
+    io.to(roomId).emit("selection_update", payload);
 });
     // =========================
     // SEND CHAT
