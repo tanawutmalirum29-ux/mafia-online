@@ -508,37 +508,33 @@ ${
                 : ""
             }
 
-            <br><br>
+           <div style="display:flex; gap:14px; align-items:center; margin-top:10px;">
 
-<button
-    onclick="
-    toggle(
-        '${p.id}',
-        'alive'
-    )"
->
-    DEAD
-</button>
+    <label>
+        <input type="checkbox"
+            onchange="toggle('${p.id}','alive')"
+            ${p.alive ? "checked" : ""}
+        >
+        Alive
+    </label>
 
-<button
-    onclick="
-    toggle(
-        '${p.id}',
-        'protected'
-    )"
->
-    PROTECT
-</button>
+    <label>
+        <input type="checkbox"
+            onchange="toggle('${p.id}','protected')"
+            ${p.protected ? "checked" : ""}
+        >
+        Protect
+    </label>
 
-<button
-    onclick="
-    toggle(
-        '${p.id}',
-        'killed'
-    )"
->
-    MARK
-</button>
+    <label>
+        <input type="checkbox"
+            onchange="toggle('${p.id}','killed')"
+            ${p.killed ? "checked" : ""}
+        >
+        Mark
+    </label>
+
+</div>
 
 ${
     roleMessages[p.role]
