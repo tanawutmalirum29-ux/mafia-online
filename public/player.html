@@ -271,6 +271,7 @@ button:hover{
 ></div>
 
 </div>
+<div id="roleInfo" class="small"></div>
 
 <div class="card">
 
@@ -499,6 +500,25 @@ else {
         </option>
 
     `;
+
+}
+const infoBox =
+    document.getElementById("roleInfo");
+
+if (data.roleInfo) {
+
+    infoBox.innerHTML = `
+        <div class="card" style="margin-top:10px;">
+            <h3>${data.roleInfo.title}</h3>
+            <div class="small">
+                ${data.roleInfo.desc}
+            </div>
+        </div>
+    `;
+
+} else {
+
+    infoBox.innerHTML = "";
 
 }
 
