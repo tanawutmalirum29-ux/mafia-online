@@ -12,81 +12,154 @@ content="width=device-width, initial-scale=1.0">
 
 body{
     margin:0;
-    background:#111827;
+    padding:20px;
+    min-height:100vh;
+    background:
+    linear-gradient(rgba(0,0,0,.78),rgba(0,0,0,.9)),
+    url("https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1200&auto=format&fit=crop");
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
     color:white;
     font-family:sans-serif;
-    padding:20px;
 }
 
 .card{
-    background:#1f2937;
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:16px;
+    background:rgba(20,20,20,.82);
+    border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(10px);
+    border-radius:24px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:
+    0 0 25px rgba(0,0,0,.45),
+    0 0 50px rgba(124,58,237,.12);
+    animation:fade .5s ease;
+}
+
+h2,h3{
+    margin-top:0;
+    color:#e5e7eb;
 }
 
 input{
     width:100%;
-    padding:12px;
-    margin-top:8px;
-    margin-bottom:12px;
+    padding:14px;
+    margin-top:10px;
+    margin-bottom:14px;
     border:none;
-    border-radius:10px;
-    background:#374151;
+    border-radius:14px;
+    background:#1f2937;
     color:white;
     box-sizing:border-box;
+    outline:none;
+    font-size:15px;
+    transition:.2s;
+}
+
+input:focus{
+    background:#374151;
+    box-shadow:0 0 0 2px rgba(124,58,237,.5);
 }
 
 button{
     width:100%;
-    padding:14px;
+    padding:15px;
     border:none;
-    border-radius:12px;
-    background:#2563eb;
+    border-radius:16px;
+    background:
+    linear-gradient(135deg,#7c3aed,#4f46e5);
     color:white;
     font-size:16px;
+    font-weight:bold;
     cursor:pointer;
+    transition:.25s;
+    box-shadow:0 0 18px rgba(124,58,237,.35);
 }
 
 button:hover{
-    opacity:0.9;
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 0 28px rgba(124,58,237,.65);
 }
 
 #role{
-    font-size:28px;
+    font-size:34px;
     font-weight:bold;
-    margin-top:10px;
+    margin-top:14px;
+    color:#c084fc;
+    text-shadow:0 0 16px rgba(192,132,252,.7);
 }
 
 .realRole{
-    margin-top:12px;
-    font-size:18px;
-    opacity:0.8;
+    margin-top:14px;
+    font-size:17px;
+    color:#facc15;
+    font-weight:bold;
 }
 
 .player{
-    background:#374151;
-    padding:12px;
-    border-radius:12px;
-    margin-bottom:10px;
+    background:rgba(55,65,81,.78);
+    border:1px solid rgba(255,255,255,.05);
+    padding:14px;
+    border-radius:16px;
+    margin-bottom:12px;
+    transition:.25s;
+}
+
+.player:hover{
+    transform:translateY(-2px);
+    background:rgba(75,85,99,.9);
 }
 
 .dead{
-    opacity:0.5;
+    opacity:.45;
+    filter:grayscale(100%);
 }
 
 .status{
     font-size:14px;
-    margin-top:4px;
+    margin-top:6px;
+    color:#d1d5db;
 }
 
 .small{
-    opacity:0.7;
+    opacity:.75;
     font-size:14px;
+    line-height:1.7;
+    color:#d1d5db;
 }
 
 .hidden{
     display:none;
+}
+
+#huntInfo{
+    color:#fb7185;
+    margin-top:10px;
+    font-weight:bold;
+}
+
+::-webkit-scrollbar{
+    width:8px;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#4f46e5;
+    border-radius:20px;
+}
+
+@keyframes fade{
+
+    from{
+        opacity:0;
+        transform:translateY(20px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+
 }
 
 </style>
