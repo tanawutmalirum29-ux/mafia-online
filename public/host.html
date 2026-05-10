@@ -63,6 +63,7 @@ button{
     box-shadow:0 0 18px rgba(124,58,237,.35);
 }
 
+
 button:hover{
     transform:translateY(-2px) scale(1.03);
     box-shadow:0 0 28px rgba(124,58,237,.65);
@@ -270,6 +271,34 @@ select{
     <h2>PLAYERS</h2>
 
     <div id="list"></div>
+
+</div>
+<div class="card">
+
+    <h2>
+        HOST CHAT
+    </h2>
+
+    <select id="chatType">
+
+        <option value="global">
+            แชทรวม
+        </option>
+
+        <option value="wolf">
+            เฉพาะหมาป่า
+        </option>
+
+    </select>
+
+    <input
+        id="hostMsg"
+        placeholder="ข้อความจากโฮสต์..."
+    >
+
+    <button onclick="sendHostMsg()">
+        SEND MESSAGE
+    </button>
 
 </div>
 
@@ -644,6 +673,35 @@ function toggle(
             key
         }
     );
+
+}
+function sendHostMsg() {
+
+    const text =
+        document.getElementById(
+            "hostMsg"
+        ).value
+        .trim();
+
+    const type =
+        document.getElementById(
+            "chatType"
+        ).value;
+
+    if (!text) return;
+
+    socket.emit(
+        "host_chat",
+        {
+            roomId,
+            text,
+            type
+        }
+    );
+
+    document.getElementById(
+        "hostMsg"
+    ).value = "";
 
 }
 
