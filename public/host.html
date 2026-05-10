@@ -242,8 +242,8 @@ select{
             หมอ
         </option>
 
-        <option value="เซียร์">
-            เซียร์
+        <option value="ผู้มีลาง">
+            ผู้มีลาง
         </option>
 
         <option value="บอดี้การ์ด">
@@ -486,13 +486,6 @@ ${
     ""
 }
 
-            <br>
-
-            ${
-                p.alive
-                ? "🟢 ALIVE"
-                : "🔴 DEAD"
-            }
 
             <br>
 
@@ -512,7 +505,7 @@ ${
 
     <label>
         <input type="checkbox"
-            onchange="toggle('${p.id}','alive')"
+            onchange="toggle('${p.id}','alive', this.checked)"
             ${p.alive ? "checked" : ""}
         >
         Alive
@@ -520,7 +513,7 @@ ${
 
     <label>
         <input type="checkbox"
-            onchange="toggle('${p.id}','protected')"
+            onchange="toggle('${p.id}','protected', this.checked)"
             ${p.protected ? "checked" : ""}
         >
         Protect
@@ -528,7 +521,7 @@ ${
 
     <label>
         <input type="checkbox"
-            onchange="toggle('${p.id}','killed')"
+            onchange="toggle('${p.id}','killed', this.checked)"
             ${p.killed ? "checked" : ""}
         >
         Mark
@@ -766,17 +759,15 @@ function startGame() {
 }
 
 // TOGGLE
-function toggle(
-    playerId,
-    key
-) {
+function toggle(playerId, key, value) {
 
     socket.emit(
         "toggle_state",
         {
             roomId,
             playerId,
-            key
+            key,
+            value
         }
     );
 
