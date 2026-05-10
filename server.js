@@ -23,6 +23,15 @@ function genId() {
 
 }
 
+// SHUFFLE
+function shuffle(arr) {
+
+    return arr.sort(
+        () => Math.random() - 0.5
+    );
+
+}
+
 io.on("connection", (socket) => {
 
     // CREATE ROOM
@@ -41,18 +50,23 @@ io.on("connection", (socket) => {
             started: false,
 
             players: [
-              {
-    id: socket.id,
-    name: name,
+                {
+                    id: socket.id,
 
-    isHost: true,
+                    name: name,
 
-    role: null,
+                    isHost: true,
 
-    alive: true,
-    protected: false,
-    killed: false
-}
+                    role: null,
+
+                    displayRole: null,
+
+                    alive: true,
+
+                    protected: false,
+
+                    killed: false
+                }
             ]
         };
 
@@ -103,6 +117,8 @@ io.on("connection", (socket) => {
 
                 role: null,
 
+                displayRole: null,
+
                 alive: true,
 
                 protected: false,
@@ -146,130 +162,158 @@ io.on("connection", (socket) => {
     });
 
     // START GAME
-socket.on(
-    "start_game",
-    (roomId) => {
+    socket.on(
+        "start_game",
+        (roomId) => {
 
-    const room =
-        rooms[roomId];
+        const room =
+            rooms[roomId];
 
-    if (!room) return;
+        if (!room) return;
 
-    const roles = [];
+        const roleCards = [];
 
-    // RANDOM GROUPS
-    const randomGroups = {
+        // RANDOM GROUPS
+        const randomGroups = {
 
-        "สุ่มชาวบ้าน": [
-            "ชาวบ้าน",
-            "หมอ",
-            "เซียร์",
-            "บอดี้การ์ด"
-        ],
+            "สุ่มชาวบ้าน": [
+                "ชาวบ้าน",
+                "หมอ",
+                "เซียร์",
+                "บอดี้การ์ด"
+            ],
 
-        "สุ่มหมาป่า": [
-            "หมาป่า",
-            "ลูกหมาป่า",
-            "หมาป่าขาว"
-        ],
+            "สุ่มหมาป่า": [
+                "หมาป่า",
+                "ลูกหมาป่า",
+                "หมาป่าขาว"
+            ],
 
-        "สุ่มบทบาทการโหวต": [
-            "คนบ้า",
-            "นักล่า",
-            "ผู้เฒ่า"
-        ]
+            "สุ่มบทบาทการโหวต": [
+                "คนบ้า",
+                "นักล่า",
+                "ผู้เฒ่า"
+            ]
 
-    };
+        };
 
-    // BUILD ROLE LIST
-    Object.keys(room.config)
-        .forEach((role) => {
+        // BUILD ROLE CARDS
+        Object.keys(room.config)
+            .forEach((roleName) => {
 
-        const count =
-            room.config[role];
+            const count =
+                room.config[roleName];
 
-        for (
-            let i = 0;
-            i < count;
-            i++
+            for (
+                let i = 0;
+                i < count;
+                i++
+            ) {
+
+                // RANDOM GROUP
+                if (
+                    randomGroups[roleName]
+                ) {
+
+                    const pool =
+                        randomGroups[
+                            roleName
+                        ];
+
+                    const realRole =
+                        pool[
+                            Math.floor(
+                                Math.random()
+                                * pool.length
+                            )
+                        ];
+
+                    roleCards.push({
+
+                        role: realRole,
+
+                        displayRole:
+                            `${roleName}/${realRole}`
+
+                    });
+
+                }
+
+                // NORMAL ROLE
+                else {
+
+                    roleCards.push({
+
+                        role: roleName,
+
+                        displayRole:
+                            roleName
+
+                    });
+
+                }
+
+            }
+
+        });
+
+        const realPlayers =
+            room.players.filter(
+                p => !p.isHost
+            );
+
+        // CHECK ROLE COUNT
+        if (
+            roleCards.length !==
+            realPlayers.length
         ) {
 
-            // RANDOM ROLE GROUP
-            if (randomGroups[role]) {
+            io.to(room.host).emit(
+                "host_error",
+                `จำนวน role (${roleCards.length})
+                ไม่เท่ากับจำนวนผู้เล่น
+                (${realPlayers.length})`
+            );
 
-                const randomPool =
-                    randomGroups[role];
-
-                const randomRole =
-                    randomPool[
-                        Math.floor(
-                            Math.random()
-                            * randomPool.length
-                        )
-                    ];
-
-                roles.push(randomRole);
-
-            }
-
-            // NORMAL ROLE
-            else {
-
-                roles.push(role);
-
-            }
+            return;
 
         }
 
-    });
+        // SHUFFLE
+        shuffle(roleCards);
 
-    const realPlayers =
-        room.players.filter(
-            p => !p.isHost
-        );
+        // ASSIGN
+        realPlayers.forEach((p, i) => {
 
-    // ROLE COUNT CHECK
-    if (
-        roles.length !==
-        realPlayers.length
-    ) {
+            const card =
+                roleCards[i];
 
-        io.to(room.host).emit(
-            "host_error",
-            `จำนวน role (${roles.length})
-            ไม่เท่ากับจำนวนผู้เล่น
-            (${realPlayers.length})`
-        );
+            p.role =
+                card.role;
 
-        return;
+            p.displayRole =
+                card.displayRole;
 
-    }
+            // PLAYER SEE
+            io.to(p.id).emit(
+                "your_role",
+                {
+                    role: p.role,
+                    displayRole:
+                        p.displayRole
+                }
+            );
 
-    // SHUFFLE
-    roles.sort(
-        () => Math.random() - 0.5
-    );
+        });
 
-    // ASSIGN
-    realPlayers.forEach((p, i) => {
+        room.started = true;
 
-        p.role = roles[i];
-
-        io.to(p.id).emit(
-            "your_role",
-            p.role
+        io.to(roomId).emit(
+            "room_update",
+            room
         );
 
     });
-
-    room.started = true;
-
-    io.to(roomId).emit(
-        "room_update",
-        room
-    );
-
-});
 
     // TOGGLE STATE
     socket.on(
@@ -336,6 +380,9 @@ server.listen(
     process.env.PORT || 3000,
     () => {
 
-    console.log("server running");
+        console.log(
+            "server running"
+        );
 
-});
+    }
+);
