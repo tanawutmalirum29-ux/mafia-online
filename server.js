@@ -321,7 +321,12 @@ realPlayers.forEach((p, i) => {
 // RANDOM HUNT TARGET
 // บทที่ล่าไม่ได้
 const cannotBeHuntedRoles = [
-    "ผู้เฒ่า"
+    "หมาป่า",
+    "คนบ้า",
+    "นักล่าหัว",
+    "ฆาตกร",
+    "ศาลเตี้ย",
+
 ];
 
 // RANDOM HUNT TARGET
