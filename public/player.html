@@ -283,7 +283,17 @@ button:hover{
     <div id="chatBox"></div>
 
     <div class="chatRow">
+<select id="chatType">
 
+    <option value="global">
+        🔵 แชทรวม
+    </option>
+
+    <option value="wolf">
+        🔴 แชทหมาป่า
+    </option>
+
+</select>
         <input
             id="chatInput"
             placeholder="พิมพ์ข้อความ..."
@@ -450,6 +460,39 @@ else {
     huntInfo.innerHTML = "";
 
 }
+const chatType =
+    document.getElementById(
+        "chatType"
+    );
+
+if (
+    wolfRoles.includes(data.role)
+) {
+
+    chatType.innerHTML = `
+
+        <option value="global">
+            🔵 แชทรวม
+        </option>
+
+        <option value="wolf">
+            🔴 แชทหมาป่า
+        </option>
+
+    `;
+
+}
+else {
+
+    chatType.innerHTML = `
+
+        <option value="global">
+            🔵 แชทรวม
+        </option>
+
+    `;
+
+}
 
 });
 
@@ -541,13 +584,19 @@ function sendChat() {
         .trim()
         .toUpperCase();
 
-    socket.emit(
-        "send_chat",
-        {
-            roomId,
-            text
-        }
-    );
+    const type =
+    document.getElementById(
+        "chatType"
+    ).value;
+
+socket.emit(
+    "send_chat",
+    {
+        roomId,
+        text,
+        type
+    }
+);
 
     input.value = "";
 
