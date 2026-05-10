@@ -318,7 +318,7 @@ io.on("connection", (socket) => {
 
             "สุ่มบทบาทการโหวต": [
                 "คนบ้า",
-                "นักล่า",
+                "นักล่าหัว",
                
             ]
 
@@ -505,266 +505,172 @@ io.to(roomId).emit(
 
     // TOGGLE STATE
     socket.on(
-        "toggle_state",
-        ({
-            roomId,
-            playerId,
-            key
-        }) => {
-
-        const room =
-            rooms[roomId];
-
-        if (!room) return;
-
-        const player =
-            room.players.find(
-                p => p.id === playerId
-            );
-
-        if (!player) return;
-
-        player[key] = value
-
-        io.to(roomId).emit(
-            "room_update",
-            room
-        );
-
-    });
-// PLAYER CHAT
-socket.on(
-    "send_chat",
+    "toggle_state",
     ({
         roomId,
-        text,
-        type
+        playerId,
+        key,
+        value
     }) => {
 
-    const room =
-        rooms[roomId];
-
+    const room = rooms[roomId];
     if (!room) return;
 
-    const player =
-        room.players.find(
-            p => p.id === socket.id
-        );
-
+    const player = room.players.find(p => p.id === playerId);
     if (!player) return;
 
-    if (
-        typeof text !== "string"
-    ) return;
+    player[key] = value;
 
-    text = text.trim();
+    io.to(roomId).emit("room_update", room);
+});
 
-    if (
-        text.length <= 0 ||
-        text.length > 200
-    ) return;
+// PLAYER CHAT
+socket.on("send_chat", ({ roomId, text, type }) => {
+
+    const room = rooms[roomId];
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    if (typeof text !== "string") return;
+
+    const msg = text.trim();
+    if (msg.length === 0 || msg.length > 200) return;
 
     // DEAD ห้ามพิมพ์
     if (!player.alive) return;
 
-    // ถ้าจะส่ง wolf chat
-    if (
-        type === "wolf"
-    ) {
+    const safeType = type === "wolf" ? "wolf" : "global";
 
-        // ต้องเป็นหมาป่าเท่านั้น
-        if (
-            !wolfRoles.includes(
-                player.role
-            )
-        ) return;
+    // WOLF CHAT
+    if (safeType === "wolf") {
+
+        const isWolf =
+            wolfRoles.includes(player.role);
+
+        if (!isWolf) return;
 
         room.players.forEach((p) => {
 
-            if (
-                wolfRoles.includes(
-                    p.role
-                )
-            ) {
+            if (wolfRoles.includes(p.role)) {
 
-                io.to(p.id).emit(
-                    "chat_message",
-                    {
-                        name: player.name,
-                        text,
-                        type:"wolf"
-                    }
-                );
+                io.to(p.id).emit("chat_message", {
+                    name: player.name,
+                    text: msg,
+                    type: "wolf"
+                });
 
             }
 
         });
 
         return;
-
     }
 
     // GLOBAL CHAT
-    io.to(roomId).emit(
-        "chat_message",
-        {
-            name: player.name,
-            text,
-            type:"global"
-        }
-    );
+    io.to(roomId).emit("chat_message", {
+        name: player.name,
+        text: msg,
+        type: "global"
+    });
 
 });
 
 // HOST CHAT
-socket.on(
-    "host_chat",
-    ({
-        roomId,
-        text,
-        type
-    }) => {
+socket.on("host_chat", ({ roomId, text, type }) => {
 
-    const room =
-        rooms[roomId];
-
+    const room = rooms[roomId];
     if (!room) return;
-if (
-    typeof text !== "string"
-) return;
 
-text = text.trim();
+    if (socket.id !== room.host) return;
 
-if (
-    text.length <= 0 ||
-    text.length > 200
-) return;
+    if (typeof text !== "string") return;
 
-    // กันคนอื่นปลอมเป็น host
-    if (
-        socket.id !== room.host
-    ) return;
+    const msg = text.trim();
+    if (msg.length === 0 || msg.length > 200) return;
 
-    // ส่งเฉพาะหมาป่า
-    if (
-        type === "wolf"
-    ) {
+    const safeType = type === "wolf" ? "wolf" : "global";
+
+    // WOLF ONLY
+    if (safeType === "wolf") {
 
         room.players.forEach((p) => {
 
-            if (
-                wolfRoles.includes(
-    p.role
-)
-            ) {
+            if (wolfRoles.includes(p.role)) {
 
-                io.to(p.id).emit(
-                    "chat_message",
-                    {
-                        name:"HOST",
-                        text,
-                        type,
-                        isHost:true
-                    }
-                );
+                io.to(p.id).emit("chat_message", {
+                    name: "HOST",
+                    text: msg,
+                    type: "wolf",
+                    isHost: true
+                });
 
             }
 
         });
 
         return;
-
     }
 
-    // ส่งทั้งห้อง
-    io.to(roomId).emit(
-        "chat_message",
-        {
-            name:"HOST",
-            text,
-            type:"global",
-            isHost:true
-        }
-    );
+    // GLOBAL
+    io.to(roomId).emit("chat_message", {
+        name: "HOST",
+        text: msg,
+        type: "global",
+        isHost: true
+    });
 
 });
+
 // HOST PRIVATE MESSAGE
-socket.on(
-    "host_private_msg",
-    ({
-        roomId,
-        playerId,
-        text
-    }) => {
+socket.on("host_private_msg", ({ roomId, playerId, text }) => {
 
-    const room =
-        rooms[roomId];
-
+    const room = rooms[roomId];
     if (!room) return;
 
-    // ต้องเป็น host
-    if (
-        socket.id !== room.host
-    ) return;
+    if (socket.id !== room.host) return;
 
-    const player =
-        room.players.find(
-            p => p.id === playerId
-        );
-
+    const player = room.players.find(p => p.id === playerId);
     if (!player) return;
 
-    // เช็คว่า text อยู่ใน preset ของ role นี้
-    const presets =
-        roleMessages[
-            player.role
-        ] || [];
+    if (typeof text !== "string") return;
 
-    if (
-        !presets.includes(text)
-    ) return;
+    const msg = text.trim();
+    if (!msg) return;
 
-    // ส่งเฉพาะคนเดียว
-    io.to(player.id).emit(
-        "chat_message",
-        {
-            name:"HOST",
-            text,
-            type:"private",
-            isHost:true
-        }
-    );
+    const presets = roleMessages[player.role] || [];
+
+    if (!presets.includes(msg)) return;
+
+    io.to(player.id).emit("chat_message", {
+        name: "HOST",
+        text: msg,
+        type: "private",
+        isHost: true
+    });
 
 });
 
 
     // DISCONNECT
-    socket.on(
-        "disconnect",
-        () => {
+    socket.on("disconnect", () => {
 
-        for (
-            const roomId
-            in rooms
-        ) {
+    for (const id in rooms) {
 
-            const room =
-                rooms[roomId];
+        const room = rooms[id];
 
-            room.players =
-                room.players.filter(
-                    p =>
-                    p.id !== socket.id
-                );
+        room.players =
+            room.players.filter(p => p.id !== socket.id);
 
-            io.to(roomId).emit(
-                "room_update",
-                room
-            );
-
+        // cleanup room ว่าง
+        if (room.players.length === 0) {
+            delete rooms[id];
+            continue;
         }
 
-    });
+        io.to(id).emit("room_update", room);
+    }
 
 });
 
