@@ -242,11 +242,11 @@ button:hover{
 
     <input
         id="room"
-        placeholder="ROOM CODE"
+        placeholder="โค้ดห้อง"
     >
 
     <button onclick="join()">
-        JOIN ROOM
+        เข้าร่วมห้อง
     </button>
 
 </div>
@@ -286,7 +286,7 @@ button:hover{
 <div class="card">
 
     <h3>
-        GAME CHAT
+        แชท
     </h3>
 
     <div id="chatBox"></div>
@@ -313,7 +313,7 @@ button:hover{
             class="sendBtn"
             onclick="sendChat()"
         >
-            SEND
+            ส่ง
         </button>
 
     </div>
@@ -563,7 +563,7 @@ socket.on(
 
                 ${
                     p.alive
-                    ? "🟢 ยังรอด"
+                    ? "🟢 มีชีวิต"
                     : "🔴 ตายแล้ว"
                 }
 
