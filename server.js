@@ -524,8 +524,7 @@ io.to(roomId).emit(
 
         if (!player) return;
 
-        player[key] =
-            !player[key];
+        player[key] = value
 
         io.to(roomId).emit(
             "room_update",
