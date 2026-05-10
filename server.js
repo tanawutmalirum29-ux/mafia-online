@@ -41,14 +41,18 @@ io.on("connection", (socket) => {
             started: false,
 
             players: [
-                {
-                    id: socket.id,
-                    name: name,
-                    role: "HOST",
-                    alive: true,
-                    protected: false,
-                    killed: false
-                }
+              {
+    id: socket.id,
+    name: name,
+
+    isHost: true,
+
+    role: null,
+
+    alive: true,
+    protected: false,
+    killed: false
+}
             ]
         };
 
@@ -94,6 +98,8 @@ io.on("connection", (socket) => {
                 id: socket.id,
 
                 name: name,
+
+                isHost: false,
 
                 role: null,
 
@@ -170,9 +176,9 @@ socket.on(
     });
 
     const realPlayers =
-        room.players.filter(
-            p => p.role !== "HOST"
-        );
+    room.players.filter(
+        p => !p.isHost
+    );
 
     // จำนวน role ไม่ตรง
     if (
