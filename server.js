@@ -11,86 +11,147 @@ app.use(express.static("public"));
 const rooms = {};
 
 function genId() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
+    return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
 io.on("connection", (socket) => {
 
-  // create room
-  socket.on("create_room", (cb) => {
-    const id = genId();
+    // CREATE ROOM
+    socket.on("create_room", ({ name }, cb) => {
 
-    rooms[id] = {
-      host: socket.id,
-      players: [],
-      config: {
-        wolf: 1,
-        doctor: 1,
-        villager: 3
-      },
-      started: false
-    };
+        const id = genId();
 
-    socket.join(id);
-    cb(id);
-  });
+        rooms[id] = {
+            host: socket.id,
 
-  // join room
-  socket.on("join_room", ({ roomId, name }, cb) => {
-    const room = rooms[roomId];
-    if (!room) return cb({ error: "not found" });
+            players: [
+                {
+                    id: socket.id,
+                    name: name,
+                    role: "HOST",
+                    alive: true,
+                    protected: false,
+                    killed: false
+                }
+            ],
 
-    room.players.push({
-      id: socket.id,
-      name,
-      role: null,
-      alive: true
+            config: {
+                wolf: 1,
+                doctor: 1
+            },
+
+            started: false
+        };
+
+        socket.join(id);
+
+        io.to(id).emit("room_update", rooms[id]);
+
+        cb(id);
+
     });
 
-    socket.join(roomId);
+    // JOIN ROOM
+    socket.on("join_room", ({ roomId, name }, cb) => {
 
-    io.to(roomId).emit("room_update", room);
-    cb({ ok: true });
-  });
+        const room = rooms[roomId];
 
-  // update role config (host)
-  socket.on("update_config", ({ roomId, config }) => {
-    const room = rooms[roomId];
-    if (!room) return;
+        if (!room) {
+            return cb({ error: "room not found" });
+        }
 
-    room.config = config;
+        room.players.push({
+            id: socket.id,
+            name,
+            role: null,
+            alive: true,
+            protected: false,
+            killed: false
+        });
 
-    io.to(roomId).emit("room_update", room);
-  });
+        socket.join(roomId);
 
-  // start game = แจกบทตาม config
-  socket.on("start_game", (roomId) => {
-    const room = rooms[roomId];
-    if (!room) return;
+        io.to(roomId).emit("room_update", room);
 
-    const roles = [];
+        cb({ ok: true });
 
-    for (let i = 0; i < room.config.wolf; i++) roles.push("หมาป่า");
-    for (let i = 0; i < room.config.doctor; i++) roles.push("หมอ");
-
-    while (roles.length < room.players.length) {
-      roles.push("ชาวบ้าน");
-    }
-
-    roles.sort(() => Math.random() - 0.5);
-
-    const realPlayers = room.players.filter(p => p.role !== "HOST");
-
-realPlayers.forEach((p, i) => {
-      p.role = roles[i];
-      io.to(p.id).emit("your_role", p.role);
     });
 
-    room.started = true;
+    // UPDATE ROLE CONFIG
+    socket.on("update_config", ({ roomId, config }) => {
 
-    io.to(roomId).emit("room_update", room);
-  });
+        const room = rooms[roomId];
+
+        if (!room) return;
+
+        room.config = config;
+
+        io.to(roomId).emit("room_update", room);
+
+    });
+
+    // START GAME
+    socket.on("start_game", (roomId) => {
+
+        const room = rooms[roomId];
+
+        if (!room) return;
+
+        const roles = [];
+
+        for (let i = 0; i < room.config.wolf; i++) {
+            roles.push("หมาป่า");
+        }
+
+        for (let i = 0; i < room.config.doctor; i++) {
+            roles.push("หมอ");
+        }
+
+        const realPlayers = room.players.filter(
+            p => p.role !== "HOST"
+        );
+
+        while (roles.length < realPlayers.length) {
+            roles.push("ชาวบ้าน");
+        }
+
+        roles.sort(() => Math.random() - 0.5);
+
+        realPlayers.forEach((p, i) => {
+
+            p.role = roles[i];
+
+            io.to(p.id).emit("your_role", p.role);
+
+        });
+
+        room.started = true;
+
+        io.to(roomId).emit("room_update", room);
+
+    });
+
+    // TOGGLE STATE
+    socket.on("toggle_state", ({ roomId, playerId, key }) => {
+
+        const room = rooms[roomId];
+
+        if (!room) return;
+
+        const player = room.players.find(
+            p => p.id === playerId
+        );
+
+        if (!player) return;
+
+        player[key] = !player[key];
+
+        io.to(roomId).emit("room_update", room);
+
+    });
 
 });
 
-server.listen(process.env.PORT || 3000);
+server.listen(process.env.PORT || 3000, () => {
+    console.log("server running");
+});
