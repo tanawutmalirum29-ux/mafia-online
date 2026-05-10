@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Join Game</h2>
+
+<input id="name" placeholder="name">
+<input id="room" placeholder="room id">
+<button onclick="join()">Join</button>
+
+<h3 id="role"></h3>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+function join() {
+  socket.emit("join_room", {
+    roomId: room.value,
+    name: name.value
+  }, (res) => {
+    if (res.error) alert("room not found");
+  });
+}
+
+socket.on("your_role", (role) => {
+  document.getElementById("role").innerText = "Role: " + role;
+});
+</script>
+
+</body>
+</html>
