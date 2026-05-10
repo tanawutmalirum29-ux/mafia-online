@@ -157,6 +157,31 @@ socket.on(
 
     const roles = [];
 
+    // RANDOM GROUPS
+    const randomGroups = {
+
+        "สุ่มชาวบ้าน": [
+            "ชาวบ้าน",
+            "หมอ",
+            "เซียร์",
+            "บอดี้การ์ด"
+        ],
+
+        "สุ่มหมาป่า": [
+            "หมาป่า",
+            "ลูกหมาป่า",
+            "หมาป่าขาว"
+        ],
+
+        "สุ่มบทบาทการโหวต": [
+            "คนบ้า",
+            "นักล่า",
+            "ผู้เฒ่า"
+        ]
+
+    };
+
+    // BUILD ROLE LIST
     Object.keys(room.config)
         .forEach((role) => {
 
@@ -169,18 +194,41 @@ socket.on(
             i++
         ) {
 
-            roles.push(role);
+            // RANDOM ROLE GROUP
+            if (randomGroups[role]) {
+
+                const randomPool =
+                    randomGroups[role];
+
+                const randomRole =
+                    randomPool[
+                        Math.floor(
+                            Math.random()
+                            * randomPool.length
+                        )
+                    ];
+
+                roles.push(randomRole);
+
+            }
+
+            // NORMAL ROLE
+            else {
+
+                roles.push(role);
+
+            }
 
         }
 
     });
 
     const realPlayers =
-    room.players.filter(
-        p => !p.isHost
-    );
+        room.players.filter(
+            p => !p.isHost
+        );
 
-    // จำนวน role ไม่ตรง
+    // ROLE COUNT CHECK
     if (
         roles.length !==
         realPlayers.length
@@ -197,12 +245,12 @@ socket.on(
 
     }
 
-    // shuffle
+    // SHUFFLE
     roles.sort(
         () => Math.random() - 0.5
     );
 
-    // assign
+    // ASSIGN
     realPlayers.forEach((p, i) => {
 
         p.role = roles[i];
