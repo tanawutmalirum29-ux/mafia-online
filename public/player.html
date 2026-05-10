@@ -272,6 +272,7 @@ button:hover{
 
 </div>
 <div id="roleInfo" class="small"></div>
+<div id="selectInfo" class="small"></div>
 
 <div class="card">
 
@@ -525,55 +526,45 @@ if (data.roleInfo) {
 });
 
 // ROOM UPDATE
-socket.on(
-    "room_update",
-    (roomData) => {
+socket.on("room_update", (roomData) => {
 
-    const players =
-        document.getElementById(
-            "players"
-        );
-
+    const players = document.getElementById("players");
     players.innerHTML = "";
 
+    const me = socket.id;
+    const selected = roomData.selectedTargets?.[me];
+
     roomData.players
-    .filter(
-        p => !p.isHost
-    )
+    .filter(p => !p.isHost)
     .forEach((p) => {
 
-        const div =
-            document.createElement(
-                "div"
-            );
+        const div = document.createElement("div");
+        div.className = "player " + (!p.alive ? "dead" : "");
 
-        div.className =
-            "player " +
-            (
-                !p.alive
-                ? "dead"
-                : ""
-            );
+        if (selected === p.id) {
+            div.style.border = "2px solid #7c3aed";
+            div.style.boxShadow = "0 0 20px rgba(124,58,237,.5)";
+        }
 
         div.innerHTML = `
-
             <b>${p.name}</b>
-
             <div class="status">
-
-                ${
-                    p.alive
-                    ? "🟢 มีชีวิต"
-                    : "🔴 ตายแล้ว"
-                }
-
+                ${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}
             </div>
-
         `;
 
         players.appendChild(div);
-
     });
+
+    // แสดงสถานะการเลือก
+    const info = document.getElementById("selectInfo");
+
+    if (selected) {
+        const target = roomData.players.find(p => p.id === selected);
+        info.innerHTML = `🎯 กำลังเลือก: <b>${target?.name || "?"}</b>`;
+    } else {
+        info.innerHTML = "";
+    }
 
 });
 
