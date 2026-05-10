@@ -188,6 +188,14 @@ select{
         transform:translateY(0);
     }
 }
+.msgPrivate{
+    background:
+    rgba(34,197,94,.15);
+
+    border:
+    1px solid
+    rgba(34,197,94,.25);
+}
 </style>
 
 </head>
@@ -313,6 +321,31 @@ let roomId = "";
 const roleConfig = {};
 
 const hostName = "Admin676767";
+const roleMessages = {
+
+    "หมอ":[
+        "คืนนี้เลือกคนที่จะรักษา",
+        "คุณช่วยตัวเองได้",
+        "คืนนี้ไม่มีคนตาย"
+    ],
+
+    "เซียร์":[
+        "คืนนี้เลือกคนที่จะส่อง",
+        "คนนี้เป็นฝ่ายดี",
+        "คนนี้เป็นฝ่ายร้าย"
+    ],
+
+    "หมาป่า":[
+        "เลือกเหยื่อคืนนี้",
+        "รอหมาป่าตัวอื่นโหวต"
+    ],
+
+    "นักล่า":[
+        "เป้าหมายของคุณยังมีชีวิต",
+        "คุณชนะทันทีถ้าเป้าหมายตาย"
+    ]
+
+};
 
 // CREATE ROOM
 socket.emit(
@@ -446,15 +479,79 @@ ${
 
             <br><br>
 
-            <button
-                onclick="
-                toggle(
+<button
+    onclick="
+    toggle(
+        '${p.id}',
+        'alive'
+    )"
+>
+    DEAD
+</button>
+
+<button
+    onclick="
+    toggle(
+        '${p.id}',
+        'protected'
+    )"
+>
+    PROTECT
+</button>
+
+<button
+    onclick="
+    toggle(
+        '${p.id}',
+        'killed'
+    )"
+>
+    MARK
+</button>
+
+${
+    roleMessages[p.role]
+
+    ?
+
+    `
+
+    <hr style="
+        border-color:rgba(255,255,255,.08);
+        margin:14px 0;
+    ">
+
+    <div>
+        <b>
+            QUICK MESSAGE
+        </b>
+    </div>
+
+    ${roleMessages[p.role]
+        .map(msg => `
+
+        <button
+            class="msgPrivate"
+            onclick="
+                sendPreset(
                     '${p.id}',
-                    'alive'
-                )"
-            >
-                DEAD
-            </button>
+                    \`${msg}\`
+                )
+            "
+        >
+            ${msg}
+        </button>
+
+        `)
+        .join("")
+    }
+
+    `
+
+    :
+
+    ""
+}
 
             <button
                 onclick="
@@ -702,6 +799,21 @@ function sendHostMsg() {
     document.getElementById(
         "hostMsg"
     ).value = "";
+
+}
+function sendPreset(
+    playerId,
+    text
+) {
+
+    socket.emit(
+        "host_private_msg",
+        {
+            roomId,
+            playerId,
+            text
+        }
+    );
 
 }
 
