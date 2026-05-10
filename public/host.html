@@ -798,6 +798,24 @@ function sendPreset(
     );
 
 }
+socket.on("chat_message", (data) => {
+
+    const div = document.createElement("div");
+
+    div.className =
+        "player " +
+        (data.type === "private" ? "msgPrivate" : "");
+
+    div.innerHTML = `
+        <b>${data.name}</b><br>
+        ${data.text}
+        <br>
+        <small>${data.type}</small>
+    `;
+
+    document.getElementById("list").prepend(div);
+
+});
 
 </script>
 
