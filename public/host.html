@@ -216,10 +216,6 @@ select{
 
     <br>
 
-    <button onclick="updateConfig()">
-        UPDATE ROLES
-    </button>
-
     <button onclick="startGame()">
         START GAME
     </button>
@@ -517,6 +513,8 @@ function addRole() {
 
     renderRoles();
 
+    updateConfig();
+
 }
 
 // CHANGE ROLE
@@ -542,6 +540,8 @@ function changeRole(
     }
 
     renderRoles();
+
+    updateConfig();
 
 }
 
