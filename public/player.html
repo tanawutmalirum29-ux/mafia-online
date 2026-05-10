@@ -332,6 +332,20 @@ button:hover{
 <script>
 
 const socket = io();
+function selectTarget(targetId) {
+
+    const roomId =
+        document.getElementById("room")
+        .value
+        .trim()
+        .toUpperCase();
+
+    socket.emit("select_target", {
+        roomId,
+        targetId
+    });
+
+}
 
 let joined = false;
 
@@ -540,6 +554,8 @@ socket.on("room_update", (roomData) => {
 
         const div = document.createElement("div");
         div.className = "player " + (!p.alive ? "dead" : "");
+div.style.cursor = "pointer";
+div.onclick = () => selectTarget(p.id);
 
         if (selected === p.id) {
             div.style.border = "2px solid #7c3aed";
@@ -561,7 +577,7 @@ socket.on("room_update", (roomData) => {
 
     if (selected) {
         const target = roomData.players.find(p => p.id === selected);
-        info.innerHTML = `🎯 กำลังเลือก: <b>${target?.name || "?"}</b>`;
+        info.innerHTML = `📍 กำลังเลือก: <b>${target?.name || "?"}</b>`;
     } else {
         info.innerHTML = "";
     }
