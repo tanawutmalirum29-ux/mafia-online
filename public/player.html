@@ -143,14 +143,18 @@ const socket = io();
 
 function join() {
 
+    const playerName =
+        document.getElementById("name").value;
+
+    const roomCode =
+        document.getElementById("room").value
+        .toUpperCase();
+
     socket.emit(
         "join_room",
         {
-            roomId:
-                room.value.toUpperCase(),
-
-            name:
-                name.value
+            roomId: roomCode,
+            name: playerName
         },
 
         (res) => {
