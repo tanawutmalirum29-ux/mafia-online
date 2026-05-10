@@ -1,20 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Werewolf Lobby</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-family:sans-serif;
+    background:
+    linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,.85)),
+    url("https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1200&auto=format&fit=crop");
+    background-size:cover;
+    background-position:center;
+    overflow:hidden;
+}
+
+.container{
+    width:90%;
+    max-width:420px;
+    background:rgba(20,20,20,.88);
+    border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(10px);
+    border-radius:28px;
+    padding:40px 30px;
+    text-align:center;
+    box-shadow:
+    0 0 30px rgba(0,0,0,.6),
+    0 0 80px rgba(140,0,255,.18);
+    animation:fade 1s ease;
+}
+
+h1{
+    color:white;
+    font-size:42px;
+    margin-bottom:10px;
+    letter-spacing:2px;
+}
+
+p{
+    color:#bbb;
+    margin-bottom:35px;
+    font-size:15px;
+}
+
+button{
+    width:100%;
+    padding:16px;
+    margin:12px 0;
+    border:none;
+    border-radius:16px;
+    font-size:18px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.25s;
+}
+
+.hostBtn{
+    background:linear-gradient(135deg,#7c3aed,#4f46e5);
+    color:white;
+    box-shadow:0 0 20px rgba(124,58,237,.4);
+}
+
+.hostBtn:hover{
+    transform:translateY(-3px) scale(1.02);
+    box-shadow:0 0 30px rgba(124,58,237,.7);
+}
+
+.playerBtn{
+    background:#1f2937;
+    color:white;
+    border:1px solid rgba(255,255,255,.08);
+}
+
+.playerBtn:hover{
+    background:#374151;
+    transform:translateY(-3px);
+}
+
+.footer{
+    margin-top:25px;
+    color:#666;
+    font-size:13px;
+}
+
+@keyframes fade{
+    from{
+        opacity:0;
+        transform:translateY(20px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+</style>
+</head>
+
 <body>
 
-<h2>Werewolf Lobby</h2>
+<div class="container">
 
-<button onclick="host()">Create Game (Host)</button>
-<button onclick="player()">Join Game (Player)</button>
+    <h1>🐺 WEREWOLF</h1>
+
+    <p>
+        ระบบจัดการเกมล่ามนุษย์หมาป่า<br>
+        Host คุมเกม • Player เล่นผ่านมือถือ
+    </p>
+
+    <button class="hostBtn" onclick="host()">
+        🎮 Create Game (Host)
+    </button>
+
+    <button class="playerBtn" onclick="player()">
+        👤 Join Game (Player)
+    </button>
+
+    <div class="footer">
+        Night starts. Trust nobody.
+    </div>
+
+</div>
 
 <script>
-function host() {
-  window.location.href = "host.html";
+
+function host(){
+    window.location.href = "host.html";
 }
 
-function player() {
-  window.location.href = "player.html";
+function player(){
+    window.location.href = "player.html";
 }
+
 </script>
 
 </body>
