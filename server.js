@@ -159,14 +159,11 @@ io.on("connection", (socket) => {
         const id = genId();
 
         rooms[id] = {
-
-            host: socket.id,
-
-            config: {},
-
-            started: false,
-
-            players: [
+    host: socket.id,
+    config: {},
+    started: false,
+    selectedTargets: {},
+    players: [
                 {
                     id: socket.id,
 
@@ -497,10 +494,10 @@ realPlayers.forEach((p) => {
 });
 room.started = true;
 
-io.to(roomId).emit(
-    "room_update",
-    room
-);
+io.to(roomId).emit("room_update", {
+    ...room,
+    selectedTargets: room.selectedTargets || {}
+});
 });
 
     // TOGGLE STATE
@@ -524,6 +521,23 @@ io.to(roomId).emit(
     io.to(roomId).emit("room_update", room);
 });
 
+socket.on("select_target", ({ roomId, targetId }) => {
+
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (!room.selectedTargets) room.selectedTargets = {};
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    room.selectedTargets[socket.id] = targetId;
+
+    io.to(roomId).emit("selection_update", {
+        selectedTargets: room.selectedTargets
+    });
+
+});
     // =========================
     // SEND CHAT
     // =========================
@@ -668,6 +682,7 @@ io.to(roomId).emit(
             io.to(id).emit("room_update", room);
         }
     });
+
 });
 
 server.listen(
