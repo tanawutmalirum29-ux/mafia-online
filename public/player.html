@@ -555,10 +555,10 @@ socket.on(
 
     // แชทหมาป่า
     if (
-        msg.type === "wolf" &&
-        myRole !== "หมาป่า" &&
-        !msg.isHost
-    ) return;
+    msg.type === "wolf" &&
+    !wolfRoles.includes(myRole) &&
+    !msg.isHost
+) return;
 
     const chatBox =
         document.getElementById(
