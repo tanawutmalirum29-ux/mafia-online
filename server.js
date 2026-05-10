@@ -43,6 +43,54 @@ const roleMessages = {
     ]
 
 };
+const roleDescription = {
+
+    "หมอ": {
+        title: "🩺 หมอ",
+        desc: "เลือก 1 คนต่อคืนเพื่อป้องกันการถูกฆ่า"
+    },
+
+    "เซียร์": {
+        title: "🔮 เซียร์",
+        desc: "เลือก 1 คนต่อคืนเพื่อดูว่าเป็นฝ่ายดีหรือฝ่ายร้าย"
+    },
+
+    "หมาป่า": {
+        title: "🐺 หมาป่า",
+        desc: "ร่วมกันเลือกเหยื่อในกลุ่มหมาป่า และล่าในตอนกลางคืน"
+    },
+
+    "ลูกหมาป่า": {
+        title: "🐺 ลูกหมาป่า",
+        desc: "เหมือนหมาป่า แต่ยังอ่อนแอ ไม่มีพลังพิเศษ"
+    },
+
+    "หมาป่าขาว": {
+        title: "🐺 หมาป่าขาว",
+        desc: "อยู่ฝ่ายหมาป่า แต่มีพลังพิเศษ (แล้วแต่ระบบคุณจะเพิ่ม)"
+    },
+
+    "นักล่า": {
+        title: "🎯 นักล่า",
+        desc: "คุณมีเป้าหมายลับ ถ้าเป้าหมายตาย คุณชนะทันที"
+    },
+
+    "ชาวบ้าน": {
+        title: "👤 ชาวบ้าน",
+        desc: "ไม่มีพลังพิเศษ ใช้การโหวตเพื่อหาหมาป่า"
+    },
+
+    "บอดี้การ์ด": {
+        title: "🛡️ บอดี้การ์ด",
+        desc: "ป้องกัน 1 คนต่อคืน (รวมตัวเองได้)"
+    },
+
+    "คนบ้า": {
+        title: "🤪 คนบ้า",
+        desc: "พฤติกรรมคาดเดายาก เป้าหมายคือความวุ่นวาย"
+    }
+
+};
 
 function genId() {
 
@@ -404,17 +452,14 @@ realPlayers.forEach((p) => {
 realPlayers.forEach((p) => {
 
     io.to(p.id).emit(
-        "your_role",
-        {
-            role: p.role,
-
-            displayRole:
-                p.displayRole,
-
-            huntTarget:
-                p.huntTarget
-        }
-    );
+    "your_role",
+    {
+        role: p.role,
+        displayRole: p.displayRole,
+        huntTarget: p.huntTarget,
+        roleInfo: roleDescription[p.role] || null
+    }
+);
 
 });
 room.started = true;
