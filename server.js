@@ -536,7 +536,11 @@ socket.on("select_target", ({ roomId, targetId }) => {
     };
 
     // ส่งให้ host + ทุกคน (debug / sync)
-    io.to(roomId).emit("selection_update", payload);
+    io.to(roomId).emit("selection_update", {
+    from: socket.id,
+    targetId,
+    targetName: target.name
+});
 });
     // =========================
     // SEND CHAT
