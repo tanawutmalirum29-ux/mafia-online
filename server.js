@@ -79,7 +79,9 @@ io.on("connection", (socket) => {
 
     roles.sort(() => Math.random() - 0.5);
 
-    room.players.forEach((p, i) => {
+    const realPlayers = room.players.filter(p => p.role !== "HOST");
+
+realPlayers.forEach((p, i) => {
       p.role = roles[i];
       io.to(p.id).emit("your_role", p.role);
     });
