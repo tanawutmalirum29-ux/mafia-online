@@ -13,6 +13,11 @@ const io =
 app.use(express.static("public"));
 
 const rooms = {};
+const wolfRoles = [
+    "หมาป่า",
+    "ลูกหมาป่า",
+    "หมาป่าขาว"
+];
 
 function genId() {
 
@@ -425,6 +430,161 @@ io.to(roomId).emit(
         );
 
     });
+// PLAYER CHAT
+socket.on(
+    "send_chat",
+    ({
+        roomId,
+        text
+    }) => {
+
+    const room =
+        rooms[roomId];
+
+    if (!room) return;
+
+    const player =
+        room.players.find(
+            p => p.id === socket.id
+        );
+
+    if (!player) return;
+if (
+    typeof text !== "string"
+) return;
+
+text = text.trim();
+
+if (
+    text.length <= 0 ||
+    text.length > 200
+) return;
+
+    // DEAD ห้ามพิมพ์
+    if (!player.alive) return;
+
+    // หมาป่า = แชทหมาป่า
+    const type =
+        wolfRoles.includes(
+    player.role
+)
+        ? "wolf"
+        : "global";
+
+    // CHAT WOLF
+    if (
+        type === "wolf"
+    ) {
+
+        room.players.forEach((p) => {
+
+            if (
+                wolfRoles.includes(
+    p.role
+)
+            ) {
+
+                io.to(p.id).emit(
+                    "chat_message",
+                    {
+                        name: player.name,
+                        text,
+                        type
+                    }
+                );
+
+            }
+
+        });
+
+        return;
+
+    }
+
+    // GLOBAL CHAT
+    io.to(roomId).emit(
+        "chat_message",
+        {
+            name: player.name,
+            text,
+            type
+        }
+    );
+
+});
+
+// HOST CHAT
+socket.on(
+    "host_chat",
+    ({
+        roomId,
+        text,
+        type
+    }) => {
+
+    const room =
+        rooms[roomId];
+
+    if (!room) return;
+if (
+    typeof text !== "string"
+) return;
+
+text = text.trim();
+
+if (
+    text.length <= 0 ||
+    text.length > 200
+) return;
+
+    // กันคนอื่นปลอมเป็น host
+    if (
+        socket.id !== room.host
+    ) return;
+
+    // ส่งเฉพาะหมาป่า
+    if (
+        type === "wolf"
+    ) {
+
+        room.players.forEach((p) => {
+
+            if (
+                wolfRoles.includes(
+    p.role
+)
+            ) {
+
+                io.to(p.id).emit(
+                    "chat_message",
+                    {
+                        name:"HOST",
+                        text,
+                        type,
+                        isHost:true
+                    }
+                );
+
+            }
+
+        });
+
+        return;
+
+    }
+
+    // ส่งทั้งห้อง
+    io.to(roomId).emit(
+        "chat_message",
+        {
+            name:"HOST",
+            text,
+            type:"global",
+            isHost:true
+        }
+    );
+
+});
 
     // DISCONNECT
     socket.on(
