@@ -494,10 +494,8 @@ realPlayers.forEach((p) => {
 });
 room.started = true;
 
-io.to(roomId).emit("room_update", {
-    ...room,
-    selectedTargets: room.selectedTargets || {}
-});
+io.to(roomId).emit("room_update", room);
+    
 });
 
     // TOGGLE STATE
@@ -528,16 +526,20 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
     if (!room.selectedTargets) room.selectedTargets = {};
 
-    room.selectedTargets[socket.id] = targetId;
+    // ถ้า null = ยกเลิกการเลือก
+    if (!targetId) {
+        delete room.selectedTargets[socket.id];
+    } else {
 
-    const targetPlayer = room.players.find(p => p.id === targetId);
+        if (targetId === socket.id) return;
 
-    io.to(roomId).emit("selection_update", {
-        from: socket.id,
-        targetId: targetId,
-        targetName: targetPlayer ? targetPlayer.name : null
-    });
+        const targetPlayer = room.players.find(p => p.id === targetId);
+        if (!targetPlayer || !targetPlayer.alive) return;
 
+        room.selectedTargets[socket.id] = targetId;
+    }
+
+    io.to(roomId).emit("room_update", room);
 });
     // =========================
     // SEND CHAT
