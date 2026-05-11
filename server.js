@@ -16,8 +16,24 @@ const rooms = {};
 const roles = {
   "หมาป่า": {
     team: "wolf",
+    score: 2,
+    messages: []
+  },
+
+   "หมาป่าดื้อรั้น": {
+    team: "wolf",
     score: 3,
     messages: []
+  },
+
+
+  "ผู้มีลาง": {
+    team: "villager",
+    score: 3,
+    messages: [
+      "คนนี้เป็นฝ่ายดี"
+      "คนนี้เป็นฝ่ายร้าย"
+    ]
   },
 
   "หมอ": {
@@ -34,7 +50,26 @@ const roles = {
     messages: [
       "เมื่อคืนคุณถูกโจมตี หากถูกอีกครั้งจะตาย"
     ]
-  }
+  },
+
+"คนบ้า": {
+    team: "solo",
+    score: 2,
+    messages: []
+  },
+
+  "นักล่าหัว": {
+    team: "solo",
+    score: 4,
+    messages: []
+  },
+
+  "ฆาตกร": {
+    team: "solo",
+    score: 4,
+    messages: []
+  },
+
 };
 function broadcastRoles() {
   io.emit("roles_data", roles);
@@ -52,22 +87,7 @@ const wolfRoles = [
     "หมาป่านักเวท",
     
 ];
-const roleMessages = {
 
-    "หมอ":[
-        "การป้องปกของคุณได้ช่วยคนไว้",
-    ],
-    "บอดี้การ์ด":[
-        "เมื่อคืนคุณถูกโจมตี หากถูกอีกครั้งคุณจะตาย",
-    ],
-
-    "ผู้มีลาง":[
-        "คนนี้เป็นฝ่ายดี",
-        "คนนี้เป็นฝ่ายร้าย"
-    ],
-
-
-};
 const roleDescription = {
 
     "หมอ": {
@@ -453,60 +473,44 @@ realPlayers.forEach((p, i) => {
 
 });
 
-// RANDOM HUNT TARGET
-// บทที่ล่าไม่ได้
-const cannotBeHuntedRoles = [
-    "หมาป่า",
-    "ลูกหมาป่า",
-    "หมาป่าดื้อรั้น",
-    "หมาป่าพิทักษ์",
-    "หมาป่านักเวท",
-    "คนบ้า",
-    "นักล่าหัว",
-    "ฆาตกร",
-    "ศาลเตี้ย",
+const cannotBeHuntedTeams = ["wolf", "solo"];
 
-];
+const cannotBeHuntedRoles = ["ศาลเตี้ย"];
 
-// RANDOM HUNT TARGET
 realPlayers.forEach((p) => {
 
-    // เฉพาะนักล่า
-    if (
-        p.role !== "นักล่าหัว"
-    ) return;
+    if (!roles) return;
 
-    // เป้าหมายที่ล่าได้
-    const targets =
-        realPlayers.filter(
-            x =>
+    if (p.role !== "นักล่าหัว") return;
 
-            x.id !== p.id &&
+    const targets = realPlayers.filter((x) => {
 
-            !cannotBeHuntedRoles.includes(
-                x.role
-            )
-        );
+        if (x.id === p.id) return false;
 
-    if (
-        targets.length <= 0
-    ) return;
+        const roleData = roles?.[x.role] || {};
+
+        if (cannotBeHuntedTeams.includes(roleData.team)) {
+            return false;
+        }
+
+        if (cannotBeHuntedRoles.includes(x.role)) {
+            return false;
+        }
+
+        return true;
+    });
+
+    if (targets.length === 0) {
+        p.huntTargetId = null;
+        p.huntTarget = null;
+        return;
+    }
 
     const randomTarget =
-        targets[
-            Math.floor(
-                Math.random()
-                * targets.length
-            )
-        ];
+        targets[Math.floor(Math.random() * targets.length)];
 
-    // เก็บทั้ง id และชื่อ
-    p.huntTargetId =
-        randomTarget.id;
-
-    p.huntTarget =
-        randomTarget.name;
-
+    p.huntTargetId = randomTarget.id;
+    p.huntTarget = randomTarget.name;
 });
 
 // SEND ROLE
