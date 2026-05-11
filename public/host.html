@@ -336,88 +336,88 @@ const roleData = roles?.[p.role] || {};
 
         div.innerHTML = `
 
-            <b>${p.name}</b>
+    <b>${p.name}</b>
 
-            <br><br>
+    <br><br>
 
-            ROLE: ${p.role || "?"}
+    ROLE: ${p.role || "?"}
 
-${
-    roleData?.messages?.length
-    ? `
-        <div class="roleMessages">
-            ${roleData.messages.map(msg => `
-                <button onclick="sendPreset('${p.id}', \`${msg}\`)">
-                    ${msg}
-                </button>
-            `).join("")}
-        </div>
-    `
-    : ""
-}
-
-            ${
-                p.displayRole && p.displayRole !== p.role
-                ? `
-                    <div class="randomRole">
-                        สุ่มจาก: ${p.displayRole}
-                    </div>
-
-                    <div class="realRole">
-                        บทจริง: ${p.role}
-                    </div>
-                `
-                : ""
-            }
-
-            <div class="selectionInfo" id="sel-${p.id}">
-                ยังไม่เลือก
+    ${
+        p.displayRole && p.displayRole !== p.role
+        ? `
+            <div class="randomRole">
+                สุ่มจาก: ${p.displayRole}
             </div>
 
-            ${
-                p.huntTarget
-                ? `
-                    <div class="realRole">
-                        🎯 เป้าหมาย: ${p.huntTarget}
-                    </div>
-                `
-                : ""
-            }
-
-            <br>
-
-            ${p.protected ? "🛡ถูกปกป้อง" : ""}
-            ${p.killed ? "☠ ถูกเล็งฆ่า" : ""}
-
-            <div style="display:flex; gap:14px; margin-top:10px;">
-
-                <label>
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','alive', this.checked)"
-                        ${p.alive ? "checked" : ""}
-                    >
-                    Alive
-                </label>
-
-                <label>
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','protected', this.checked)"
-                        ${p.protected ? "checked" : ""}
-                    >
-                    Protect
-                </label>
-
-                <label>
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','killed', this.checked)"
-                        ${p.killed ? "checked" : ""}
-                    >
-                    Mark
-                </label>
-
+            <div class="realRole">
+                บทจริง: ${p.role}
             </div>
+        `
+        : ""
+    }
 
-        `;
+    <div class="selectionInfo" id="sel-${p.id}">
+        ยังไม่เลือก
+    </div>
+
+    ${
+        roleData?.messages?.length
+        ? `
+            <div class="roleMessages" style="margin-top:8px;">
+                ${roleData.messages.map(msg => `
+                    <button onclick="sendPreset('${p.id}', \`${msg}\`)">
+                        ${msg}
+                    </button>
+                `).join("")}
+            </div>
+        `
+        : ""
+    }
+
+    ${
+        p.huntTarget
+        ? `
+            <div class="realRole">
+                🎯 เป้าหมาย: ${p.huntTarget}
+            </div>
+        `
+        : ""
+    }
+
+    <br>
+
+    ${p.protected ? "🛡ถูกปกป้อง" : ""}
+    ${p.killed ? "☠ ถูกเล็งฆ่า" : ""}
+
+    <div style="display:flex; gap:14px; margin-top:10px;">
+
+        <label>
+            <input type="checkbox"
+                onchange="toggle('${p.id}','alive', this.checked)"
+                ${p.alive ? "checked" : ""}
+            >
+            Alive
+        </label>
+
+        <label>
+            <input type="checkbox"
+                onchange="toggle('${p.id}','protected', this.checked)"
+                ${p.protected ? "checked" : ""}
+            >
+            Protect
+        </label>
+
+        <label>
+            <input type="checkbox"
+                onchange="toggle('${p.id}','killed', this.checked)"
+                ${p.killed ? "checked" : ""}
+            >
+            Mark
+        </label>
+
+    </div>
+
+`;
 
         list.appendChild(div);
     });
