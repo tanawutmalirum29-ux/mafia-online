@@ -555,8 +555,13 @@ socket.on("room_update", (roomData) => {
         const div = document.createElement("div");
         div.className = "player " + (!p.alive ? "dead" : "");
 div.style.cursor = "pointer";
-div.onclick = () => selectTarget(p.id);
-
+div.onclick = () => {
+    if (selected === p.id) {
+        selectTarget(null); // ยกเลิก
+    } else {
+        selectTarget(p.id); // เปลี่ยนเป้า
+    }
+};
         if (selected === p.id) {
             div.style.border = "2px solid #7c3aed";
             div.style.boxShadow = "0 0 20px rgba(124,58,237,.5)";
