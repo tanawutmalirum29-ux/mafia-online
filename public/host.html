@@ -398,208 +398,132 @@ socket.emit(
 );
 
 // ROOM UPDATE
-socket.on(
-    "room_update",
-    (room) => {
-currentRoom = room;
 
-    const list =
-        document.getElementById(
-            "list"
-        );
 
+// CREATE ROOM
+socket.emit(
+    "create_room",
+    { name: hostName },
+    (id) => {
+        roomId = id;
+        document.getElementById("room").innerText = id;
+    }
+);
+
+// ROOM UPDATE (SOURCE OF TRUTH)
+socket.on("room_update", (room) => {
+
+    currentRoom = room;
+
+    const list = document.getElementById("list");
     list.innerHTML = "";
 
     room.players.forEach((p) => {
 
-        const div =
-            document.createElement(
-                "div"
-            );
+        const div = document.createElement("div");
 
-        div.className =
-            "player " +
-            (
-                !p.alive
-                ? "dead"
-                : ""
-            );
-div.setAttribute("data-id", p.id);
+        div.className = "player " + (!p.alive ? "dead" : "");
+        div.setAttribute("data-id", p.id);
 
         div.innerHTML = `
 
-            <b>
-                ${p.name}
-            </b>
+            <b>${p.name}</b>
 
             <br><br>
 
-            ROLE:
-            ${
-                p.role
-                || "?"
-            }
+            ROLE: ${p.role || "?"}
 
             ${
-                p.displayRole &&
-                p.displayRole !== p.role
+                p.displayRole && p.displayRole !== p.role
+                ? `
+                    <div class="randomRole">
+                        สุ่มจาก: ${p.displayRole}
+                    </div>
 
-                ?
-
+                    <div class="realRole">
+                        บทจริง: ${p.role}
+                    </div>
                 `
-
-                <div class="randomRole">
-
-                    สุ่มจาก:
-                    ${p.displayRole}
-
-                </div>
-
-                <div class="realRole">
-
-                    บทจริง:
-                    ${p.role}
-
-                </div>
-
-<div class="selectionInfo" id="sel-${p.id}">
-    ยังไม่เลือก
-</div>
-
-                `
-
-                :
-
-                ""
+                : ""
             }
-${
-    p.huntTarget
 
-    ?
+            <div class="selectionInfo" id="sel-${p.id}">
+                ยังไม่เลือก
+            </div>
 
-    `
-
-    <div class="realRole">
-
-        🎯 เป้าหมาย:
-        ${p.huntTarget}
-
-    </div>
-
-    `
-
-    :
-
-    ""
-}
-
+            ${
+                p.huntTarget
+                ? `
+                    <div class="realRole">
+                        🎯 เป้าหมาย: ${p.huntTarget}
+                    </div>
+                `
+                : ""
+            }
 
             <br>
 
-            ${
-                p.protected
-                ? "🛡ถูกปกป้อง"
-                : ""
-            }
+            ${p.protected ? "🛡ถูกปกป้อง" : ""}
+            ${p.killed ? "☠ ถูกเล็งฆ่า" : ""}
 
-            ${
-                p.killed
-                ? "☠ ถูกเล็งฆ่า"
-                : ""
-            }
+            <div style="display:flex; gap:14px; margin-top:10px;">
 
-           <div style="display:flex; gap:14px; align-items:center; margin-top:10px;">
+                <label>
+                    <input type="checkbox"
+                        onchange="toggle('${p.id}','alive', this.checked)"
+                        ${p.alive ? "checked" : ""}
+                    >
+                    Alive
+                </label>
 
-    <label>
-        <input type="checkbox"
-            onchange="toggle('${p.id}','alive', this.checked)"
-            ${p.alive ? "checked" : ""}
-        >
-        Alive
-    </label>
+                <label>
+                    <input type="checkbox"
+                        onchange="toggle('${p.id}','protected', this.checked)"
+                        ${p.protected ? "checked" : ""}
+                    >
+                    Protect
+                </label>
 
-    <label>
-        <input type="checkbox"
-            onchange="toggle('${p.id}','protected', this.checked)"
-            ${p.protected ? "checked" : ""}
-        >
-        Protect
-    </label>
+                <label>
+                    <input type="checkbox"
+                        onchange="toggle('${p.id}','killed', this.checked)"
+                        ${p.killed ? "checked" : ""}
+                    >
+                    Mark
+                </label>
 
-    <label>
-        <input type="checkbox"
-            onchange="toggle('${p.id}','killed', this.checked)"
-            ${p.killed ? "checked" : ""}
-        >
-        Mark
-    </label>
-
-</div>
-
-${
-    roleMessages[p.role]
-
-    ?
-
-    `
-
-    <hr style="
-        border-color:rgba(255,255,255,.08);
-        margin:14px 0;
-    ">
-
-    <div>
-        <b>
-            QUICK MESSAGE
-        </b>
-    </div>
-
-    ${roleMessages[p.role]
-        .map(msg => `
-
-        <button
-            class="msgPrivate"
-            onclick="
-                sendPreset(
-                    '${p.id}',
-                    \`${msg}\`
-                )
-            "
-        >
-            ${msg}
-        </button>
-
-        `)
-        .join("")
-    }
-
-    `
-
-    :
-
-    ""
-}
-
-            
+            </div>
 
         `;
 
         list.appendChild(div);
+    });
+
+    // =========================
+    // SELECTION SYNC (FIX CORE)
+    // =========================
+
+    const selectedTargets = room.selectedTargets || {};
+
+    // reset UI
+    document.querySelectorAll(".selectionInfo").forEach(el => {
+        el.innerText = "ยังไม่เลือก";
+    });
+
+    // render selection map
+    Object.entries(selectedTargets).forEach(([fromId, targetId]) => {
+
+        const targetPlayer = room.players.find(p => p.id === targetId);
+        const box = document.getElementById(`sel-${fromId}`);
+
+        if (box) {
+            box.innerText = `📍 เลือก: ${targetPlayer ? targetPlayer.name : "?"}`;
+        }
 
     });
 
 });
 
-
-
-socket.on("selection_update", (data) => {
-
-    const box = document.getElementById(`sel-${data.from}`);
-    if (!box) return;
-
-    box.innerText = `📍 กำลังเลือก: ${data.targetName || "?"}`;
-
-});
 
 // HOST ERROR
 socket.on(
