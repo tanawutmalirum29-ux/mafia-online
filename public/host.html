@@ -276,27 +276,14 @@ const socket = io();
 
 let roomId = "";
 let currentRoom = null;
+let roles = {};
 
 const roleConfig = {};
 
 const hostName = "Admin676767";
-const roleMessages = {
 
-    "หมอ":[
-        "การป้องปกของคุณได้ช่วยคนไว้",
-    ],
-    "บอดี้การ์ด":[
-        "เมื่อคืนคุณถูกโจมตี หากถูกอีกครั้งคุณจะตาย",
-    ],
-
-    "ผู้มีลาง":[
-        "คนนี้เป็นฝ่ายดี",
-        "คนนี้เป็นฝ่ายร้าย"
-    ],
-
-
-};
 socket.on("roles_data", (roles) => {
+
     const select = document.getElementById("roleSelect");
     select.innerHTML = "";
 
@@ -306,6 +293,7 @@ socket.on("roles_data", (roles) => {
         opt.textContent = role;
         select.appendChild(opt);
     });
+
 });
 
 // CREATE ROOM
@@ -325,8 +313,6 @@ socket.emit(
 
     }
 );
-
-// ROOM UPDATE
 
 
 // CREATE ROOM
@@ -348,6 +334,7 @@ socket.on("room_update", (room) => {
     list.innerHTML = "";
 
     room.players.forEach((p) => {
+const roleData = roles?.[p.role];
 
         const div = document.createElement("div");
 
@@ -361,6 +348,20 @@ socket.on("room_update", (room) => {
             <br><br>
 
             ROLE: ${p.role || "?"}
+
+${
+    roleData?.messages?.length
+    ? `
+        <div class="roleMessages">
+            ${roleData.messages.map(msg => `
+                <button onclick="sendPreset('${p.id}', \`${msg}\`)">
+                    ${msg}
+                </button>
+            `).join("")}
+        </div>
+    `
+    : ""
+}
 
             ${
                 p.displayRole && p.displayRole !== p.role
@@ -428,9 +429,6 @@ socket.on("room_update", (room) => {
         list.appendChild(div);
     });
 
-    // =========================
-    // SELECTION SYNC (FIX CORE)
-    // =========================
 
     const selectedTargets = room.selectedTargets || {};
 
@@ -705,6 +703,7 @@ socket.on("chat_message", (data) => {
     document.getElementById("list").prepend(div);
 
 });
+
 
 </script>
 
