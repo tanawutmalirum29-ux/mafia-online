@@ -14,15 +14,36 @@ app.use(express.static("public"));
 
 const rooms = {};
 const roles = {
-  "หมาป่า": { team: "wolf", score: 3 },
-  "ลูกหมาป่า": { team: "wolf", score: 1 },
-  "หมอ": { team: "villager", score: 3 },
-  "ชาวบ้าน": { team: "villager", score: 0 }
+  "หมาป่า": {
+    team: "wolf",
+    score: 3,
+    messages: []
+  },
+
+  "หมอ": {
+    team: "villager",
+    score: 3,
+    messages: [
+      "การป้องกันของคุณช่วยชีวิตผู้เล่น"
+    ]
+  },
+
+  "บอดี้การ์ด": {
+    team: "villager",
+    score: 3,
+    messages: [
+      "เมื่อคืนคุณถูกโจมตี หากถูกอีกครั้งจะตาย"
+    ]
+  }
 };
+function broadcastRoles() {
+  io.emit("roles_data", roles);
+}
 
 io.on("connection", (socket) => {
   socket.emit("roles_data", roles);
 });
+
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
