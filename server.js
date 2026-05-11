@@ -13,6 +13,16 @@ const io =
 app.use(express.static("public"));
 
 const rooms = {};
+const roles = {
+  "หมาป่า": { team: "wolf", score: 3 },
+  "ลูกหมาป่า": { team: "wolf", score: 1 },
+  "หมอ": { team: "villager", score: 3 },
+  "ชาวบ้าน": { team: "villager", score: 0 }
+};
+
+io.on("connection", (socket) => {
+  socket.emit("roles_data", roles);
+});
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
