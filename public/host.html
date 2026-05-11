@@ -276,43 +276,36 @@ const socket = io();
 
 let roomId = "";
 let currentRoom = null;
-let roles = {};
+
 
 const roleConfig = {};
 
 const hostName = "Admin676767";
 
-socket.on("roles_data", (roles) => {
+let roles = {}; // cache ฝั่ง client
+
+socket.on("roles_data", (data) => {
+
+    // เก็บข้อมูล roles ทั้งหมดไว้ใช้ทั้งระบบ
+    roles = data || {};
 
     const select = document.getElementById("roleSelect");
+
+    if (!select) return; // กัน DOM ไม่พร้อม
+
     select.innerHTML = "";
 
-    Object.keys(roles).forEach(role => {
+    Object.keys(roles).forEach((role) => {
+
         const opt = document.createElement("option");
         opt.value = role;
         opt.textContent = role;
+
         select.appendChild(opt);
+
     });
 
 });
-
-// CREATE ROOM
-socket.emit(
-    "create_room",
-    {
-        name: hostName
-    },
-
-    (id) => {
-
-        roomId = id;
-
-        document
-        .getElementById("room")
-        .innerText = id;
-
-    }
-);
 
 
 // CREATE ROOM
@@ -334,7 +327,7 @@ socket.on("room_update", (room) => {
     list.innerHTML = "";
 
     room.players.forEach((p) => {
-const roleData = roles?.[p.role];
+const roleData = roles?.[p.role] || {};
 
         const div = document.createElement("div");
 
