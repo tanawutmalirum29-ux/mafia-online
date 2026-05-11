@@ -216,89 +216,7 @@ select{
 
     <h2>ตั้งค่าบทบาท</h2>
 
-    <select id="roleSelect">
-
-        <option value="หมาป่า">
-            หมาป่า
-        </option>
-
-        <option value="ลูกหมาป่า">
-            ลูกหมาป่า
-        </option>
-
-        <option value="หมาป่าดื้อรั้น">
-            หมาป่าดื้อรั้น
-        </option>
-
-        <option value="หมาป่าพิทักษ์">
-            หมาป่าพิทักษ์
-        </option>
-
-        <option value="หมาป่านักเวท">
-            หมาป่านักเวท
-        </option>
-
-        <option value="หมอ">
-            หมอ
-        </option>
-
-        <option value="ผู้มีลาง">
-            ผู้มีลาง
-        </option>
-
-        <option value="บอดี้การ์ด">
-            บอดี้การ์ด
-        </option>
-
-        <option value="ศาลเตี้ย">
-            ศาลเตี้ย
-        </option>
-    
-        <option value="แม่มด">
-            แม่มด
-        </option>
-
-        <option value="ชาวบ้าน">
-            ชาวบ้าน
-        </option>
-
-        <option value="ยายแก่">
-            ยายแก่
-        </option>
-
-        <option value="นักล่าหัว">
-            นักล่าหัว
-        </option>
- 
-        <option value="คนบ้า">
-            คนบ้า
-        </option>
-
-        <option value="ฆาตกร">
-            ฆาตกร
-        </option>
-
-        <option value="สุ่มชาวบ้าน">
-            สุ่มชาวบ้าน
-        </option>
-
-        <option value="สุ่มชาวบ้านสนับสนุน">
-            สุ่มชาวบ้านสนับสนุน
-        </option>
-
-        <option value="สุ่มหมาป่า">
-            สุ่มหมาป่า
-        </option>
-
-        <option value="สุ่มหมาป่าสนับสนุน">
-            สุ่มหมาป่าสนับสนุน
-        </option>
-
-        <option value="สุ่มบทบาทการโหวต">
-            สุ่มบทบาทการโหวต
-        </option>
-
-    </select>
+   <select id="roleSelect"></select>
 
     <button onclick="addRole()">
         เพิ่มบทบาท
@@ -378,6 +296,17 @@ const roleMessages = {
 
 
 };
+socket.on("roles_data", (roles) => {
+    const select = document.getElementById("roleSelect");
+    select.innerHTML = "";
+
+    Object.keys(roles).forEach(role => {
+        const opt = document.createElement("option");
+        opt.value = role;
+        opt.textContent = role;
+        select.appendChild(opt);
+    });
+});
 
 // CREATE ROOM
 socket.emit(
