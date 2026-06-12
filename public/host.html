@@ -400,7 +400,21 @@ ${p.transformed ? "🐺 กลายร่างแล้ว" : ""}
             >
             Alive
         </label>
+  <label>  
+        <input type="checkbox"  
+            onchange="toggle('${p.id}','protected', this.checked)"  
+            ${p.protected ? "checked" : ""}  
+        >  
+        Protect  
+    </label>  
 
+    <label>  
+        <input type="checkbox"  
+            onchange="toggle('${p.id}','killed', this.checked)"  
+            ${p.killed ? "checked" : ""}  
+        >  
+        Mark  
+    </label>  
         <label>
     <input type="checkbox"
         onchange="toggle('${p.id}','silenced', this.checked)"
