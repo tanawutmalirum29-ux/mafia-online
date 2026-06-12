@@ -387,7 +387,9 @@ const roleData = roles?.[p.role] || {};
     <br>
 
     ${p.protected ? "🛡ถูกปกป้อง" : ""}
-    ${p.killed ? "☠ ถูกเล็งฆ่า" : ""}
+${p.killed ? "☠ ถูกเล็งฆ่า" : ""}
+${p.silenced ? "🤐 โดนใบ้" : ""}
+${p.transformed ? "🐺 กลายร่างแล้ว" : ""}
 
     <div style="display:flex; gap:14px; margin-top:10px;">
 
@@ -400,20 +402,20 @@ const roleData = roles?.[p.role] || {};
         </label>
 
         <label>
-            <input type="checkbox"
-                onchange="toggle('${p.id}','protected', this.checked)"
-                ${p.protected ? "checked" : ""}
-            >
-            Protect
-        </label>
+    <input type="checkbox"
+        onchange="toggle('${p.id}','silenced', this.checked)"
+        ${p.silenced ? "checked" : ""}
+    >
+    Silence
+</label>
 
-        <label>
-            <input type="checkbox"
-                onchange="toggle('${p.id}','killed', this.checked)"
-                ${p.killed ? "checked" : ""}
-            >
-            Mark
-        </label>
+<label>
+    <input type="checkbox"
+        onchange="toggle('${p.id}','transformed', this.checked)"
+        ${p.transformed ? "checked" : ""}
+    >
+    Transform
+</label>
 
     </div>
 
