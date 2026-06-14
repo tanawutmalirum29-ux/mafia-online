@@ -604,6 +604,30 @@ socket.on(
 
 });
 
+// ROOM CLOSED (โฮสต์หลุด/รีห้อง)
+socket.on("room_closed", () => {
+
+    if (!joined) return;
+
+    alert("ห้องถูกปิด เนื่องจากผู้สร้างห้องออกจากเกม");
+
+    joined = false;
+    myRole = "";
+
+    // reset UI กลับสู่หน้าเริ่ม
+    document.getElementById("role").innerHTML = "?";
+    document.getElementById("realRole").classList.add("hidden");
+    document.getElementById("realRole").innerHTML = "";
+    document.getElementById("huntInfo").classList.add("hidden");
+    document.getElementById("huntInfo").innerHTML = "";
+    document.getElementById("roleInfo").innerHTML = "";
+    document.getElementById("selectInfo").innerHTML = "";
+    document.getElementById("players").innerHTML = "";
+    document.getElementById("chatBox").innerHTML = "";
+    document.getElementById("room").value = "";
+
+});
+
 // SEND CHAT
 function sendChat() {
 
