@@ -1119,10 +1119,10 @@ socket.on("room_update", (roomData) => {
 
     // ===== VOTE MODE =====
     const voteSection = document.getElementById("voteSection");
-    const votes = room.votes || {};
+    const votes = roomData.votes || {};
     const myVoteTarget = votes[me];
 
-    if (room.voteMode) {
+    if (roomData.voteMode) {
         voteSection.classList.remove("hidden");
 
         // สถานะโหวตของตัวเอง
@@ -1130,7 +1130,7 @@ socket.on("room_update", (roomData) => {
         if (!myAlive) {
             voteMyStatus.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
         } else if (myVoteTarget) {
-            const vt = room.players.find(p => p.id === myVoteTarget);
+            const vt = roomData.players.find(p => p.id === myVoteTarget);
             voteMyStatus.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
         } else {
             voteMyStatus.innerHTML = `แตะชื่อเพื่อโหวต`;
@@ -1142,14 +1142,14 @@ socket.on("room_update", (roomData) => {
         Object.entries(votes).forEach(([vid, tid]) => {
             tally[tid] = (tally[tid] || 0) + 1;
             if (!voterFor[tid]) voterFor[tid] = [];
-            const vpl = room.players.find(p => p.id === vid);
+            const vpl = roomData.players.find(p => p.id === vid);
             if (vpl) voterFor[tid].push(vpl.name);
         });
 
         const vpDiv = document.getElementById("votePlayers");
         vpDiv.innerHTML = "";
 
-        const alivePlayers = room.players.filter(p => !p.isHost);
+        const alivePlayers = roomData.players.filter(p => !p.isHost);
 
         alivePlayers.forEach(p => {
             if (p.id === me) return; // ไม่แสดงตัวเอง
