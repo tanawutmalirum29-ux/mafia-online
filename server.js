@@ -761,6 +761,24 @@ socket.on("select_target", ({ roomId, targetId }) => {
             type: "private",
             isHost: true
         });
+
+        // ผู้ถูกสาป ที่ได้รับข้อความ "กลายเป็นหมาป่า" จะย้ายทีมไปหมาป่า
+        if (
+            player.role === "ผู้ถูกสาป" &&
+            msg === "คุณได้กลายเป็นหมาป่าแล้ว"
+        ) {
+            player.role = "หมาป่า";
+            player.displayRole = "หมาป่า (ผู้ถูกสาป)";
+
+            io.to(player.id).emit("your_role", {
+                role: player.role,
+                displayRole: player.displayRole,
+                huntTarget: player.huntTarget,
+                roleInfo: roleDescription[player.role] || null
+            });
+
+            io.to(roomId).emit("room_update", room);
+        }
     });
 
     // =========================
