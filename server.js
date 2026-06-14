@@ -781,28 +781,36 @@ socket.on("select_target", ({ roomId, targetId }) => {
         }
     });
 
-    // =========================
-    // DISCONNECT (FIXED CLEANUP)
-    // =========================
+
     socket.on("disconnect", () => {
 
         for (const id in rooms) {
 
             const room = rooms[id];
 
+            const wasHost = room.host === socket.id;
+
             room.players =
                 room.players.filter(p => p.id !== socket.id);
+
+            // ถ้าโฮสต์หลุด/รีห้อง -> ปิดห้องทันที แจ้งผู้เล่นทุกคนให้กลับหน้าหลัก
+            if (wasHost) {
+                io.to(id).emit("room_closed", {
+                    reason: "host_disconnected"
+                });
+
+                for (const p of room.players) {
+                    io.sockets.sockets.get(p.id)?.leave(id);
+                }
+
+                delete rooms[id];
+                continue;
+            }
 
             // cleanup room empty
             if (room.players.length === 0) {
                 delete rooms[id];
                 continue;
-            }
-
-            // reassign host if needed
-            if (room.host === socket.id && room.players.length > 0) {
-                room.host = room.players[0].id;
-                room.players[0].isHost = true;
             }
 
             io.to(id).emit("room_update", room);
