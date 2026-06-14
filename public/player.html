@@ -380,13 +380,19 @@ button:active{
 
 .chatRow{
     display:flex;
-    gap:10px;
-    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
 }
 
 .chatRow select{
-    flex:0 0 132px;
+    width:100%;
     margin:0;
+}
+
+.chatRow .chatInputRow{
+    display:flex;
+    gap:8px;
+    align-items:center;
 }
 
 .chatRow input{
@@ -396,7 +402,8 @@ button:active{
 
 .chatRow button{
     width:auto;
-    flex:0 0 84px;
+    flex:0 0 72px;
+    padding:13px 10px;
 }
 
 .legend{
@@ -609,18 +616,20 @@ button:active{
 
         </select>
 
-        <input
-            id="chatInput"
-            placeholder="พิมพ์ข้อความ..."
-            maxlength="200"
-        >
+        <div class="chatInputRow">
+            <input
+                id="chatInput"
+                placeholder="พิมพ์ข้อความ..."
+                maxlength="200"
+            >
 
-        <button
-            class="sendBtn"
-            onclick="sendChat()"
-        >
-            ส่ง
-        </button>
+            <button
+                class="sendBtn"
+                onclick="sendChat()"
+            >
+                ส่ง
+            </button>
+        </div>
 
     </div>
 
@@ -636,6 +645,7 @@ button:active{
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script>
 <script>
 
 const socket = io();
