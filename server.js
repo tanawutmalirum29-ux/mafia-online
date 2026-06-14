@@ -752,7 +752,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
         const msg = text.trim();
         if (!msg) return;
 
-        const presets = roleMessages[player.role] || [];
+        const presets = roles[player.role]?.messages || [];
         if (!presets.includes(msg)) return;
 
         io.to(player.id).emit("chat_message", {
