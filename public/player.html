@@ -474,97 +474,68 @@ button:active{
     margin:10px 0 4px;
 }
 
-/* ===== VOTE MODE POPUP ===== */
+/* ===== VOTE MODE ===== */
 #voteSection{
-    position:fixed;
-    inset:0;
-    z-index:999;
-    display:flex;
-    flex-direction:column;
-    background:rgba(6,9,18,.92);
-    backdrop-filter:blur(6px);
-    -webkit-backdrop-filter:blur(6px);
-    animation:fadeIn .25s ease;
+    margin-bottom:18px;
 }
 
-#voteSection.hidden{
-    display:none;
-}
-
-@keyframes fadeIn{
-    from{opacity:0;}
-    to{opacity:1;}
-}
-
-.vote-popup-inner{
-    flex:1;
-    overflow-y:auto;
-    padding:24px 16px 32px;
-    display:flex;
-    flex-direction:column;
-    gap:0;
-    max-width:480px;
-    width:100%;
-    margin:0 auto;
-}
-
-.vote-header{
+.vote-banner{
     display:flex;
     align-items:center;
-    gap:12px;
-    margin-bottom:20px;
-    padding-bottom:16px;
-    border-bottom:1px solid var(--line);
+    gap:10px;
+    padding:14px 16px;
+    background:rgba(34,197,94,.1);
+    border:1px solid rgba(34,197,94,.3);
+    border-radius:var(--r-md);
+    margin-bottom:14px;
+    animation:rise .3s ease;
 }
 
-.vote-header-icon{
-    font-size:28px;
+.vote-banner-icon{
+    font-size:22px;
 }
 
-.vote-header-text{
-    font-size:18px;
-    font-weight:700;
-    color:#fff;
-    letter-spacing:-.01em;
+.vote-banner-text{
+    font-size:14px;
+    font-weight:600;
+    color:var(--safe);
 }
 
-.vote-header-sub{
+.vote-banner-sub{
     font-size:12px;
     color:var(--ink-dim);
     margin-top:2px;
 }
 
-#voteMyStatus{
-    text-align:center;
-    font-size:13px;
-    color:var(--safe);
-    font-weight:600;
-    margin-bottom:14px;
-    padding:10px 14px;
-    background:rgba(34,197,94,.08);
-    border:1px solid rgba(34,197,94,.2);
-    border-radius:var(--r-sm);
-    min-height:18px;
+#votePlayers{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
 }
 
 .vote-player{
-    position:relative;
+    aspect-ratio:1/1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
     background:#0e1320;
     border:1px solid var(--line);
-    padding:14px 16px;
+    padding:10px 6px;
     border-radius:var(--r-md);
-    margin-bottom:10px;
     cursor:pointer;
     transition:border-color .2s, transform .15s;
+    overflow:hidden;
 }
 
 .vote-player:active{
-    transform:scale(.98);
+    transform:scale(.96);
 }
 
 .vote-player.voted-selected{
     border-color:var(--safe);
-    box-shadow:0 0 0 1px var(--safe), 0 0 20px rgba(34,197,94,.2);
+    box-shadow:0 0 0 1px var(--safe), 0 0 16px rgba(34,197,94,.2);
     background:rgba(34,197,94,.06);
 }
 
@@ -581,18 +552,18 @@ button:active{
 }
 
 .vote-pname{
-    font-weight:600;
-    font-size:15px;
+    font-weight:700;
+    font-size:13px;
     color:#fff;
-    display:flex;
-    align-items:center;
-    gap:6px;
-    flex-wrap:wrap;
+    word-break:break-word;
+    line-height:1.3;
 }
 
 .vote-me-tag{
+    display:block;
     font-size:10px;
-    padding:2px 7px;
+    margin-top:3px;
+    padding:1px 6px;
     border-radius:999px;
     background:rgba(124,92,255,.2);
     color:var(--moon);
@@ -602,8 +573,10 @@ button:active{
 }
 
 .vote-count-badge{
+    display:block;
+    margin-top:5px;
     font-size:11px;
-    padding:2px 9px;
+    padding:2px 8px;
     border-radius:999px;
     background:rgba(239,68,68,.18);
     color:var(--wolf);
@@ -613,10 +586,23 @@ button:active{
 }
 
 .vote-voter-list{
-    margin-top:6px;
-    font-size:12px;
+    margin-top:4px;
+    font-size:10px;
     color:var(--ink-dim);
-    line-height:1.5;
+    line-height:1.3;
+}
+
+body.vote-open{
+    overflow:hidden;
+}
+
+#voteMyStatus{
+    text-align:center;
+    font-size:13px;
+    color:var(--safe);
+    font-weight:600;
+    margin-bottom:10px;
+    min-height:18px;
 }
 
 
@@ -740,23 +726,21 @@ button:active{
 
 </div>
 
-<!-- VOTE POPUP (fullscreen overlay) -->
+<!-- VOTE SECTION (แสดงเฉพาะเมื่อโหมดโหวตเปิด) -->
 <div id="voteSection" class="hidden">
-    <div class="vote-popup-inner">
 
-        <div class="vote-header">
-            <div class="vote-header-icon">🗳️</div>
-            <div>
-                <div class="vote-header-text">โหมดโหวต</div>
-                <div class="vote-header-sub">ทุกคนเห็นว่าใครโหวตใคร</div>
-            </div>
+    <div class="vote-banner">
+        <div class="vote-banner-icon">🗳️</div>
+        <div>
+            <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
+            <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
         </div>
-
-        <div id="voteMyStatus"></div>
-
-        <div id="votePlayers"></div>
-
     </div>
+
+    <div id="voteMyStatus"></div>
+
+    <div id="votePlayers"></div>
+
 </div>
 
 <div class="card">
