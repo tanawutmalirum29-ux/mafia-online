@@ -628,6 +628,45 @@ room.justStarted = false;
     io.to(roomId).emit("room_update", room);
 });
 
+// TOGGLE VOTE MODE
+socket.on("toggle_vote_mode", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (socket.id !== room.host) return;
+
+    room.voteMode = !room.voteMode;
+
+    // เคลียร์โหวตเมื่อปิดโหมด
+    if (!room.voteMode) {
+        room.votes = {};
+    }
+
+    io.to(roomId).emit("room_update", room);
+});
+
+// CAST VOTE
+socket.on("cast_vote", ({ roomId, targetId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (!room.voteMode) return;
+
+    const voter = room.players.find(p => p.id === socket.id);
+    if (!voter || !voter.alive || voter.isHost) return;
+
+    if (!room.votes) room.votes = {};
+
+    if (!targetId) {
+        delete room.votes[socket.id];
+    } else {
+        if (targetId === socket.id) return;
+        const target = room.players.find(p => p.id === targetId);
+        if (!target || !target.alive) return;
+        room.votes[socket.id] = targetId;
+    }
+
+    io.to(roomId).emit("room_update", room);
+});
+
 socket.on("select_target", ({ roomId, targetId }) => {
 
     const room = rooms[roomId];
