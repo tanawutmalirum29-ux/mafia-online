@@ -1152,7 +1152,7 @@ socket.on("room_update", (roomData) => {
         const alivePlayers = roomData.players.filter(p => !p.isHost);
 
         alivePlayers.forEach(p => {
-            if (p.id === me) return; // ไม่แสดงตัวเอง
+          
 
             const count = tally[p.id] || 0;
             const voters = voterFor[p.id] || [];
