@@ -598,8 +598,12 @@ realPlayers.forEach((p) => {
 
 });
 room.started = true;
+room.justStarted = true;
 
 io.to(roomId).emit("room_update", room);
+
+// ล้าง justStarted ทันทีหลังส่ง เพื่อไม่ให้ update ถัดไปล้างแชทซ้ำ
+room.justStarted = false;
     
 });
 
@@ -672,7 +676,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
             if (!isWolf) return;
 
             room.players.forEach(p => {
-                if (wolfRoles.includes(p.role)) {
+                if (wolfRoles.includes(p.role) || p.id === room.host) {
                     io.to(p.id).emit("chat_message", {
                         name: player.name,
                         text: msg,
@@ -761,6 +765,16 @@ socket.on("select_target", ({ roomId, targetId }) => {
             type: "private",
             isHost: true
         });
+
+        // ส่งสำเนาให้โฮสต์เห็นด้วย (ถ้าโฮสต์ไม่ใช่ผู้รับ)
+        if (socket.id !== player.id) {
+            io.to(room.host).emit("chat_message", {
+                name: `HOST → ${player.name}`,
+                text: msg,
+                type: "private",
+                isHost: true
+            });
+        }
 
         // ผู้ถูกสาป ที่ได้รับข้อความ "กลายเป็นหมาป่า" จะย้ายทีมไปหมาป่า
         if (
