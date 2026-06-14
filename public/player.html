@@ -1244,14 +1244,17 @@ socket.on("room_update", (roomData) => {
             voteMyStatus.innerHTML = `แตะชื่อเพื่อโหวต`;
         }
 
-        // นับโหวต
+        // นับโหวต (สำหรับแสดง badge จำนวนโหวตบนเป้าหมาย)
         const tally = {};
-        const voterFor = {}; // targetId → [voterNames]
         Object.entries(votes).forEach(([vid, tid]) => {
             tally[tid] = (tally[tid] || 0) + 1;
-            if (!voterFor[tid]) voterFor[tid] = [];
-            const vpl = roomData.players.find(p => p.id === vid);
-            if (vpl) voterFor[tid].push(vpl.name);
+        });
+
+        // map voterId → targetName
+        const voteTargetName = {};
+        Object.entries(votes).forEach(([vid, tid]) => {
+            const target = roomData.players.find(p => p.id === tid);
+            if (target) voteTargetName[vid] = target.name;
         });
 
         const vpDiv = document.getElementById("votePlayers");
@@ -1260,11 +1263,12 @@ socket.on("room_update", (roomData) => {
         const alivePlayers = roomData.players.filter(p => !p.isHost);
 
         alivePlayers.forEach(p => {
-          
 
-            const count = tally[p.id] || 0;
-            const voters = voterFor[p.id] || [];
             const isMyVote = myVoteTarget === p.id;
+            // จำนวนโหวตที่ p ได้รับ (ใช้แสดงบน card ของ p ในฐานะเป้าหมาย)
+            const receivedCount = tally[p.id] || 0;
+            // ชื่อที่ p โหวตไป
+            const votedForName = voteTargetName[p.id] || null;
 
             const div = document.createElement("div");
             div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "");
@@ -1283,9 +1287,9 @@ socket.on("room_update", (roomData) => {
                 <div class="vote-pname">
                     ${p.name}
                     ${p.alive ? "" : " 💀"}
-                    ${count > 0 ? `<span class="vote-count-badge">${count} โหวต</span>` : ""}
+                    ${receivedCount > 0 ? `<span class="vote-count-badge">${receivedCount} โหวต</span>` : ""}
                 </div>
-                ${voters.length > 0 ? `<div class="vote-voter-list">โดย: ${voters.join(", ")}</div>` : ""}
+                ${votedForName ? `<div class="vote-voter-list">โหวต: ${votedForName}</div>` : ""}
             `;
 
             vpDiv.appendChild(div);
@@ -1462,8 +1466,6 @@ document.addEventListener(
     }
 
 });
-
-
 
 </script>
 
