@@ -716,7 +716,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
         if (isWolfChat) {
 
             room.players.forEach(p => {
-                if (wolfRoles.includes(p.role)) {
+                if (wolfRoles.includes(p.role) || p.id === room.host) {
                     io.to(p.id).emit("chat_message", {
                         name: "HOST",
                         text: msg,
