@@ -783,6 +783,11 @@ if (data.roleInfo) {
 // ROOM UPDATE
 socket.on("room_update", (roomData) => {
 
+    // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
+    if (roomData.started && roomData.justStarted) {
+        document.getElementById("chatBox").innerHTML = "";
+    }
+
     const players = document.getElementById("players");
     players.innerHTML = "";
 
