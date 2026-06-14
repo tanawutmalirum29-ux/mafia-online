@@ -624,16 +624,28 @@ select{
 
 .chat-controls{
     display:flex;
-    gap:10px;
+    flex-direction:column;
+    gap:8px;
     margin-bottom:10px;
 }
 
 .chat-controls select{
-    flex:0 0 170px;
+    width:100%;
+}
+
+.chat-controls .chat-input-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
 }
 
 .chat-controls input{
     flex:1;
+}
+
+.chat-controls .chat-input-row .btn{
+    flex:0 0 72px;
+    padding:12px 10px;
 }
 
 .chat-log{
@@ -781,13 +793,15 @@ select{
                         <option value="wolf">🔴 เฉพาะหมาป่า</option>
                     </select>
 
-                    <input
-                        id="hostMsg"
-                        class="hostMsgInput"
-                        placeholder="พิมพ์ข้อความจากผู้เล่าเรื่อง..."
-                    >
+                    <div class="chat-input-row">
+                        <input
+                            id="hostMsg"
+                            class="hostMsgInput"
+                            placeholder="พิมพ์ข้อความจากผู้เล่าเรื่อง..."
+                        >
 
-                    <button class="btn" onclick="sendHostMsg()">ส่ง</button>
+                        <button class="btn" onclick="sendHostMsg()">ส่ง</button>
+                    </div>
                 </div>
 
                 <div id="chatLog" class="chat-log"></div>
@@ -800,6 +814,7 @@ select{
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 
 <script>
 
