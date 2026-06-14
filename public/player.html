@@ -475,21 +475,67 @@ button:active{
 }
 
 /* ===== VOTE MODE ===== */
-#voteSection{
+
+/* Overlay พื้นหลังมืด */
+#voteOverlay{
     position:fixed;
     inset:0;
+    z-index:998;
+    background:rgba(6,9,18,.75);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+    animation:fadeIn .25s ease;
+}
+
+#voteOverlay.hidden{
+    display:none;
+}
+
+@keyframes fadeIn{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+
+/* popup กลางหน้าจอ */
+#voteSection{
+    position:fixed;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
     z-index:999;
+    width:min(480px, calc(100vw - 32px));
+    max-height:min(600px, calc(100vh - 48px));
     display:flex;
     flex-direction:column;
-    background:rgba(6,9,18,.93);
-    backdrop-filter:blur(6px);
-    -webkit-backdrop-filter:blur(6px);
-    overflow-y:auto;
-    padding:24px 16px 40px;
+    background:#12172f;
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:var(--r-lg);
+    box-shadow:0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(124,92,255,.15);
+    overflow:hidden;
+    animation:popIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes popIn{
+    from{ opacity:0; transform:translate(-50%,-46%) scale(.94); }
+    to{ opacity:1; transform:translate(-50%,-50%) scale(1); }
 }
 
 #voteSection.hidden{
     display:none;
+}
+
+/* ส่วนหัว popup */
+#voteHeader{
+    padding:16px 18px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+}
+
+/* ส่วน scroll ได้ */
+#voteBody{
+    overflow-y:auto;
+    padding:14px 18px 20px;
+    flex:1;
 }
 
 body.vote-open{
@@ -743,20 +789,26 @@ body.vote-open{
 
 </div>
 
-<!-- VOTE SECTION (แสดงเฉพาะเมื่อโหมดโหวตเปิด) -->
+<!-- VOTE OVERLAY -->
+<div id="voteOverlay" class="hidden"></div>
+
+<!-- VOTE SECTION POPUP -->
 <div id="voteSection" class="hidden">
 
-    <div class="vote-banner">
-        <div class="vote-banner-icon">🗳️</div>
-        <div>
-            <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
-            <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
+    <div id="voteHeader">
+        <div class="vote-banner" style="margin-bottom:0;">
+            <div class="vote-banner-icon">🗳️</div>
+            <div>
+                <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
+                <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
+            </div>
         </div>
     </div>
 
-    <div id="voteMyStatus"></div>
-
-    <div id="votePlayers"></div>
+    <div id="voteBody">
+        <div id="voteMyStatus"></div>
+        <div id="votePlayers"></div>
+    </div>
 
 </div>
 
@@ -1060,7 +1112,7 @@ function showGameInfo(roomData) {
         realCounts[p.role] = (realCounts[p.role] || 0) + 1;
     });
 
-    // ถ้ายังไม่มีบทจริง (เกมยังไม่เริ่มจริงๆ) ใช้ config แทน
+// ถ้ายังไม่มีบทจริง (เกมยังไม่เริ่มจริงๆ) ใช้ config แทน
     const useReal = Object.keys(realCounts).length > 0;
     const counts = useReal ? realCounts : (() => {
         const c = {};
@@ -1172,11 +1224,14 @@ socket.on("room_update", (roomData) => {
 
     // ===== VOTE MODE =====
     const voteSection = document.getElementById("voteSection");
+    const voteOverlay = document.getElementById("voteOverlay");
     const votes = roomData.votes || {};
     const myVoteTarget = votes[me];
 
     if (roomData.voteMode) {
         voteSection.classList.remove("hidden");
+        voteOverlay.classList.remove("hidden");
+        document.body.classList.add("vote-open");
 
         // สถานะโหวตของตัวเอง
         const voteMyStatus = document.getElementById("voteMyStatus");
@@ -1238,6 +1293,8 @@ socket.on("room_update", (roomData) => {
 
     } else {
         voteSection.classList.add("hidden");
+        voteOverlay.classList.add("hidden");
+        document.body.classList.remove("vote-open");
     }
 
     // แสดงสถานะการเลือก (select_target ปกติ)
