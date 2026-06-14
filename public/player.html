@@ -474,8 +474,102 @@ button:active{
     margin:10px 0 4px;
 }
 
-.msg{
-    padding:10px 12px;
+/* ===== VOTE MODE ===== */
+#voteSection{
+    margin-bottom:18px;
+}
+
+.vote-banner{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:14px 16px;
+    background:rgba(34,197,94,.1);
+    border:1px solid rgba(34,197,94,.3);
+    border-radius:var(--r-md);
+    margin-bottom:14px;
+    animation:rise .3s ease;
+}
+
+.vote-banner-icon{
+    font-size:22px;
+}
+
+.vote-banner-text{
+    font-size:14px;
+    font-weight:600;
+    color:var(--safe);
+}
+
+.vote-banner-sub{
+    font-size:12px;
+    color:var(--ink-dim);
+    margin-top:2px;
+}
+
+.vote-player{
+    position:relative;
+    overflow:hidden;
+    background:#0e1320;
+    border:1px solid var(--line);
+    padding:14px 16px;
+    border-radius:var(--r-md);
+    margin-bottom:10px;
+    cursor:pointer;
+    transition:border-color .2s, transform .15s;
+}
+
+.vote-player:hover{
+    border-color:rgba(34,197,94,.4);
+    transform:translateY(-1px);
+}
+
+.vote-player.voted-selected{
+    border-color:var(--safe);
+    box-shadow:0 0 0 1px var(--safe), 0 0 20px rgba(34,197,94,.25);
+}
+
+.vote-player.dead{
+    opacity:.4;
+    filter:grayscale(100%);
+    cursor:default;
+}
+
+.vote-pname{
+    font-weight:600;
+    font-size:15px;
+    color:#fff;
+}
+
+.vote-count-badge{
+    display:inline-block;
+    margin-left:8px;
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:999px;
+    background:rgba(239,68,68,.18);
+    color:var(--wolf);
+    border:1px solid rgba(239,68,68,.3);
+    font-family:"JetBrains Mono",monospace;
+    font-weight:700;
+}
+
+.vote-voter-list{
+    margin-top:5px;
+    font-size:12px;
+    color:var(--ink-dim);
+}
+
+#voteMyStatus{
+    text-align:center;
+    font-size:13px;
+    color:var(--safe);
+    font-weight:600;
+    margin-bottom:10px;
+    min-height:18px;
+}
+
+
     border-radius:var(--r-sm);
     margin-bottom:10px;
     animation:rise .2s ease;
@@ -596,11 +690,24 @@ button:active{
 
 </div>
 
-<div class="card">
+<!-- VOTE SECTION (แสดงเฉพาะเมื่อโหมดโหวตเปิด) -->
+<div id="voteSection" class="hidden">
 
-    <h3>
-        แชท
-    </h3>
+    <div class="vote-banner">
+        <div class="vote-banner-icon">🗳️</div>
+        <div>
+            <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
+            <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
+        </div>
+    </div>
+
+    <div id="voteMyStatus"></div>
+
+    <div id="votePlayers"></div>
+
+</div>
+
+<div class="card">
 
     <div id="chatBox"></div>
 
@@ -682,6 +789,11 @@ const allWolfRoles = [
     "หมาป่าดื้อรั้น",
     "หมาป่านักเวท"
 ];
+
+function castVote(targetId) {
+    const roomId = document.getElementById("room").value.trim().toUpperCase();
+    socket.emit("cast_vote", { roomId, targetId });
+}
 
 // JOIN ROOM
 function join() {
@@ -1006,7 +1118,77 @@ socket.on("room_update", (roomData) => {
         players.appendChild(div);
     });
 
-    // แสดงสถานะการเลือก
+    // ===== VOTE MODE =====
+    const voteSection = document.getElementById("voteSection");
+    const votes = room.votes || {};
+    const myVoteTarget = votes[me];
+
+    if (room.voteMode) {
+        voteSection.classList.remove("hidden");
+
+        // สถานะโหวตของตัวเอง
+        const voteMyStatus = document.getElementById("voteMyStatus");
+        if (!myAlive) {
+            voteMyStatus.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+        } else if (myVoteTarget) {
+            const vt = room.players.find(p => p.id === myVoteTarget);
+            voteMyStatus.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+        } else {
+            voteMyStatus.innerHTML = `แตะชื่อเพื่อโหวต`;
+        }
+
+        // นับโหวต
+        const tally = {};
+        const voterFor = {}; // targetId → [voterNames]
+        Object.entries(votes).forEach(([vid, tid]) => {
+            tally[tid] = (tally[tid] || 0) + 1;
+            if (!voterFor[tid]) voterFor[tid] = [];
+            const vpl = room.players.find(p => p.id === vid);
+            if (vpl) voterFor[tid].push(vpl.name);
+        });
+
+        const vpDiv = document.getElementById("votePlayers");
+        vpDiv.innerHTML = "";
+
+        const alivePlayers = room.players.filter(p => !p.isHost);
+
+        alivePlayers.forEach(p => {
+            if (p.id === me) return; // ไม่แสดงตัวเอง
+
+            const count = tally[p.id] || 0;
+            const voters = voterFor[p.id] || [];
+            const isMyVote = myVoteTarget === p.id;
+
+            const div = document.createElement("div");
+            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "");
+
+            div.onclick = () => {
+                if (!myAlive) return;
+                if (!p.alive) return;
+                if (isMyVote) {
+                    castVote(null);
+                } else {
+                    castVote(p.id);
+                }
+            };
+
+            div.innerHTML = `
+                <div class="vote-pname">
+                    ${p.name}
+                    ${p.alive ? "" : " 💀"}
+                    ${count > 0 ? `<span class="vote-count-badge">${count} โหวต</span>` : ""}
+                </div>
+                ${voters.length > 0 ? `<div class="vote-voter-list">โดย: ${voters.join(", ")}</div>` : ""}
+            `;
+
+            vpDiv.appendChild(div);
+        });
+
+    } else {
+        voteSection.classList.add("hidden");
+    }
+
+    // แสดงสถานะการเลือก (select_target ปกติ)
     const info = document.getElementById("selectInfo");
 
     if (!myAlive) {
