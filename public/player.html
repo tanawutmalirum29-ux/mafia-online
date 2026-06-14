@@ -403,6 +403,69 @@ button:active{
     margin-top:12px;
 }
 
+/* ---- roles in game summary ---- */
+.roles-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.role-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:9px 12px;
+    background:#0e1320;
+    border:1px solid var(--line);
+    border-radius:var(--r-sm);
+    font-size:13px;
+}
+
+.role-row-name{
+    color:var(--ink);
+    font-weight:500;
+}
+
+.role-row-count{
+    font-family:"JetBrains Mono",monospace;
+    font-size:12px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:6px;
+    background:var(--moon-soft);
+    color:var(--moon);
+    border:1px solid rgba(124,92,255,.25);
+}
+
+.role-row.wolf-role{
+    border-color:rgba(239,68,68,.2);
+}
+
+.role-row.wolf-role .role-row-count{
+    background:var(--wolf-soft);
+    color:var(--wolf);
+    border-color:rgba(239,68,68,.3);
+}
+
+.role-row.solo-role{
+    border-color:rgba(251,191,36,.2);
+}
+
+.role-row.solo-role .role-row-count{
+    background:var(--mark-soft);
+    color:var(--mark);
+    border-color:rgba(251,191,36,.3);
+}
+
+.roles-section-label{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin:10px 0 4px;
+}
+
 .msg{
     padding:10px 12px;
     border-radius:var(--r-sm);
@@ -458,7 +521,8 @@ button:active{
 
 <div class="app">
 
-<div class="card">
+<!-- JOIN CARD -->
+<div class="card" id="joinCard">
 
     <div class="eyebrow">เข้าสู่หมู่บ้าน</div>
     <h2>เข้าร่วมห้อง</h2>
@@ -477,6 +541,17 @@ button:active{
     <button onclick="join()">
         เข้าร่วมห้อง
     </button>
+
+</div>
+
+<!-- GAME INFO CARD (แสดงเมื่อเกมเริ่ม) -->
+<div class="card hidden" id="gameInfoCard">
+
+    <div class="eyebrow" id="gameRoomLabel">ห้อง ••••</div>
+    <h2 id="gamePlayerName">ผู้เล่น</h2>
+    <p class="sub">อาชีพทั้งหมดในเกมรอบนี้</p>
+
+    <div id="rolesInGame" style="margin-top:8px;"></div>
 
 </div>
 
@@ -580,9 +655,9 @@ function selectTarget(targetId) {
 }
 
 let joined = false;
-
 let myRole = "";
 let myAlive = true;
+let allRolesData = {};   // จาก roles_data event
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
@@ -780,8 +855,90 @@ if (data.roleInfo) {
 
 });
 
+// ROLES DATA
+socket.on("roles_data", (data) => {
+    allRolesData = data;
+});
+
+// แสดง roles ทั้งหมดในเกมรอบนี้
+function showGameInfo(roomData) {
+    const config = roomData.config || {};
+    const playerName = document.getElementById("name").value.trim() || "ผู้เล่น";
+    const roomCode = document.getElementById("room").value.trim().toUpperCase();
+
+    document.getElementById("gameRoomLabel").textContent = "ห้อง " + roomCode;
+    document.getElementById("gamePlayerName").textContent = playerName;
+
+    // จัดกลุ่ม: ขยาย random group → บทจริงที่ถูกใช้จาก players
+    const randomGroups = {
+        "สุ่มชาวบ้าน": ["ชาวบ้าน","หมอ","บอดี้การ์ด"],
+        "สุ่มชาวบ้านสนับสนุน": ["ศาลเตี้ย","แม่มด"],
+        "สุ่มหมาป่า": ["หมาป่า","ลูกหมาป่า","หมาป่าดื้อรั้น"],
+        "สุ่มหมาป่าสนับสนุน": ["หมาป่าพิทักษ์","หมาป่านักเวท"],
+        "สุ่มบทบาทการโหวต": ["คนบ้า","นักล่าหัว"],
+    };
+
+    // นับบทจริงจาก players ใน room
+    const realCounts = {};
+    (roomData.players || []).forEach(p => {
+        if (p.isHost || !p.role) return;
+        realCounts[p.role] = (realCounts[p.role] || 0) + 1;
+    });
+
+    // ถ้ายังไม่มีบทจริง (เกมยังไม่เริ่มจริงๆ) ใช้ config แทน
+    const useReal = Object.keys(realCounts).length > 0;
+    const counts = useReal ? realCounts : (() => {
+        const c = {};
+        Object.entries(config).forEach(([role, n]) => {
+            if (randomGroups[role]) {
+                // สุ่ม → แสดงชื่อกลุ่ม
+                c[role] = n;
+            } else {
+                c[role] = (c[role] || 0) + n;
+            }
+        });
+        return c;
+    })();
+
+    // แยกทีม
+    const wolfTeam = {}, villagerTeam = {}, soloTeam = {};
+    const wolfRolesList = ["หมาป่า","ลูกหมาป่า","หมาป่าขาว","หมาป่าพิทักษ์","หมาป่าดื้อรั้น","หมาป่านักเวท"];
+    const soloRolesList = ["คนบ้า","นักล่าหัว","ฆาตกร"];
+
+    Object.entries(counts).forEach(([role, n]) => {
+        if (wolfRolesList.includes(role) || role.includes("สุ่มหมาป่า")) wolfTeam[role] = n;
+        else if (soloRolesList.includes(role) || role.includes("สุ่มบทบาทการโหวต")) soloTeam[role] = n;
+        else villagerTeam[role] = n;
+    });
+
+    function buildSection(label, map, cssClass) {
+        if (Object.keys(map).length === 0) return "";
+        const rows = Object.entries(map).map(([role, n]) => `
+            <div class="role-row ${cssClass}">
+                <span class="role-row-name">${role}</span>
+                <span class="role-row-count">${n} คน</span>
+            </div>`).join("");
+        return `<div class="roles-section-label">${label}</div><div class="roles-list">${rows}</div>`;
+    }
+
+    document.getElementById("rolesInGame").innerHTML =
+        buildSection("🏘️ ฝ่ายชาวบ้าน", villagerTeam, "villager-role") +
+        buildSection("🐺 ฝ่ายหมาป่า", wolfTeam, "wolf-role") +
+        buildSection("⚡ โซโล", soloTeam, "solo-role");
+}
+
 // ROOM UPDATE
 socket.on("room_update", (roomData) => {
+
+    // สลับ card เมื่อเกมเริ่ม
+    if (roomData.started) {
+        document.getElementById("joinCard").classList.add("hidden");
+        document.getElementById("gameInfoCard").classList.remove("hidden");
+        showGameInfo(roomData);
+    } else {
+        document.getElementById("joinCard").classList.remove("hidden");
+        document.getElementById("gameInfoCard").classList.add("hidden");
+    }
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
     if (roomData.started && roomData.justStarted) {
@@ -878,6 +1035,8 @@ socket.on("room_closed", () => {
     myRole = "";
 
     // reset UI กลับสู่หน้าเริ่ม
+    document.getElementById("joinCard").classList.remove("hidden");
+    document.getElementById("gameInfoCard").classList.add("hidden");
     document.getElementById("role").innerHTML = `<span class="placeholder">ยังไม่ได้รับบท</span>`;
     document.getElementById("realRole").classList.add("hidden");
     document.getElementById("realRole").innerHTML = "";
