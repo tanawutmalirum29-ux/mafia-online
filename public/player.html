@@ -474,6 +474,229 @@ button:active{
     margin:10px 0 4px;
 }
 
+/* ===== BOTTOM BAR ===== */
+
+/* เพิ่ม padding ล่างเพื่อไม่ให้ content ซ่อนอยู่หลัง bar */
+body{
+    padding-bottom:90px;
+}
+
+#bottomBar{
+    position:fixed;
+    bottom:16px;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(520px, calc(100vw - 32px));
+    z-index:900;
+    background:rgba(14,19,32,.85);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;
+    padding:10px 20px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(124,92,255,.1);
+}
+
+#maskBtn{
+    width:46px;
+    height:46px;
+    flex-shrink:0;
+    border-radius:50%;
+    background:var(--moon-soft);
+    border:1px solid rgba(124,92,255,.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    cursor:pointer;
+    transition:transform .15s, background .2s, box-shadow .15s;
+    box-shadow:none;
+    padding:0;
+    width:46px;
+}
+
+#maskBtn:hover{
+    background:rgba(124,92,255,.28);
+    box-shadow:0 0 16px rgba(124,92,255,.4);
+    transform:scale(1.08);
+}
+
+#maskBtn:active{
+    transform:scale(.95);
+}
+
+#barRoleText{
+    flex:1;
+    min-width:0;
+}
+
+#barRoleName{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-size:18px;
+    font-weight:700;
+    color:#fff;
+    line-height:1.2;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+#barRoleSub{
+    font-size:11px;
+    color:var(--ink-dim);
+    margin-top:1px;
+}
+
+#barHuntBadge{
+    font-size:12px;
+    color:var(--wolf);
+    font-weight:600;
+    background:var(--wolf-soft);
+    border:1px solid rgba(239,68,68,.3);
+    border-radius:999px;
+    padding:3px 10px;
+    white-space:nowrap;
+    flex-shrink:0;
+}
+
+#barHuntBadge.hidden{ display:none; }
+
+/* ===== ROLE POPUP ===== */
+
+#rolePopupOverlay{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    background:rgba(6,9,18,.75);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+    animation:fadeIn .2s ease;
+}
+
+#rolePopupOverlay.hidden{ display:none; }
+
+#rolePopup{
+    position:fixed;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    z-index:1001;
+    width:min(480px, calc(100vw - 32px));
+    max-height:min(640px, calc(100vh - 48px));
+    display:flex;
+    flex-direction:column;
+    background:#12172f;
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:var(--r-lg);
+    box-shadow:0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(124,92,255,.15);
+    overflow:hidden;
+    animation:popIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+
+#rolePopup.hidden{ display:none; }
+
+#rolePopupHeader{
+    padding:18px 20px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+}
+
+#rolePopupClose{
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    background:rgba(255,255,255,.07);
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    font-size:18px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    padding:0;
+    box-shadow:none;
+    width:32px;
+    transition:background .15s, color .15s;
+}
+
+#rolePopupClose:hover{
+    background:rgba(255,255,255,.14);
+    color:#fff;
+    transform:none;
+    filter:none;
+}
+
+#rolePopupBody{
+    overflow-y:auto;
+    padding:18px 20px 24px;
+    flex:1;
+}
+
+#popupRoleName{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-size:32px;
+    font-weight:700;
+    color:#fff;
+    text-shadow:0 0 24px rgba(124,92,255,.5);
+    line-height:1.2;
+    margin-bottom:4px;
+}
+
+#popupRealRole{
+    font-size:13px;
+    color:var(--mark);
+    font-weight:600;
+    padding:6px 12px;
+    background:var(--mark-soft);
+    border:1px solid rgba(251,191,36,.3);
+    border-radius:var(--r-sm);
+    margin-bottom:12px;
+}
+
+#popupRealRole.hidden{ display:none; }
+
+#popupHuntInfo{
+    font-size:13px;
+    color:var(--wolf);
+    font-weight:600;
+    padding:6px 12px;
+    background:var(--wolf-soft);
+    border:1px solid rgba(239,68,68,.3);
+    border-radius:var(--r-sm);
+    margin-bottom:12px;
+}
+
+#popupHuntInfo.hidden{ display:none; }
+
+#popupRoleDesc{
+    margin-top:14px;
+}
+
+#popupRoleDesc h3{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-weight:700;
+    color:#fff;
+    font-size:16px;
+    margin:0 0 6px;
+}
+
+.popup-divider{
+    height:1px;
+    background:var(--line);
+    margin:18px 0;
+}
+
+#popupRolesInGame{}
+
 /* ===== VOTE MODE ===== */
 
 /* Overlay พื้นหลังมืด */
@@ -745,36 +968,18 @@ body.vote-open{
 
 </div>
 
-<!-- GAME INFO CARD (แสดงเมื่อเกมเริ่ม) -->
-<div class="card hidden" id="gameInfoCard">
-
-    <div class="eyebrow" id="gameRoomLabel">ห้อง ••••</div>
-    <h2 id="gamePlayerName">ผู้เล่น</h2>
-    <p class="sub">อาชีพทั้งหมดในเกมรอบนี้</p>
-
-    <div id="rolesInGame" style="margin-top:8px;"></div>
-
+<!-- GAME INFO CARD (hidden ตลอด — ย้ายไปอยู่ใน popup แล้ว) -->
+<div id="gameInfoCard" class="hidden">
+    <div id="gameRoomLabel"></div>
+    <div id="gamePlayerName"></div>
+    <div id="rolesInGame"></div>
 </div>
 
-<div class="card">
-
-    <div class="eyebrow">บทของคุณ</div>
-
-    <div id="role"><span class="placeholder">ยังไม่ได้รับบท</span></div>
-
-    <div
-        id="realRole"
-        class="realRole hidden"
-    ></div>
-
-    <div
-        id="huntInfo"
-        class="hidden"
-    ></div>
-
-    <div id="roleInfo" class="section-gap"></div>
-
-</div>
+<!-- (role/realRole/huntInfo/roleInfo เก็บ hidden ไว้ให้ JS ยังใช้ได้) -->
+<div id="role" class="hidden"></div>
+<div id="realRole" class="hidden"></div>
+<div id="huntInfo" class="hidden"></div>
+<div id="roleInfo" class="hidden"></div>
 
 <div id="selectInfo" class="small"></div>
 
@@ -855,9 +1060,39 @@ body.vote-open{
 
 </div>
 
+<!-- ROLE POPUP OVERLAY -->
+<div id="rolePopupOverlay" class="hidden" onclick="closeRolePopup()"></div>
+
+<!-- ROLE POPUP -->
+<div id="rolePopup" class="hidden">
+    <div id="rolePopupHeader">
+        <div>
+            <div class="eyebrow" style="margin-bottom:4px;">บทของคุณ</div>
+            <div id="popupRoleName">—</div>
+        </div>
+        <button id="rolePopupClose" onclick="closeRolePopup()">✕</button>
+    </div>
+    <div id="rolePopupBody">
+        <div id="popupRealRole" class="hidden"></div>
+        <div id="popupHuntInfo" class="hidden"></div>
+        <div id="popupRoleDesc"></div>
+        <div class="popup-divider"></div>
+        <div class="eyebrow" style="margin-bottom:8px;">บทในเกมรอบนี้</div>
+        <div id="popupRolesInGame"></div>
+    </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<!-- BOTTOM BAR -->
+<div id="bottomBar">
+    <button id="maskBtn" onclick="openRolePopup()" title="ดูบทของคุณ">🎭</button>
+    <div id="barRoleText">
+        <div id="barRoleName">ยังไม่ได้รับบท</div>
+        <div id="barRoleSub">แตะหน้ากากเพื่อดูรายละเอียด</div>
+    </div>
+    <div id="barHuntBadge" class="hidden"></div>
+</div>
+
+</div>
 <script>
 
 const socket = io();
@@ -897,6 +1132,18 @@ const allWolfRoles = [
 function castVote(targetId) {
     const roomId = document.getElementById("room").value.trim().toUpperCase();
     socket.emit("cast_vote", { roomId, targetId });
+}
+
+function openRolePopup() {
+    document.getElementById("rolePopup").classList.remove("hidden");
+    document.getElementById("rolePopupOverlay").classList.remove("hidden");
+    document.body.classList.add("vote-open");
+}
+
+function closeRolePopup() {
+    document.getElementById("rolePopup").classList.add("hidden");
+    document.getElementById("rolePopupOverlay").classList.add("hidden");
+    document.body.classList.remove("vote-open");
 }
 
 // JOIN ROOM
@@ -958,127 +1205,57 @@ socket.on(
     "your_role",
     (data) => {
 myRole = data.role;
-    // ROLE DISPLAY
-    document.getElementById("role")
-        .innerHTML = `
 
-        <div>
-            ${data.displayRole}
-        </div>
+    // อัปเดต bottom bar
+    document.getElementById("barRoleName").textContent = data.displayRole;
+    document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
 
-    `;
+    // อัปเดต popup — ชื่อบท
+    document.getElementById("popupRoleName").textContent = data.displayRole;
 
-    // REAL ROLE
-    const realRole =
-        document.getElementById(
-            "realRole"
-        );
-
-    // ถ้าสุ่ม
-    if (
-        data.displayRole !==
-        data.role
-    ) {
-
-        realRole.classList
-            .remove("hidden");
-
-        realRole.innerHTML = `
-
-            บทจริง:
-            <b>${data.role}</b>
-
-        `;
-
+    // บทจริง (ถ้าสุ่ม)
+    const popupRealRole = document.getElementById("popupRealRole");
+    if (data.displayRole !== data.role) {
+        popupRealRole.classList.remove("hidden");
+        popupRealRole.innerHTML = `บทจริง: <b>${data.role}</b>`;
+    } else {
+        popupRealRole.classList.add("hidden");
     }
 
-    // ถ้าไม่สุ่ม
-    else {
-
-        realRole.classList
-            .add("hidden");
-
+    // เป้าหมายล่า
+    const popupHuntInfo = document.getElementById("popupHuntInfo");
+    const barHuntBadge = document.getElementById("barHuntBadge");
+    if (data.huntTarget) {
+        popupHuntInfo.classList.remove("hidden");
+        popupHuntInfo.innerHTML = `🎯 เป้าหมาย: <b>${data.huntTarget}</b>`;
+        barHuntBadge.classList.remove("hidden");
+        barHuntBadge.textContent = `🎯 ${data.huntTarget}`;
+    } else {
+        popupHuntInfo.classList.add("hidden");
+        barHuntBadge.classList.add("hidden");
     }
-const huntInfo =
-    document.getElementById(
-        "huntInfo"
-    );
 
-if (
-    data.huntTarget
-) {
-
-    huntInfo.classList
-        .remove("hidden");
-
-    huntInfo.innerHTML = `
-
-        🎯 เป้าหมาย:
-        <b>${data.huntTarget}</b>
-
-    `;
-
-}
-else {
-
-    huntInfo.classList
-        .add("hidden");
-
-    huntInfo.innerHTML = "";
-
-}
-const chatType =
-    document.getElementById(
-        "chatType"
-    );
-
-if (
-    allWolfRoles.includes(data.role)
-) {
-
-    chatType.innerHTML = `
-
-        <option value="global">
-            🔵 แชทรวม
-        </option>
-
-        <option value="wolf">
-            🔴 แชทหมาป่า
-        </option>
-
-    `;
-
-}
-else {
-
-    chatType.innerHTML = `
-
-        <option value="global">
-            🔵 แชทรวม
-        </option>
-
-    `;
-
-}
-const infoBox =
-    document.getElementById("roleInfo");
-
-if (data.roleInfo) {
-
-    infoBox.innerHTML = `
-        <div class="card" style="margin-top:10px;">
+    // คำอธิบายบท
+    const popupRoleDesc = document.getElementById("popupRoleDesc");
+    if (data.roleInfo) {
+        popupRoleDesc.innerHTML = `
             <h3>${data.roleInfo.title}</h3>
-            <div class="small">
-                ${data.roleInfo.desc}
-            </div>
-        </div>
-    `;
+            <div class="small">${data.roleInfo.desc}</div>
+        `;
+    } else {
+        popupRoleDesc.innerHTML = "";
+    }
 
-} else {
-
-    infoBox.innerHTML = "";
-
-}
+    // แชทหมาป่า
+    const chatType = document.getElementById("chatType");
+    if (allWolfRoles.includes(data.role)) {
+        chatType.innerHTML = `
+            <option value="global">🔵 แชทรวม</option>
+            <option value="wolf">🔴 แชทหมาป่า</option>
+        `;
+    } else {
+        chatType.innerHTML = `<option value="global">🔵 แชทรวม</option>`;
+    }
 
 });
 
@@ -1148,7 +1325,7 @@ function showGameInfo(roomData) {
         return `<div class="roles-section-label">${label}</div><div class="roles-list">${rows}</div>`;
     }
 
-    document.getElementById("rolesInGame").innerHTML =
+    document.getElementById("popupRolesInGame").innerHTML =
         buildSection("🏘️ ฝ่ายชาวบ้าน", villagerTeam, "villager-role") +
         buildSection("🐺 ฝ่ายหมาป่า", wolfTeam, "wolf-role") +
         buildSection("⚡ โซโล", soloTeam, "solo-role");
@@ -1160,11 +1337,9 @@ socket.on("room_update", (roomData) => {
     // สลับ card เมื่อเกมเริ่ม
     if (roomData.started) {
         document.getElementById("joinCard").classList.add("hidden");
-        document.getElementById("gameInfoCard").classList.remove("hidden");
         showGameInfo(roomData);
     } else {
         document.getElementById("joinCard").classList.remove("hidden");
-        document.getElementById("gameInfoCard").classList.add("hidden");
     }
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
@@ -1342,17 +1517,19 @@ socket.on("room_closed", () => {
 
     // reset UI กลับสู่หน้าเริ่ม
     document.getElementById("joinCard").classList.remove("hidden");
-    document.getElementById("gameInfoCard").classList.add("hidden");
-    document.getElementById("role").innerHTML = `<span class="placeholder">ยังไม่ได้รับบท</span>`;
-    document.getElementById("realRole").classList.add("hidden");
-    document.getElementById("realRole").innerHTML = "";
-    document.getElementById("huntInfo").classList.add("hidden");
-    document.getElementById("huntInfo").innerHTML = "";
-    document.getElementById("roleInfo").innerHTML = "";
+    document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
+    document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
+    document.getElementById("barHuntBadge").classList.add("hidden");
+    document.getElementById("popupRoleName").textContent = "—";
+    document.getElementById("popupRealRole").classList.add("hidden");
+    document.getElementById("popupHuntInfo").classList.add("hidden");
+    document.getElementById("popupRoleDesc").innerHTML = "";
+    document.getElementById("popupRolesInGame").innerHTML = "";
     document.getElementById("selectInfo").innerHTML = "";
     document.getElementById("players").innerHTML = "";
     document.getElementById("chatBox").innerHTML = "";
     document.getElementById("room").value = "";
+    closeRolePopup();
 
 });
 
@@ -1466,6 +1643,8 @@ document.addEventListener(
     }
 
 });
+
+
 
 </script>
 
