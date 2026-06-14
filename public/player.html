@@ -582,10 +582,19 @@ function selectTarget(targetId) {
 let joined = false;
 
 let myRole = "";
+let myAlive = true;
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
     "หมาป่าขาว"
+];
+const allWolfRoles = [
+    "หมาป่า",
+    "ลูกหมาป่า",
+    "หมาป่าขาว",
+    "หมาป่าพิทักษ์",
+    "หมาป่าดื้อรั้น",
+    "หมาป่านักเวท"
 ];
 
 // JOIN ROOM
@@ -722,7 +731,7 @@ const chatType =
     );
 
 if (
-    wolfRoles.includes(data.role)
+    allWolfRoles.includes(data.role)
 ) {
 
     chatType.innerHTML = `
@@ -780,6 +789,14 @@ socket.on("room_update", (roomData) => {
     const me = socket.id;
     const selected = roomData.selectedTargets?.[me];
 
+    // อัพเดทสถานะมีชีวิตของตัวเอง
+    const myPlayer = roomData.players.find(p => p.id === me);
+    if (myPlayer) {
+        myAlive = myPlayer.alive;
+    }
+
+    const amIWolf = allWolfRoles.includes(myRole);
+
     const others = roomData.players.filter(p => !p.isHost);
 
     if (others.length === 0) {
@@ -788,19 +805,26 @@ socket.on("room_update", (roomData) => {
 
     others.forEach((p) => {
 
+        const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
+
         const div = document.createElement("div");
         div.className = "player " + (!p.alive ? "dead" : "") + (selected === p.id ? " selected" : "");
-div.onclick = () => {
-    if (!p.alive) return;
-    if (selected === p.id) {
-        selectTarget(null); // ยกเลิก
-    } else {
-        selectTarget(p.id); // เปลี่ยนเป้า
-    }
-};
+
+        div.onclick = () => {
+            if (!myAlive) return;   // ตัวเองตาย → ห้ามโหวต
+            if (!p.alive) return;   // เป้าตาย → ห้ามเลือก
+            if (selected === p.id) {
+                selectTarget(null);
+            } else {
+                selectTarget(p.id);
+            }
+        };
 
         div.innerHTML = `
-            <div class="pname">${p.name}</div>
+            <div class="pname">
+                ${p.name}
+                ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
+            </div>
             <div class="status">
                 ${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}
             </div>
@@ -812,7 +836,9 @@ div.onclick = () => {
     // แสดงสถานะการเลือก
     const info = document.getElementById("selectInfo");
 
-    if (selected) {
+    if (!myAlive) {
+        info.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว — ไม่สามารถโหวตได้</span>`;
+    } else if (selected) {
         const target = roomData.players.find(p => p.id === selected);
         info.innerHTML = `📍 กำลังเลือก: <b>${target?.name || "?"}</b>`;
     } else {
@@ -904,7 +930,7 @@ socket.on("chat_message", (msg) => {
     // กรองแชทหมาป่าเหมือนเดิม
     if (
         msg.type === "wolf" &&
-        !wolfRoles.includes(myRole) &&
+        !allWolfRoles.includes(myRole) &&
         !msg.isHost
     ) return;
 
