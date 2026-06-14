@@ -723,9 +723,97 @@ select{
     color:var(--ink-dim);
 }
 
-/* misc */
+.btn-vote{
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    box-shadow:0 4px 18px rgba(245,158,11,.28);
+}
 
-.section-gap{
+.btn-vote.active{
+    background:linear-gradient(135deg,#22c55e,#15803d);
+    box-shadow:0 4px 18px rgba(34,197,94,.3);
+    animation:glowPulse 2s infinite;
+}
+
+.vote-panel{
+    margin-top:16px;
+    padding:14px;
+    background:rgba(245,158,11,.07);
+    border:1px solid rgba(245,158,11,.25);
+    border-radius:var(--r-md);
+}
+
+.vote-panel.active{
+    background:rgba(34,197,94,.07);
+    border-color:rgba(34,197,94,.25);
+}
+
+.vote-panel-title{
+    font-size:12px;
+    font-family:"JetBrains Mono",monospace;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:10px;
+}
+
+.vote-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:8px 12px;
+    background:#0e1320;
+    border:1px solid var(--line);
+    border-radius:var(--r-sm);
+    margin-bottom:6px;
+    font-size:13px;
+}
+
+.vote-row .vote-name{
+    font-weight:600;
+    color:#fff;
+}
+
+.vote-row .vote-target{
+    color:var(--ink-dim);
+    font-size:12px;
+}
+
+.vote-tally{
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+}
+
+.tally-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:7px 12px;
+    border-radius:var(--r-sm);
+    margin-bottom:5px;
+    font-size:13px;
+    background:#0e1320;
+    border:1px solid var(--line);
+}
+
+.tally-count{
+    font-family:"JetBrains Mono",monospace;
+    font-size:13px;
+    font-weight:700;
+    padding:2px 10px;
+    border-radius:999px;
+    background:rgba(239,68,68,.15);
+    color:var(--wolf);
+    border:1px solid rgba(239,68,68,.3);
+}
+
+.tally-row.top-voted{
+    border-color:rgba(239,68,68,.4);
+    background:rgba(239,68,68,.07);
+}
+
+
     margin-top:4px;
 }
 
@@ -779,6 +867,18 @@ select{
                 <button class="btn btn-block" onclick="startGame()">
                     🌙 เริ่มเกม
                 </button>
+
+                <hr class="divider">
+
+                <button class="btn btn-block btn-vote" id="voteBtn" onclick="toggleVoteMode()">
+                    🗳️ เปิดโหมดโหวต
+                </button>
+
+                <div class="vote-panel hidden" id="votePanel">
+                    <div class="vote-panel-title">📋 การโหวต</div>
+                    <div id="voteRows"></div>
+                    <div class="vote-tally" id="voteTally"></div>
+                </div>
             </div>
 
         </div>
@@ -890,414 +990,4 @@ socket.on("room_update", (room) => {
 
         const div = document.createElement("div");
 
-        div.className = "player " + (!p.alive ? "dead" : "");
-        div.setAttribute("data-id", p.id);
-
-        div.innerHTML = `
-
-            <div class="ptop">
-                <span class="pname">${p.name}</span>
-                <span class="prole">${p.role || "?"}</span>
-            </div>
-
-            ${
-                p.displayRole && p.displayRole !== p.role
-                ? `
-                    <div class="randomRole">สุ่มจาก: ${p.displayRole}</div>
-                    <div class="realRole">บทจริง: ${p.role}</div>
-                `
-                : ""
-            }
-
-            ${
-                p.huntTarget
-                ? `<div class="huntInfo">🎯 เป้าหมาย: ${p.huntTarget}</div>`
-                : ""
-            }
-
-            <div class="selectionInfo" id="sel-${p.id}">
-                ยังไม่เลือก
-            </div>
-
-            ${
-                (p.protected || p.killed || p.silenced || p.transformed)
-                ? `
-                    <div class="flags">
-                        ${p.protected ? `<span class="flag protect">🛡 ถูกปกป้อง</span>` : ""}
-                        ${p.killed ? `<span class="flag killed">☠ ถูกเล็งฆ่า</span>` : ""}
-                        ${p.silenced ? `<span class="flag silenced">🤐 โดนใบ้</span>` : ""}
-                        ${p.transformed ? `<span class="flag transformed">🐺 กลายร่างแล้ว</span>` : ""}
-                    </div>
-                `
-                : ""
-            }
-
-            ${
-                roleData?.messages?.length
-                ? `
-                    <div class="roleMessages">
-                        ${roleData.messages.map(msg => `
-                            <button class="presetBtn" onclick="sendPreset('${p.id}', \`${msg}\`)">
-                                ${msg}
-                            </button>
-                        `).join("")}
-                    </div>
-                `
-                : ""
-            }
-
-            <div class="toggles">
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','alive', this.checked)"
-                        ${p.alive ? "checked" : ""}
-                    >
-                    มีชีวิต
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','protected', this.checked)"
-                        ${p.protected ? "checked" : ""}
-                    >
-                    ปกป้อง
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','killed', this.checked)"
-                        ${p.killed ? "checked" : ""}
-                    >
-                    เล็งฆ่า
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','silenced', this.checked)"
-                        ${p.silenced ? "checked" : ""}
-                    >
-                    ใบ้
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','transformed', this.checked)"
-                        ${p.transformed ? "checked" : ""}
-                    >
-                    กลายร่าง
-                </label>
-
-            </div>
-
-        `;
-
-        list.appendChild(div);
-    });
-
-    if (room.players.filter(p => !p.isHost).length === 0) {
-        list.innerHTML = `<div class="empty-note">ยังไม่มีผู้เล่นเข้าร่วมห้องนี้</div>`;
-    }
-
-
-    const selectedTargets = room.selectedTargets || {};
-
-    // reset UI
-    document.querySelectorAll(".selectionInfo").forEach(el => {
-        el.innerText = "ยังไม่เลือก";
-    });
-
-    // render selection map
-    Object.entries(selectedTargets).forEach(([fromId, targetId]) => {
-
-        const targetPlayer = room.players.find(p => p.id === targetId);
-        const box = document.getElementById(`sel-${fromId}`);
-
-        if (box) {
-            box.innerText = `📍 เลือก: ${targetPlayer ? targetPlayer.name : "?"}`;
-        }
-
-    });
-
-});
-
-// HOST ERROR
-socket.on(
-    "host_error",
-    (msg) => {
-
-        alert(msg);
-
-    }
-);
-
-// ROLE UI
-function renderRoles() {
-
-    const rolesDiv =
-        document.getElementById(
-            "roles"
-        );
-
-    rolesDiv.innerHTML = "";
-
-    let total = 0;
-
-    Object.keys(roleConfig)
-    .forEach((role) => {
-
-        if (
-            roleConfig[role] <= 0
-        ) {
-
-            delete roleConfig[
-                role
-            ];
-
-            return;
-
-        }
-
-        total += roleConfig[role];
-
-        const div =
-            document.createElement(
-                "div"
-            );
-
-        div.className =
-            "roleBox";
-
-        div.innerHTML = `
-
-            <div class="name">
-                <span>${role}</span>
-                <span class="count">x${roleConfig[role]}</span>
-            </div>
-
-            <div class="btns">
-
-                <button
-                    class="roleBtn"
-                    onclick="
-                    changeRole(
-                        '${role}',
-                        1
-                    )"
-                    aria-label="เพิ่ม ${role}"
-                >
-                    +
-                </button>
-
-                <button
-                    class="roleBtn"
-                    onclick="
-                    changeRole(
-                        '${role}',
-                        -1
-                    )"
-                    aria-label="ลด ${role}"
-                >
-                    −
-                </button>
-
-            </div>
-
-        `;
-
-        rolesDiv.appendChild(div);
-
-    });
-
-    document.getElementById("roleTotal").innerText = total;
-
-    if (total === 0) {
-        rolesDiv.innerHTML = `<div class="empty-note">ยังไม่ได้เลือกบทบาท — เริ่มจากเลือกจากเมนูด้านบน</div>`;
-    }
-
-}
-
-// ADD ROLE
-function addRole() {
-
-    const role =
-        document.getElementById(
-            "roleSelect"
-        ).value;
-
-    if (!roleConfig[role]) {
-
-        roleConfig[role] = 1;
-
-    }
-
-    else {
-
-        roleConfig[role]++;
-
-    }
-
-    renderRoles();
-
-    updateConfig();
-
-}
-
-// CHANGE ROLE
-function changeRole(
-    role,
-    amount
-) {
-
-    if (
-        !roleConfig[role]
-    ) return;
-
-    roleConfig[role] += amount;
-
-    if (
-        roleConfig[role] <= 0
-    ) {
-
-        delete roleConfig[
-            role
-        ];
-
-    }
-
-    renderRoles();
-
-    updateConfig();
-
-}
-
-// UPDATE CONFIG
-function updateConfig() {
-
-    socket.emit(
-        "update_config",
-        {
-            roomId,
-            config: roleConfig
-        }
-    );
-
-}
-
-// START GAME
-function startGame() {
-
-    // ล้างแชทรอบก่อน
-    document.getElementById("chatLog").innerHTML = "";
-
-    socket.emit(
-        "start_game",
-        roomId
-    );
-
-}
-
-// TOGGLE
-function toggle(playerId, key, value) {
-
-    socket.emit(
-        "toggle_state",
-        {
-            roomId,
-            playerId,
-            key,
-            value
-        }
-    );
-
-}
-function sendHostMsg() {
-
-    const text =
-        document.getElementById(
-            "hostMsg"
-        ).value
-        .trim();
-
-    const type =
-        document.getElementById(
-            "chatType"
-        ).value;
-
-    if (!text) return;
-
-    socket.emit(
-        "host_chat",
-        {
-            roomId,
-            text,
-            type
-        }
-    );
-
-    document.getElementById(
-        "hostMsg"
-    ).value = "";
-
-}
-function sendPreset(
-    playerId,
-    text
-) {
-
-    socket.emit(
-        "host_private_msg",
-        {
-            roomId,
-            playerId,
-            text
-        }
-    );
-
-}
-
-// ENTER SEND
-document.getElementById("hostMsg").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-        sendHostMsg();
-    }
-});
-
-socket.on("chat_message", (data) => {
-
-    const log = document.getElementById("chatLog");
-
-    const div = document.createElement("div");
-
-    let cls = "msg ";
-    if (data.type === "private") cls += "private";
-    else if (data.isHost) cls += "host";
-    else if (data.type === "wolf") cls += "wolf";
-    else cls += "global";
-
-    div.className = cls;
-
-    const typeLabel =
-        data.type === "private" ? "🟢 PRIVATE" :
-        data.type === "wolf" ? "🔴 หมาป่า" :
-        data.isHost ? "🟣 ผู้เล่าเรื่อง" :
-        "🔵 แชทรวม";
-
-    div.innerHTML = `
-        <div class="mname">${data.name}</div>
-        <div>${data.text}</div>
-        <div class="mtype">${typeLabel}</div>
-    `;
-
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
-
-});
-
-// initial empty-state render
-renderRoles();
-
-</script>
-
-</body>
-</html>
+        div.className = "play
