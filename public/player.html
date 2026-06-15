@@ -333,6 +333,17 @@ button:active{
     line-height:1.3;
 }
 
+.player-role-icon{
+    position:absolute;
+    bottom:6px;
+    right:8px;
+    font-size:18px;
+    line-height:1;
+    opacity:.75;
+    pointer-events:none;
+    filter:drop-shadow(0 1px 4px rgba(0,0,0,.5));
+}
+
 .player.dead{
     opacity:.45;
     filter:grayscale(100%);
@@ -1000,7 +1011,7 @@ body.vote-open{
     <h3>
         ผู้เล่นในห้อง
     </h3>
-    <p class="sub">แตะผู้เล่นเพื่อเลือกเป้าหมาย (ถ้าบทของคุณทำได้)</p>
+     <p class="sub">แตะผู้เล่นเพื่อเลือกเป้าหมาย (ถ้าบทของคุณทำได้)</p>
 
     <div id="players"></div>
 
@@ -1127,6 +1138,27 @@ function selectTarget(targetId) {
 let joined = false;
 let myRole = "";
 let myAlive = true;
+
+const roleIconMap = {
+    "ชาวบ้าน":      "🧑‍🌾",
+    "หมอ":          "💉",
+    "บอดี้การ์ด":   "🛡️",
+    "ศาลเตี้ย":     "🔍",
+    "แม่มด":        "🧪",
+    "หมาป่า":       "🐺",
+    "ลูกหมาป่า":    "🐾",
+    "หมาป่าขาว":    "🤍",
+    "หมาป่าพิทักษ์":"⚔️",
+    "หมาป่าดื้อรั้น":"💢",
+    "หมาป่านักเวท": "🔮",
+    "คนบ้า":        "🃏",
+    "นักล่าหัว":    "🏹",
+    "ฆาตกร":        "🗡️",
+};
+
+function getRoleIcon(role) {
+    return roleIconMap[role] || "🎭";
+}
 let allRolesData = {};   // จาก roles_data event
 const wolfRoles = [
     "หมาป่า",
@@ -1405,6 +1437,7 @@ socket.on("room_update", (roomData) => {
             <div class="status">
                 ${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}
             </div>
+            ${myRole ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
         `;
 
         players.appendChild(div);
