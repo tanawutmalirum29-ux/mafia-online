@@ -337,11 +337,19 @@ button:active{
     position:absolute;
     bottom:6px;
     right:8px;
-    font-size:18px;
+    width:24px;
+    height:24px;
     line-height:1;
-    opacity:.75;
+    opacity:.85;
     pointer-events:none;
     filter:drop-shadow(0 1px 4px rgba(0,0,0,.5));
+}
+.player-role-icon img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    border-radius:50%;
+    display:block;
 }
 
 .player.dead{
@@ -1011,7 +1019,7 @@ body.vote-open{
     <h3>
         ผู้เล่นในห้อง
     </h3>
-     <p class="sub">แตะผู้เล่นเพื่อเลือกเป้าหมาย (ถ้าบทของคุณทำได้)</p>
+    <p class="sub">แตะผู้เล่นเพื่อเลือกเป้าหมาย (ถ้าบทของคุณทำได้)</p>
 
     <div id="players"></div>
 
@@ -1140,24 +1148,25 @@ let myRole = "";
 let myAlive = true;
 
 const roleIconMap = {
-    "ชาวบ้าน":      "🧑‍🌾",
-    "หมอ":          "💉",
-    "บอดี้การ์ด":   "🛡️",
-    "ศาลเตี้ย":     "🔍",
-    "แม่มด":        "🧪",
-    "หมาป่า":       "🐺",
-    "ลูกหมาป่า":    "🐾",
-    "หมาป่าขาว":    "🤍",
-    "หมาป่าพิทักษ์":"⚔️",
-    "หมาป่าดื้อรั้น":"💢",
-    "หมาป่านักเวท": "🔮",
-    "คนบ้า":        "🃏",
-    "นักล่าหัว":    "🏹",
-    "ฆาตกร":        "🗡️",
+    "ชาวบ้าน":      "/images/village.jpg",
+    "หมอ":          "/images/doctor.jpg",
+    "บอดี้การ์ด":   "/images/bodyguard.jpg",
+    "ศาลเตี้ย":     "/images/sheriff.jpg",
+    "แม่มด":        "/images/witch.jpg",
+    "หมาป่า":       "/images/werewolf.jpg",
+    "ลูกหมาป่า":    "/images/juniorwerewolf.jpg",
+    "หมาป่าขาว":    "/images/whitewolf.jpg",
+    "หมาป่าพิทักษ์":"/images/guardianwolf.jpg",
+    "หมาป่าดื้อรั้น":"/images/stubbornwolf.jpg",
+    "หมาป่านักเวท": "/images/wizardwolf.jpg",
+    "คนบ้า":        "/images/fool.jpg",
+    "นักล่าหัว":    "/images/headhunter.jpg",
+    "ฆาตกร":        "/images/murderer.jpg",
 };
 
 function getRoleIcon(role) {
-    return roleIconMap[role] || "🎭";
+    const src = roleIconMap[role] || "/images/default-role.jpg";
+    return `<img src="${src}" alt="${role}">`;
 }
 let allRolesData = {};   // จาก roles_data event
 const wolfRoles = [
@@ -1190,7 +1199,6 @@ function closeRolePopup() {
     document.getElementById("rolePopupOverlay").classList.add("hidden");
     document.body.classList.remove("vote-open");
 }
-
 // JOIN ROOM
 function join() {
 
