@@ -389,7 +389,8 @@ button:active{
 
 /* ---- chat ---- */
 
-#chatBox{
+#chatBoxGlobal,
+#chatBoxWolf{
     height:320px;
     overflow-y:auto;
     padding:14px;
@@ -400,7 +401,8 @@ button:active{
     margin-bottom:12px;
 }
 
-#chatBox:empty::after{
+#chatBoxGlobal:empty::after,
+#chatBoxWolf:empty::after{
     content:"ยังไม่มีข้อความ — เริ่มทักทายเพื่อนร่วมหมู่บ้าน";
     display:flex;
     align-items:center;
@@ -409,6 +411,39 @@ button:active{
     text-align:center;
     color:var(--ink-dim);
     font-size:13px;
+}
+
+.chatTabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:10px;
+}
+
+.chatTab{
+    flex:1;
+    text-align:center;
+    padding:9px 10px;
+    border-radius:var(--r-md);
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.03);
+    color:var(--ink-dim);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.15s;
+    user-select:none;
+}
+
+.chatTab.active{
+    color:#fff;
+    border-color:rgba(59,130,246,.4);
+    background:rgba(59,130,246,.15);
+}
+
+.chatTab.active.wolfTab{
+    color:#fff;
+    border-color:rgba(239,68,68,.4);
+    background:var(--wolf-soft);
 }
 
 .chatRow{
@@ -1050,20 +1085,19 @@ body.vote-open{
 
 <div class="card">
 
-    <div id="chatBox"></div>
+    <div class="chatTabs" id="chatTabs">
+        <div class="chatTab active" id="tabGlobal" onclick="switchChatTab('global')">
+            🔵 แชทรวม
+        </div>
+        <div class="chatTab hidden" id="tabWolf" onclick="switchChatTab('wolf')">
+            🔴 แชทหมาป่า
+        </div>
+    </div>
+
+    <div id="chatBoxGlobal"></div>
+    <div id="chatBoxWolf" class="hidden"></div>
 
     <div class="chatRow">
-        <select id="chatType">
-
-            <option value="global">
-                🔵 แชทรวม
-            </option>
-
-            <option value="wolf">
-                🔴 แชทหมาป่า
-            </option>
-
-        </select>
 
         <div class="chatInputRow">
             <input
@@ -1146,15 +1180,27 @@ function selectTarget(targetId) {
 let joined = false;
 let myRole = "";
 let myAlive = true;
+let currentChatTab = "global";
+
+// SWITCH CHAT TAB
+function switchChatTab(tab) {
+
+    currentChatTab = tab;
+
+    document.getElementById("tabGlobal").classList.toggle("active", tab === "global");
+    document.getElementById("tabWolf").classList.toggle("active", tab === "wolf");
+
+    document.getElementById("chatBoxGlobal").classList.toggle("hidden", tab !== "global");
+    document.getElementById("chatBoxWolf").classList.toggle("hidden", tab !== "wolf");
+
+}
 
 const roleIconMap = {
     "ชาวบ้าน":      "/images/village.jpg",
-    "ผู้ถูกสาป":      "/images/cursed.png",
     "หมอ":          "/images/doctor.jpg",
     "บอดี้การ์ด":   "/images/bodyguard.jpg",
     "ศาลเตี้ย":     "/images/sheriff.jpg",
     "แม่มด":        "/images/witch.jpg",
-    "ผู้มีลาง":        "/images/auraseer.jpg",
     "หมาป่า":       "/images/werewolf.jpg",
     "ลูกหมาป่า":    "/images/juniorwerewolf.jpg",
     "หมาป่าขาว":    "/images/whitewolf.jpg",
@@ -1303,14 +1349,14 @@ myRole = data.role;
     }
 
     // แชทหมาป่า
-    const chatType = document.getElementById("chatType");
+    const tabWolf = document.getElementById("tabWolf");
     if (allWolfRoles.includes(data.role)) {
-        chatType.innerHTML = `
-            <option value="global">🔵 แชทรวม</option>
-            <option value="wolf">🔴 แชทหมาป่า</option>
-        `;
+        tabWolf.classList.remove("hidden");
     } else {
-        chatType.innerHTML = `<option value="global">🔵 แชทรวม</option>`;
+        tabWolf.classList.add("hidden");
+        if (currentChatTab === "wolf") {
+            switchChatTab("global");
+        }
     }
 
 });
@@ -1400,7 +1446,8 @@ socket.on("room_update", (roomData) => {
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
     if (roomData.started && roomData.justStarted) {
-        document.getElementById("chatBox").innerHTML = "";
+        document.getElementById("chatBoxGlobal").innerHTML = "";
+        document.getElementById("chatBoxWolf").innerHTML = "";
     }
 
     const players = document.getElementById("players");
@@ -1584,7 +1631,8 @@ socket.on("room_closed", () => {
     document.getElementById("popupRolesInGame").innerHTML = "";
     document.getElementById("selectInfo").innerHTML = "";
     document.getElementById("players").innerHTML = "";
-    document.getElementById("chatBox").innerHTML = "";
+    document.getElementById("chatBoxGlobal").innerHTML = "";
+    document.getElementById("chatBoxWolf").innerHTML = "";
     document.getElementById("room").value = "";
     closeRolePopup();
 
@@ -1610,10 +1658,7 @@ function sendChat() {
         .trim()
         .toUpperCase();
 
-    const type =
-    document.getElementById(
-        "chatType"
-    ).value;
+    const type = currentChatTab;
 
 socket.emit(
     "send_chat",
@@ -1639,7 +1684,9 @@ socket.on("chat_message", (msg) => {
     ) return;
 
     const chatBox =
-        document.getElementById("chatBox");
+        msg.type === "wolf"
+        ? document.getElementById("chatBoxWolf")
+        : document.getElementById("chatBoxGlobal");
 
     const div =
         document.createElement("div");
@@ -1707,4 +1754,3 @@ document.addEventListener(
 
 </body>
 </html>
- 
