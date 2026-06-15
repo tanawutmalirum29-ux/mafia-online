@@ -284,6 +284,7 @@ io.on("connection", (socket) => {
     config: {},
     started: false,
     selectedTargets: {},
+    wolfChatHistory: [],
     players: [
                 {
                     id: socket.id,
@@ -713,13 +714,18 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
             if (!isWolf) return;
 
+            const wolfMsg = {
+                name: player.name,
+                text: msg,
+                type: "wolf"
+            };
+
+            room.wolfChatHistory = room.wolfChatHistory || [];
+            room.wolfChatHistory.push(wolfMsg);
+
             room.players.forEach(p => {
                 if (wolfRoles.includes(p.role) || p.id === room.host) {
-                    io.to(p.id).emit("chat_message", {
-                        name: player.name,
-                        text: msg,
-                        type: "wolf"
-                    });
+                    io.to(p.id).emit("chat_message", wolfMsg);
                 }
             });
 
@@ -753,14 +759,19 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
         if (isWolfChat) {
 
+            const wolfMsg = {
+                name: "HOST",
+                text: msg,
+                type: "wolf",
+                isHost: true
+            };
+
+            room.wolfChatHistory = room.wolfChatHistory || [];
+            room.wolfChatHistory.push(wolfMsg);
+
             room.players.forEach(p => {
                 if (wolfRoles.includes(p.role) || p.id === room.host) {
-                    io.to(p.id).emit("chat_message", {
-                        name: "HOST",
-                        text: msg,
-                        type: "wolf",
-                        isHost: true
-                    });
+                    io.to(p.id).emit("chat_message", wolfMsg);
                 }
             });
 
@@ -828,6 +839,11 @@ socket.on("select_target", ({ roomId, targetId }) => {
                 huntTarget: player.huntTarget,
                 roleInfo: roleDescription[player.role] || null
             });
+
+            // ส่งประวัติแชทหมาป่าที่ผ่านมาให้ผู้เล่นที่กลายเป็นหมาป่า
+            if (room.wolfChatHistory && room.wolfChatHistory.length > 0) {
+                io.to(player.id).emit("wolf_chat_history", room.wolfChatHistory);
+            }
 
             io.to(roomId).emit("room_update", room);
         }
