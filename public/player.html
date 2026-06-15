@@ -1199,6 +1199,7 @@ function closeRolePopup() {
     document.getElementById("rolePopupOverlay").classList.add("hidden");
     document.body.classList.remove("vote-open");
 }
+
 // JOIN ROOM
 function join() {
 
@@ -1438,14 +1439,14 @@ socket.on("room_update", (roomData) => {
         };
 
         div.innerHTML = `
-            <div class="pname">
+            <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
                 ${p.name}
                 ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
             </div>
             <div class="status">
                 ${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}
             </div>
-            ${myRole ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
+            ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
         `;
 
         players.appendChild(div);
@@ -1704,3 +1705,4 @@ document.addEventListener(
 
 </body>
 </html>
+ 
