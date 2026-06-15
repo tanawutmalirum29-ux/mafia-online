@@ -1673,8 +1673,8 @@ socket.emit(
 
 }
 
-// RECEIVE CHAT
-socket.on("chat_message", (msg) => {
+// RENDER ONE CHAT MESSAGE
+function renderChatMessage(msg) {
 
     // กรองแชทหมาป่าเหมือนเดิม
     if (
@@ -1730,6 +1730,17 @@ socket.on("chat_message", (msg) => {
 
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// RECEIVE CHAT
+socket.on("chat_message", (msg) => {
+    renderChatMessage(msg);
+});
+
+// RECEIVE WOLF CHAT HISTORY (เมื่อผู้ถูกสาปกลายเป็นหมาป่า)
+socket.on("wolf_chat_history", (messages) => {
+    document.getElementById("chatBoxWolf").innerHTML = "";
+    (messages || []).forEach(renderChatMessage);
 });
 
 // ENTER SEND
