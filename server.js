@@ -433,7 +433,8 @@ io.on("connection", (socket) => {
         );
 
         cb({
-            ok: true
+            ok: true,
+            roomData: room
         });
 
     });
