@@ -957,6 +957,264 @@ body.vote-open{
     margin-bottom:10px;
     min-height:18px;
 }
+
+/* ===== ROLE REVEAL ANIMATION ===== */
+
+#roleRevealOverlay{
+    position:fixed;
+    inset:0;
+    z-index:2000;
+    background:rgba(6,9,18,.95);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    pointer-events:none;
+}
+
+#roleRevealOverlay.hidden{ display:none; }
+
+@keyframes revealFadeIn{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+@keyframes revealFadeOut{
+    from{ opacity:1; }
+    to{ opacity:0; }
+}
+@keyframes slotSpin{
+    0%{ transform:translateY(0); filter:blur(2px); opacity:.7; }
+    50%{ transform:translateY(-6px); filter:blur(1px); opacity:.9; }
+    100%{ transform:translateY(0); filter:blur(0); opacity:1; }
+}
+@keyframes revealPop{
+    0%{ transform:scale(.7); opacity:0; }
+    60%{ transform:scale(1.08); opacity:1; }
+    80%{ transform:scale(.97); }
+    100%{ transform:scale(1); }
+}
+@keyframes revealGlow{
+    0%,100%{ text-shadow:0 0 30px rgba(124,92,255,.6), 0 0 60px rgba(124,92,255,.3); }
+    50%{ text-shadow:0 0 50px rgba(124,92,255,1), 0 0 100px rgba(124,92,255,.5); }
+}
+@keyframes revealSlideDown{
+    from{ opacity:0; transform:translateY(-16px); }
+    to{ opacity:1; transform:translateY(0); }
+}
+@keyframes huntAim{
+    0%{ transform:scale(2) rotate(-30deg); opacity:0; }
+    20%{ opacity:1; }
+    60%{ transform:scale(1.1) rotate(5deg); }
+    80%{ transform:scale(1) rotate(0deg); }
+    100%{ transform:scale(1) rotate(0deg); opacity:1; }
+}
+@keyframes huntPulse{
+    0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.5), inset 0 0 0 0 rgba(239,68,68,.2); }
+    50%{ box-shadow:0 0 0 8px rgba(239,68,68,0), inset 0 0 0 2px rgba(239,68,68,.15); }
+}
+@keyframes crosshairScan{
+    0%{ transform:translate(-50%,-50%) scale(1.4); opacity:0; }
+    15%{ opacity:1; }
+    80%{ transform:translate(-50%,-50%) scale(1); }
+    100%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+}
+@keyframes lineH{
+    from{ transform:scaleX(0); opacity:0; }
+    to{ transform:scaleX(1); opacity:1; }
+}
+@keyframes lineV{
+    from{ transform:scaleY(0); opacity:0; }
+    to{ transform:scaleY(1); opacity:1; }
+}
+
+#revealLabel{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:22px;
+    animation:revealSlideDown .5s ease both;
+}
+
+#revealSlotBox{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-size:48px;
+    font-weight:700;
+    color:#fff;
+    min-width:280px;
+    text-align:center;
+    padding:18px 32px;
+    border:1px solid rgba(124,92,255,.25);
+    border-radius:var(--r-lg);
+    background:rgba(124,92,255,.07);
+    margin-bottom:28px;
+    position:relative;
+    overflow:hidden;
+    line-height:1.2;
+}
+
+#revealSlotBox::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg,rgba(10,13,20,.85) 0%,transparent 30%,transparent 70%,rgba(10,13,20,.85) 100%);
+    pointer-events:none;
+    z-index:1;
+}
+
+#revealSlotText{
+    position:relative;
+    z-index:2;
+    display:block;
+}
+
+#revealSlotText.slot-spinning{
+    animation:slotSpin .12s ease infinite;
+}
+
+#revealSlotText.slot-final{
+    animation:revealPop .45s cubic-bezier(.34,1.56,.64,1) both, revealGlow 2s ease infinite .5s;
+}
+
+#revealDesc{
+    font-size:14px;
+    color:var(--ink-dim);
+    text-align:center;
+    max-width:280px;
+    line-height:1.7;
+    animation:revealSlideDown .4s ease both .3s;
+    opacity:0;
+    animation-fill-mode:both;
+}
+
+/* Hunt target box */
+#revealHuntBox{
+    margin-top:28px;
+    position:relative;
+    padding:16px 24px 16px 56px;
+    border:1px solid rgba(239,68,68,.4);
+    border-radius:var(--r-md);
+    background:rgba(239,68,68,.08);
+    min-width:240px;
+    animation:huntPulse 2s ease infinite;
+    display:none;
+}
+
+#revealHuntBox.visible{ display:block; }
+
+#revealHuntIcon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:26px;
+    animation:huntAim .8s cubic-bezier(.34,1.56,.64,1) both .3s;
+}
+
+#revealHuntLabel{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:rgba(239,68,68,.7);
+    margin-bottom:4px;
+}
+
+#revealHuntName{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-size:24px;
+    font-weight:700;
+    color:var(--wolf);
+    text-shadow:0 0 16px rgba(239,68,68,.5);
+    line-height:1.2;
+    position:relative;
+}
+
+/* Crosshair that lands on hunt target name */
+.crosshair{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:44px;
+    height:44px;
+    pointer-events:none;
+    animation:crosshairScan .7s cubic-bezier(.34,1.2,.64,1) both .2s;
+}
+.crosshair::before,.crosshair::after{
+    content:"";
+    position:absolute;
+    background:var(--wolf);
+}
+.crosshair::before{
+    /* horizontal */
+    width:100%;
+    height:2px;
+    top:50%;
+    left:0;
+    transform:translateY(-50%);
+    animation:lineH .35s ease both .9s;
+    transform-origin:center;
+    opacity:0;
+    animation-fill-mode:both;
+}
+.crosshair::after{
+    /* vertical */
+    width:2px;
+    height:100%;
+    left:50%;
+    top:0;
+    transform:translateX(-50%);
+    animation:lineV .35s ease both .9s;
+    transform-origin:center;
+    opacity:0;
+    animation-fill-mode:both;
+}
+.crosshair-ring{
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:44px;height:44px;
+    border:2px solid var(--wolf);
+    border-radius:50%;
+    opacity:0;
+    animation:fadeIn .3s ease both .85s;
+}
+.crosshair-dot{
+    position:absolute;
+    top:50%;left:50%;
+    width:5px;height:5px;
+    background:var(--wolf);
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    opacity:0;
+    animation:fadeIn .2s ease both 1s;
+}
+
+/* Stars/particles */
+.reveal-stars{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    overflow:hidden;
+}
+.reveal-star{
+    position:absolute;
+    width:3px;
+    height:3px;
+    background:#fff;
+    border-radius:50%;
+    opacity:0;
+}
+@keyframes starPop{
+    0%{ opacity:0; transform:scale(0) translate(0,0); }
+    50%{ opacity:1; }
+    100%{ opacity:0; transform:scale(1) translate(var(--tx),var(--ty)); }
+}
 .msg{
     border-radius:var(--r-sm);
     margin-bottom:10px;
@@ -1123,6 +1381,27 @@ body.vote-open{
         🟢 ข้อความส่วนตัว
     </div>
 
+</div>
+
+<!-- ROLE REVEAL ANIMATION OVERLAY -->
+<div id="roleRevealOverlay" class="hidden">
+    <div class="reveal-stars" id="revealStars"></div>
+    <div id="revealLabel">✦ บทบาทของคุณคือ ✦</div>
+    <div id="revealSlotBox">
+        <span id="revealSlotText">—</span>
+    </div>
+    <div id="revealDesc"></div>
+    <div id="revealHuntBox">
+        <div id="revealHuntIcon">🎯</div>
+        <div id="revealHuntLabel">เป้าหมายของคุณ</div>
+        <div id="revealHuntName">
+            <span id="revealHuntNameText"></span>
+            <span class="crosshair">
+                <span class="crosshair-ring"></span>
+                <span class="crosshair-dot"></span>
+            </span>
+        </div>
+    </div>
 </div>
 
 <!-- ROLE POPUP OVERLAY -->
@@ -1302,10 +1581,115 @@ function join() {
 
 }
 
+// ===== ROLE REVEAL ANIMATION =====
+
+const ALL_ROLE_NAMES = [
+    "ชาวบ้าน","หมอ","บอดี้การ์ด","ศาลเตี้ย","แม่มด","ผู้มีลาง","ยายแก่","ผู้ถูกสาป","นักกล้าม",
+    "หมาป่า","ลูกหมาป่า","หมาป่าพิทักษ์","หมาป่าดื้อรั้น","หมาป่านักเวท",
+    "คนบ้า","นักล่าหัว","ฆาตกร"
+];
+
+function spawnRevealStars() {
+    const container = document.getElementById("revealStars");
+    container.innerHTML = "";
+    for (let i = 0; i < 18; i++) {
+        const s = document.createElement("div");
+        s.className = "reveal-star";
+        const angle = Math.random() * 360;
+        const dist = 80 + Math.random() * 160;
+        const tx = Math.cos(angle * Math.PI/180) * dist + "px";
+        const ty = Math.sin(angle * Math.PI/180) * dist + "px";
+        s.style.cssText = `
+            left:${20+Math.random()*60}%;
+            top:${20+Math.random()*60}%;
+            --tx:${tx};
+            --ty:${ty};
+            animation:starPop ${.6+Math.random()*.8}s ease both ${.4+Math.random()*.4}s;
+        `;
+        container.appendChild(s);
+    }
+}
+
+function playRoleReveal(roleData) {
+    const overlay = document.getElementById("roleRevealOverlay");
+    const slotText = document.getElementById("revealSlotText");
+    const revealDesc = document.getElementById("revealDesc");
+    const huntBox = document.getElementById("revealHuntBox");
+    const huntNameText = document.getElementById("revealHuntNameText");
+
+    // reset
+    overlay.classList.remove("hidden");
+    overlay.style.animation = "revealFadeIn .4s ease both";
+    slotText.className = "";
+    slotText.textContent = "—";
+    revealDesc.style.opacity = "0";
+    huntBox.classList.remove("visible");
+
+    spawnRevealStars();
+
+    // ดึงบทที่เป็นไปได้จาก config ห้อง (ถ้ามี) หรือใช้ทั้งหมด
+    let pool = [...ALL_ROLE_NAMES];
+
+    // Phase 1: สุ่มหมุน slot (700ms)
+    let spinCount = 0;
+    const totalSpins = 18;
+    const spinInterval = setInterval(() => {
+        const r = pool[Math.floor(Math.random() * pool.length)];
+        slotText.textContent = r;
+        slotText.className = "slot-spinning";
+        spinCount++;
+        if (spinCount >= totalSpins) {
+            clearInterval(spinInterval);
+
+            // Phase 2: แสดงบทจริง
+            setTimeout(() => {
+                slotText.textContent = roleData.displayRole || roleData.role;
+                slotText.className = "slot-final";
+                spawnRevealStars();
+
+                // แสดง desc
+                setTimeout(() => {
+                    if (roleData.roleInfo) {
+                        revealDesc.innerHTML = roleData.roleInfo.desc
+                            ? roleData.roleInfo.desc.replace(/  ลาง.*/,"")
+                            : "";
+                    }
+                    revealDesc.style.animation = "revealSlideDown .45s ease both";
+                    revealDesc.style.opacity = "1";
+
+                    // Phase 3: ถ้าเป็นนักล่าหัว → แสดง hunt target พร้อม crosshair
+                    if (roleData.huntTarget) {
+                        setTimeout(() => {
+                            huntNameText.textContent = roleData.huntTarget;
+                            huntBox.classList.add("visible");
+                            huntBox.style.animation = "revealSlideDown .5s cubic-bezier(.34,1.56,.64,1) both";
+                        }, 400);
+                    }
+
+                    // Phase 4: fade out overlay หลังแสดงพอ
+                    const holdTime = roleData.huntTarget ? 4800 : 3200;
+                    setTimeout(() => {
+                        overlay.style.animation = "revealFadeOut .7s ease both";
+                        setTimeout(() => {
+                            overlay.classList.add("hidden");
+                            overlay.style.animation = "";
+                        }, 700);
+                    }, holdTime);
+
+                }, 300);
+            }, 80);
+        }
+    }, 80);
+}
+
 // ROLE RECEIVE
 socket.on(
     "your_role",
     (data) => {
+
+    // เล่นอนิเมชั่นเปิดเผยบท
+    playRoleReveal(data);
+
 myRole = data.role;
 
     // อัปเดต bottom bar
