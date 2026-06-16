@@ -594,6 +594,97 @@ button:active{
     margin:10px 0 4px;
 }
 
+/* ---- role row: expandable description toggle ---- */
+.role-row-wrap{
+    display:flex;
+    flex-direction:column;
+}
+
+.role-row-left{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+}
+
+.role-row-left .role-row-name{
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.role-toggle-btn{
+    flex-shrink:0;
+    width:22px;
+    height:22px;
+    min-width:22px;
+    padding:0;
+    margin:0;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:#0a0e18;
+    color:var(--ink-dim);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:none;
+}
+
+.role-toggle-btn:hover{
+    border-color:var(--moon);
+    color:var(--moon);
+    transform:none;
+    filter:none;
+}
+
+.role-toggle-btn:active{
+    transform:none;
+}
+
+.role-toggle-arrow{
+    display:inline-block;
+    font-size:9px;
+    line-height:1;
+    transition:transform .25s ease;
+}
+
+.role-toggle-btn.open{
+    border-color:var(--moon);
+    color:var(--moon);
+    background:var(--moon-soft);
+}
+
+.role-toggle-btn.open .role-toggle-arrow{
+    transform:rotate(90deg);
+}
+
+.role-desc-panel{
+    margin-top:-2px;
+    padding:10px 12px;
+    background:rgba(124,92,255,.06);
+    border:1px solid var(--line);
+    border-top:none;
+    border-radius:0 0 var(--r-sm) var(--r-sm);
+    animation:rise .2s ease both;
+}
+
+.role-desc-panel.hidden{
+    display:none;
+}
+
+.role-desc-title{
+    color:#fff;
+    font-weight:600;
+    font-size:12.5px;
+    margin-bottom:4px;
+}
+
+.role-desc-text{
+    font-size:12.5px;
+    line-height:1.65;
+    color:var(--ink-dim);
+}
+
 /* ===== BOTTOM BAR ===== */
 
 /* เพิ่ม padding ล่างเพื่อไม่ให้ content ซ่อนอยู่หลัง bar */
@@ -1541,6 +1632,7 @@ function getRoleIcon(role) {
     return `<img src="${src}" alt="${role}">`;
 }
 let allRolesData = {};   // จาก roles_data event
+let openRoleDescKeys = new Set(); // เก็บว่าใบไหนกำลังเปิดคำอธิบายอยู่ (คงสถานะไว้ตอน re-render)
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
@@ -1570,6 +1662,24 @@ function closeRolePopup() {
     document.getElementById("rolePopup").classList.add("hidden");
     document.getElementById("rolePopupOverlay").classList.add("hidden");
     document.body.classList.remove("vote-open");
+}
+
+// เปิด/ปิด คำอธิบายอาชีพอื่น ในลิสต์ "บทในเกมรอบนี้"
+function toggleRoleDesc(btn, key) {
+    const panel = document.getElementById("rd_" + key);
+    if (!panel) return;
+
+    const willOpen = panel.classList.contains("hidden");
+
+    if (willOpen) {
+        panel.classList.remove("hidden");
+        btn.classList.add("open");
+        openRoleDescKeys.add(key);
+    } else {
+        panel.classList.add("hidden");
+        btn.classList.remove("open");
+        openRoleDescKeys.delete(key);
+    }
 }
 
 // JOIN ROOM
@@ -1844,13 +1954,53 @@ function showGameInfo(roomData) {
         else villagerTeam[role] = n;
     });
 
+    // ดึงคำอธิบายอาชีพจาก allRolesData (รองรับหลายรูปแบบข้อมูลที่เซิร์ฟเวอร์อาจส่งมา)
+    function getRoleDescHtml(role) {
+        const info = allRolesData[role];
+        if (!info) {
+            return `<div class="role-desc-text">ยังไม่มีข้อมูลคำอธิบายอาชีพนี้</div>`;
+        }
+        if (typeof info === "string") {
+            return `<div class="role-desc-text">${info}</div>`;
+        }
+        const title = info.title || role;
+        const desc = info.desc || info.description || "ยังไม่มีคำอธิบาย";
+        return `
+            <div class="role-desc-title">${title}</div>
+            <div class="role-desc-text">${desc}</div>
+        `;
+    }
+
     function buildSection(label, map, cssClass) {
         if (Object.keys(map).length === 0) return "";
-        const rows = Object.entries(map).map(([role, n]) => `
-            <div class="role-row ${cssClass}">
-                <span class="role-row-name">${role}</span>
-                <span class="role-row-count">${n} คน</span>
-            </div>`).join("");
+        const rows = Object.entries(map).map(([role, n], idx) => {
+
+            const isMine = role === myRole;
+            const key = `${cssClass}_${idx}`;
+            const isOpen = !isMine && openRoleDescKeys.has(key);
+
+            const toggleBtn = !isMine ? `
+                <button type="button" class="role-toggle-btn${isOpen ? " open" : ""}" onclick="toggleRoleDesc(this,'${key}')" aria-label="ดูคำอธิบายอาชีพ ${role}">
+                    <span class="role-toggle-arrow">▶</span>
+                </button>` : "";
+
+            const descPanel = !isMine ? `
+                <div id="rd_${key}" class="role-desc-panel${isOpen ? "" : " hidden"}">
+                    ${getRoleDescHtml(role)}
+                </div>` : "";
+
+            return `
+                <div class="role-row-wrap">
+                    <div class="role-row ${cssClass}">
+                        <span class="role-row-left">
+                            ${toggleBtn}
+                            <span class="role-row-name">${role}</span>
+                        </span>
+                        <span class="role-row-count">${n} คน</span>
+                    </div>
+                    ${descPanel}
+                </div>`;
+        }).join("");
         return `<div class="roles-section-label">${label}</div><div class="roles-list">${rows}</div>`;
     }
 
@@ -1876,6 +2026,7 @@ socket.on("room_update", (roomData) => {
         document.getElementById("chatBoxGlobal").innerHTML = "";
         document.getElementById("chatBoxWolf").innerHTML = "";
         myHuntTargetId = null;
+        openRoleDescKeys = new Set();
     }
 
     const players = document.getElementById("players");
