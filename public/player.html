@@ -1759,6 +1759,7 @@ function getRoleIcon(role) {
 }
 let allRolesData = {};   // จาก roles_data event
 let openRoleDescKeys = new Set(); // เก็บว่าใบไหนกำลังเปิดคำอธิบายอยู่ (คงสถานะไว้ตอน re-render)
+let lastRoomData = null; // เก็บ roomData ล่าสุดเพื่อ re-render กริดหลังรับบท
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
@@ -2023,6 +2024,12 @@ myHuntTargetId = data.huntTargetId || null;
         }
     }
 
+    // Re-render กริดผู้เล่นทันที เพื่อให้ hunt-target badge ขึ้นถูกที่
+    // (room_update มาก่อน your_role ดังนั้นต้อง render ใหม่หลังได้รับบท)
+    if (lastRoomData) {
+        renderPlayerGrid(lastRoomData);
+    }
+
 });
 
 // ROLES DATA
@@ -2137,8 +2144,53 @@ function showGameInfo(roomData) {
         buildSection("⚡ โซโล", soloTeam, "solo-role");
 }
 
+// แยก render กริดผู้เล่นเป็น function เพื่อสามารถเรียกใหม่ได้หลังรับบท
+function renderPlayerGrid(roomData) {
+    const players = document.getElementById("players");
+    players.innerHTML = "";
+    const me = socket.id;
+    const selected = roomData.selectedTargets?.[me];
+    const amIWolf = allWolfRoles.includes(myRole);
+    const others = roomData.players.filter(p => !p.isHost);
+    if (others.length === 0) {
+        players.innerHTML = `<div class="empty-note">รอผู้เล่นคนอื่นเข้าร่วมห้อง...</div>`;
+        return;
+    }
+    others.forEach((p) => {
+        const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
+        const isMyHuntTarget = (myRole === "นักล่าหัว") && myHuntTargetId && (p.id === myHuntTargetId) && p.alive;
+        const div = document.createElement("div");
+        div.className = "player " + (!p.alive ? "dead" : "") + (selected === p.id ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "");
+        div.onclick = () => {
+            if (!myAlive) return;
+            if (!p.alive) return;
+            if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
+        };
+        div.innerHTML = `
+            ${isMyHuntTarget ? `
+                <div class="hunt-target-badge" title="เป้าหมายของคุณ">
+                    <span class="reticle-ring"></span>
+                    <span class="reticle-dot"></span>
+                    <span class="reticle-tick top"></span>
+                    <span class="reticle-tick bottom"></span>
+                    <span class="reticle-tick left"></span>
+                    <span class="reticle-tick right"></span>
+                </div>` : ""}
+            <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
+                ${p.name}
+                ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
+            </div>
+            <div class="status">${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}</div>
+            ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
+        `;
+        players.appendChild(div);
+    });
+}
+
 // ROOM UPDATE
 socket.on("room_update", (roomData) => {
+
+    lastRoomData = roomData; // เก็บไว้ให้ your_role re-render กริดได้
 
     // สลับ card เมื่อเกมเริ่ม
     if (roomData.started) {
@@ -2156,66 +2208,14 @@ socket.on("room_update", (roomData) => {
         openRoleDescKeys = new Set();
     }
 
-    const players = document.getElementById("players");
-    players.innerHTML = "";
-
     const me = socket.id;
-    const selected = roomData.selectedTargets?.[me];
 
     // อัพเดทสถานะมีชีวิตของตัวเอง
     const myPlayer = roomData.players.find(p => p.id === me);
-    if (myPlayer) {
-        myAlive = myPlayer.alive;
-    }
+    if (myPlayer) { myAlive = myPlayer.alive; }
 
-    const amIWolf = allWolfRoles.includes(myRole);
-
-    const others = roomData.players.filter(p => !p.isHost);
-
-    if (others.length === 0) {
-        players.innerHTML = `<div class="empty-note">รอผู้เล่นคนอื่นเข้าร่วมห้อง...</div>`;
-    }
-
-    others.forEach((p) => {
-
-        const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
-        const isMyHuntTarget = (myRole === "นักล่าหัว") && myHuntTargetId && (p.id === myHuntTargetId) && p.alive;
-
-        const div = document.createElement("div");
-        div.className = "player " + (!p.alive ? "dead" : "") + (selected === p.id ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "");
-
-        div.onclick = () => {
-            if (!myAlive) return;   // ตัวเองตาย → ห้ามโหวต
-            if (!p.alive) return;   // เป้าตาย → ห้ามเลือก
-            if (selected === p.id) {
-                selectTarget(null);
-            } else {
-                selectTarget(p.id);
-            }
-        };
-
-        div.innerHTML = `
-            ${isMyHuntTarget ? `
-                <div class="hunt-target-badge" title="เป้าหมายของคุณ">
-                    <span class="reticle-ring"></span>
-                    <span class="reticle-dot"></span>
-                    <span class="reticle-tick top"></span>
-                    <span class="reticle-tick bottom"></span>
-                    <span class="reticle-tick left"></span>
-                    <span class="reticle-tick right"></span>
-                </div>` : ""}
-            <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
-                ${p.name}
-                ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
-            </div>
-            <div class="status">
-                ${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}
-            </div>
-            ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
-        `;
-
-        players.appendChild(div);
-    });
+    // render กริดผู้เล่น
+    renderPlayerGrid(roomData);
 
     // ===== VOTE MODE =====
     const voteSection = document.getElementById("voteSection");
@@ -2259,6 +2259,7 @@ socket.on("room_update", (roomData) => {
 
         alivePlayers.forEach(p => {
 
+            const isMe = p.id === me;
             const isMyVote = myVoteTarget === p.id;
             // จำนวนโหวตที่ p ได้รับ (ใช้แสดงบน card ของ p ในฐานะเป้าหมาย)
             const receivedCount = tally[p.id] || 0;
@@ -2266,9 +2267,10 @@ socket.on("room_update", (roomData) => {
             const votedForName = voteTargetName[p.id] || null;
 
             const div = document.createElement("div");
-            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "");
+            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "") + (isMe ? " is-me" : "");
 
             div.onclick = () => {
+                if (isMe) return;       // ห้ามโหวตตัวเอง
                 if (!myAlive) return;
                 if (!p.alive) return;
                 if (isMyVote) {
@@ -2279,9 +2281,10 @@ socket.on("room_update", (roomData) => {
             };
 
             div.innerHTML = `
-                <div class="vote-pname">
+                <div class="vote-pname" style="${isMe ? "color:#facc15;font-weight:700;" : ""}">
                     ${p.name}
                     ${p.alive ? "" : " 💀"}
+                    ${isMe ? `<span class="vote-me-tag">ฉัน</span>` : ""}
                     ${receivedCount > 0 ? `<span class="vote-count-badge">${receivedCount} โหวต</span>` : ""}
                 </div>
                 ${votedForName ? `<div class="vote-voter-list">โหวต: ${votedForName}</div>` : ""}
