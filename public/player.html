@@ -1775,25 +1775,9 @@ function switchChatTab(tab) {
 
 }
 
-const roleIconMap = {
-    "ชาวบ้าน":      "/images/village.jpg",
-    "หมอ":          "/images/doctor.jpg",
-    "บอดี้การ์ด":   "/images/bodyguard.jpg",
-    "ศาลเตี้ย":     "/images/sheriff.jpg",
-    "แม่มด":        "/images/witch.jpg",
-    "หมาป่า":       "/images/werewolf.jpg",
-    "ลูกหมาป่า":    "/images/juniorwerewolf.jpg",
-    "หมาป่าขาว":    "/images/whitewolf.jpg",
-    "หมาป่าพิทักษ์":"/images/guardianwolf.jpg",
-    "หมาป่าดื้อรั้น":"/images/stubbornwolf.jpg",
-    "หมาป่านักเวท": "/images/wizardwolf.jpg",
-    "คนบ้า":        "/images/fool.jpg",
-    "นักล่าหัว":    "/images/headhunter.jpg",
-    "ฆาตกร":        "/images/murderer.jpg",
-};
-
+// getRoleIcon ดึง icon จาก allRolesData ที่ server ส่งมา (single source of truth)
 function getRoleIcon(role) {
-    const src = roleIconMap[role] || "/images/default-role.jpg";
+    const src = (allRolesData[role] && allRolesData[role].icon) || "/images/default-role.jpg";
     return `<img src="${src}" alt="${role}">`;
 }
 let allRolesData = {};   // จาก roles_data event
