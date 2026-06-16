@@ -1,5 +1,5 @@
 {
-  "name": "werewolf-lobby",
+  "name": "werewolf-game",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
