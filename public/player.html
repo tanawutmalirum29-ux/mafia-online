@@ -530,23 +530,22 @@ button:active{
 }
 .game-visible #chatCard{ transition-delay:.08s; }
 
-/* lobbyRolesCard — โชว์หลังเข้าร่วมห้อง ซ่อนเมื่อเกมเริ่มจริง */
+/* lobbyRolesCard — ซ่อนตอน default, โชว์หลังเข้าร่วมห้อง, ซ่อนเมื่อเกมเริ่มจริง */
 #lobbyRolesCard{
     opacity:0;
     pointer-events:none;
     transform:translateY(12px);
     transition:opacity .35s ease .04s, transform .35s ease .04s;
     overflow-y:auto;
-    max-height:240px;
+    max-height:260px;
 }
 .game-visible #lobbyRolesCard{
     opacity:1;
     pointer-events:auto;
     transform:translateY(0);
 }
-/* เมื่อเกมเริ่มจริง (game-started) ซ่อน lobbyRolesCard */
 .game-started #lobbyRolesCard{
-    display:none;
+    display:none !important;
 }
 
 #joinCard{
@@ -1598,7 +1597,7 @@ body.vote-open{
 </div>
 
 <!-- ROLES IN GAME LOBBY CARD — แสดงหลังเข้าร่วมห้อง ก่อนเกมเริ่ม -->
-<div class="card hidden" id="lobbyRolesCard">
+<div class="card" id="lobbyRolesCard">
     <h3>📋 อาชีพในเกมรอบนี้</h3>
     <p class="sub">แตะ ▶ เพื่อดูคำอธิบายอาชีพแต่ละตัว</p>
     <div id="lobbyRolesInGame"></div>
@@ -1923,10 +1922,10 @@ function join() {
             document.getElementById("bottomBar").classList.remove("hidden");
             document.querySelector('.app').classList.add("game-visible");
 
-            // แสดงอาชีพในเกมทันที (ก่อนเกมเริ่ม)
-            if (res.roomData) {
-                showLobbyRoles(res.roomData);
-            }
+            // แสดงอาชีพในเกมทันที (ใช้ roomData จาก callback หรือ lastRoomData)
+            const rd = res.roomData || lastRoomData;
+            if (rd) showLobbyRoles(rd);
+            else showLobbyRoles({ config: {} }); // empty state
 
         }
     );
@@ -2157,7 +2156,6 @@ function showLobbyRoles(roomData) {
                  buildLobbySection("🐺 ฝ่ายหมาป่า", wolfTeam, "wolf-role") +
                  buildLobbySection("⚡ โซโล", soloTeam, "solo-role");
     container.innerHTML = html || `<div class="empty-note">รอโฮสต์ตั้งค่าห้อง...</div>`;
-    document.getElementById("lobbyRolesCard").classList.remove("hidden");
 }
 
 // แสดง roles ทั้งหมดในเกมรอบนี้
@@ -2311,7 +2309,6 @@ socket.on("room_update", (roomData) => {
         document.getElementById("joinCard").classList.add("hidden");
         document.querySelector('.app').classList.add("game-visible");
         document.querySelector('.app').classList.add("game-started");
-        document.getElementById("lobbyRolesCard").classList.add("hidden");
         showGameInfo(roomData);
     } else if (!joined) {
         // ยังไม่ได้ join → แสดง joinCard ตามปกติ
@@ -2319,7 +2316,7 @@ socket.on("room_update", (roomData) => {
         document.querySelector('.app').classList.remove("game-visible");
         document.querySelector('.app').classList.remove("game-started");
     } else {
-        // joined แล้ว รอเกมเริ่ม → อัปเดต lobby roles ถ้า config เปลี่ยน
+        // joined แล้ว รอเกมเริ่ม → อัปเดต lobby roles เมื่อ config เปลี่ยน
         showLobbyRoles(roomData);
     }
 
