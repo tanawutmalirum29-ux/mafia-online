@@ -593,6 +593,7 @@ realPlayers.forEach((p) => {
         role: p.role,
         displayRole: p.displayRole,
         huntTarget: p.huntTarget,
+        huntTargetId: p.huntTargetId || null,
         roleInfo: roleDescription[p.role] || null
     }
 );
