@@ -721,6 +721,17 @@ button:active{
     border-color:rgba(251,191,36,.3);
 }
 
+.role-row.mine-role{
+    border-color:var(--moon);
+    box-shadow:0 0 0 1px rgba(124,92,255,.25) inset;
+}
+
+.mine-tag{
+    color:var(--moon);
+    font-weight:600;
+    font-size:11px;
+}
+
 .roles-section-label{
     font-family:"JetBrains Mono",monospace;
     font-size:10px;
@@ -819,6 +830,33 @@ button:active{
     font-size:12.5px;
     line-height:1.65;
     color:var(--ink-dim);
+}
+
+.role-desc-flex{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+}
+
+.role-desc-img{
+    width:52px;
+    height:52px;
+    object-fit:cover;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#0a0e18;
+    flex-shrink:0;
+}
+
+.role-desc-img.big{
+    width:72px;
+    height:72px;
+    border-radius:14px;
+}
+
+.role-desc-body{
+    flex:1;
+    min-width:0;
 }
 
 /* ===== BOTTOM BAR ===== */
@@ -2049,9 +2087,17 @@ myHuntTargetId = data.huntTargetId || null;
     // คำอธิบายบท
     const popupRoleDesc = document.getElementById("popupRoleDesc");
     if (data.roleInfo) {
+        const rawTitle = data.roleInfo.title || data.displayRole;
+        const cleanTitle = rawTitle.replace(/<img[^>]*>/gi, "").trim() || data.displayRole;
+        const icon = data.roleInfo.icon || "/images/default-role.jpg";
         popupRoleDesc.innerHTML = `
-            <h3>${data.roleInfo.title}</h3>
-            <div class="small">${data.roleInfo.desc}</div>
+            <div class="role-desc-flex">
+                <img class="role-desc-img big" src="${icon}" alt="${cleanTitle}" onerror="this.style.display='none'">
+                <div class="role-desc-body">
+                    <h3>${cleanTitle}</h3>
+                    <div class="small">${data.roleInfo.desc}</div>
+                </div>
+            </div>
         `;
     } else {
         popupRoleDesc.innerHTML = "";
@@ -2141,11 +2187,19 @@ function showGameInfo(roomData) {
         if (typeof info === "string") {
             return `<div class="role-desc-text">${info}</div>`;
         }
-        const title = info.title || role;
+        const rawTitle = info.title || role;
+        // ชื่อบางอาชีพมี <img> ฝังอยู่ใน title อยู่แล้ว (เลี่ยงรูปซ้ำ) ตัดออกแล้วใช้แค่ข้อความ
+        const cleanTitle = rawTitle.replace(/<img[^>]*>/gi, "").trim() || role;
         const desc = info.desc || info.description || "ยังไม่มีคำอธิบาย";
+        const icon = info.icon || "/images/default-role.jpg";
         return `
-            <div class="role-desc-title">${title}</div>
-            <div class="role-desc-text">${desc}</div>
+            <div class="role-desc-flex">
+                <img class="role-desc-img" src="${icon}" alt="${cleanTitle}" onerror="this.style.display='none'">
+                <div class="role-desc-body">
+                    <div class="role-desc-title">${cleanTitle}</div>
+                    <div class="role-desc-text">${desc}</div>
+                </div>
+            </div>
         `;
     }
 
@@ -2155,24 +2209,24 @@ function showGameInfo(roomData) {
 
             const isMine = role === myRole;
             const key = `${cssClass}_${idx}`;
-            const isOpen = !isMine && openRoleDescKeys.has(key);
+            const isOpen = openRoleDescKeys.has(key);
 
-            const toggleBtn = !isMine ? `
+            const toggleBtn = `
                 <button type="button" class="role-toggle-btn${isOpen ? " open" : ""}" onclick="toggleRoleDesc(this,'${key}')" aria-label="ดูคำอธิบายอาชีพ ${role}">
                     <span class="role-toggle-arrow">▶</span>
-                </button>` : "";
+                </button>`;
 
-            const descPanel = !isMine ? `
+            const descPanel = `
                 <div id="rd_${key}" class="role-desc-panel${isOpen ? "" : " hidden"}">
                     ${getRoleDescHtml(role)}
-                </div>` : "";
+                </div>`;
 
             return `
                 <div class="role-row-wrap">
-                    <div class="role-row ${cssClass}">
+                    <div class="role-row ${cssClass}${isMine ? " mine-role" : ""}">
                         <span class="role-row-left">
                             ${toggleBtn}
-                            <span class="role-row-name">${role}</span>
+                            <span class="role-row-name">${role}${isMine ? ' <span class="mine-tag">(คุณ)</span>' : ""}</span>
                         </span>
                         <span class="role-row-count">${n} คน</span>
                     </div>
@@ -2236,7 +2290,6 @@ socket.on("room_update", (roomData) => {
         document.getElementById("chatCard").classList.remove("hidden");
         document.getElementById("bottomBar").classList.remove("hidden");
         document.getElementById("bottomBar").classList.add("bar-visible");
-        showGameInfo(roomData);
     } else if (!joined) {
         // ยังไม่ได้ join → แสดง joinCard ตามปกติ
         document.getElementById("joinCard").classList.remove("hidden");
@@ -2244,6 +2297,10 @@ socket.on("room_update", (roomData) => {
         document.querySelector('.app').classList.remove("game-started");
         document.getElementById("bottomBar").classList.remove("bar-visible");
     }
+
+    // อัปเดตลิสต์ "บทในเกมรอบนี้" ทุกครั้งที่ห้องมีการเปลี่ยนแปลง
+    // ไม่ต้องรอให้เกมเริ่ม เพื่อให้เห็นจำนวนอาชีพที่โฮสต์เพิ่ม/ลดแบบเรียลไทม์ตั้งแต่ตอนรอในห้อง
+    showGameInfo(roomData);
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
     if (roomData.started && roomData.justStarted) {
