@@ -531,17 +531,7 @@ button:active{
     pointer-events:none;
 }
 
-#bottomBar{
-    opacity:0;
-    pointer-events:none;
-    transform:translateY(8px);
-    transition:opacity .3s ease .2s, transform .3s ease .2s;
-}
-.game-visible #bottomBar{
-    opacity:1;
-    pointer-events:auto;
-    transform:translateY(0);
-}
+
 
 /* chat card takes all remaining space */
 #chatCard{
@@ -819,7 +809,7 @@ body{
     position:fixed;
     bottom:0;
     left:50%;
-    transform:translateX(-50%);
+    transform:translateX(-50%) translateY(8px);
     width:min(560px, 100vw);
     z-index:900;
     background:rgba(14,19,32,.92);
@@ -833,6 +823,14 @@ body{
     gap:12px;
     box-shadow:0 -4px 20px rgba(0,0,0,.4);
     flex-shrink:0;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease .2s, transform .3s ease .2s;
+}
+.game-visible #bottomBar{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateX(-50%) translateY(0);
 }
 
 #maskBtn{
