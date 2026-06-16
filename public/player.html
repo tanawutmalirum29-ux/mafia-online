@@ -530,6 +530,25 @@ button:active{
 }
 .game-visible #chatCard{ transition-delay:.08s; }
 
+/* lobbyRolesCard — โชว์หลังเข้าร่วมห้อง ซ่อนเมื่อเกมเริ่มจริง */
+#lobbyRolesCard{
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(12px);
+    transition:opacity .35s ease .04s, transform .35s ease .04s;
+    overflow-y:auto;
+    max-height:240px;
+}
+.game-visible #lobbyRolesCard{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateY(0);
+}
+/* เมื่อเกมเริ่มจริง (game-started) ซ่อน lobbyRolesCard */
+.game-started #lobbyRolesCard{
+    display:none;
+}
+
 #joinCard{
     transition:opacity .3s ease, transform .3s ease;
 }
@@ -1578,6 +1597,13 @@ body.vote-open{
     <div id="rolesInGame"></div>
 </div>
 
+<!-- ROLES IN GAME LOBBY CARD — แสดงหลังเข้าร่วมห้อง ก่อนเกมเริ่ม -->
+<div class="card hidden" id="lobbyRolesCard">
+    <h3>📋 อาชีพในเกมรอบนี้</h3>
+    <p class="sub">แตะ ▶ เพื่อดูคำอธิบายอาชีพแต่ละตัว</p>
+    <div id="lobbyRolesInGame"></div>
+</div>
+
 <!-- (role/realRole/huntInfo/roleInfo เก็บ hidden ไว้ให้ JS ยังใช้ได้) -->
 <div id="role" class="hidden"></div>
 <div id="realRole" class="hidden"></div>
@@ -1897,6 +1923,11 @@ function join() {
             document.getElementById("bottomBar").classList.remove("hidden");
             document.querySelector('.app').classList.add("game-visible");
 
+            // แสดงอาชีพในเกมทันที (ก่อนเกมเริ่ม)
+            if (res.roomData) {
+                showLobbyRoles(res.roomData);
+            }
+
         }
     );
 
@@ -2075,6 +2106,60 @@ socket.on("roles_data", (data) => {
     allRolesData = data;
 });
 
+// แสดงรายการอาชีพใน lobby card (ก่อนเกมเริ่ม)
+function showLobbyRoles(roomData) {
+    const config = roomData.config || {};
+    const wolfRolesList = ["หมาป่า","ลูกหมาป่า","หมาป่าขาว","หมาป่าพิทักษ์","หมาป่าดื้อรั้น","หมาป่านักเวท"];
+    const soloRolesList = ["คนบ้า","นักล่าหัว","ฆาตกร"];
+    const wolfTeam = {}, villagerTeam = {}, soloTeam = {};
+
+    Object.entries(config).forEach(([role, n]) => {
+        if (wolfRolesList.includes(role) || role.includes("สุ่มหมาป่า")) wolfTeam[role] = n;
+        else if (soloRolesList.includes(role) || role.includes("สุ่มบทบาทการโหวต")) soloTeam[role] = n;
+        else villagerTeam[role] = n;
+    });
+
+    function getRoleDescHtml(role) {
+        const info = allRolesData[role];
+        if (!info) return `<div class="role-desc-text">ยังไม่มีข้อมูลคำอธิบายอาชีพนี้</div>`;
+        if (typeof info === "string") return `<div class="role-desc-text">${info}</div>`;
+        const title = info.title || role;
+        const desc = info.desc || info.description || "ยังไม่มีคำอธิบาย";
+        return `<div class="role-desc-title">${title}</div><div class="role-desc-text">${desc}</div>`;
+    }
+
+    function buildLobbySection(label, map, cssClass) {
+        if (Object.keys(map).length === 0) return "";
+        const rows = Object.entries(map).map(([role, n], idx) => {
+            const key = `lobby_${cssClass}_${idx}`;
+            const isOpen = openRoleDescKeys.has(key);
+            return `
+                <div class="role-row-wrap">
+                    <div class="role-row ${cssClass}">
+                        <span class="role-row-left">
+                            <button type="button" class="role-toggle-btn${isOpen ? " open" : ""}" onclick="toggleRoleDesc(this,'${key}')" aria-label="ดูคำอธิบาย ${role}">
+                                <span class="role-toggle-arrow">▶</span>
+                            </button>
+                            <span class="role-row-name">${role}</span>
+                        </span>
+                        <span class="role-row-count">${n} คน</span>
+                    </div>
+                    <div id="rd_${key}" class="role-desc-panel${isOpen ? "" : " hidden"}">
+                        ${getRoleDescHtml(role)}
+                    </div>
+                </div>`;
+        }).join("");
+        return `<div class="roles-section-label">${label}</div><div class="roles-list">${rows}</div>`;
+    }
+
+    const container = document.getElementById("lobbyRolesInGame");
+    const html = buildLobbySection("🏘️ ฝ่ายชาวบ้าน", villagerTeam, "villager-role") +
+                 buildLobbySection("🐺 ฝ่ายหมาป่า", wolfTeam, "wolf-role") +
+                 buildLobbySection("⚡ โซโล", soloTeam, "solo-role");
+    container.innerHTML = html || `<div class="empty-note">รอโฮสต์ตั้งค่าห้อง...</div>`;
+    document.getElementById("lobbyRolesCard").classList.remove("hidden");
+}
+
 // แสดง roles ทั้งหมดในเกมรอบนี้
 function showGameInfo(roomData) {
     const config = roomData.config || {};
@@ -2225,13 +2310,18 @@ socket.on("room_update", (roomData) => {
     if (roomData.started) {
         document.getElementById("joinCard").classList.add("hidden");
         document.querySelector('.app').classList.add("game-visible");
+        document.querySelector('.app').classList.add("game-started");
+        document.getElementById("lobbyRolesCard").classList.add("hidden");
         showGameInfo(roomData);
     } else if (!joined) {
         // ยังไม่ได้ join → แสดง joinCard ตามปกติ
         document.getElementById("joinCard").classList.remove("hidden");
         document.querySelector('.app').classList.remove("game-visible");
+        document.querySelector('.app').classList.remove("game-started");
+    } else {
+        // joined แล้ว รอเกมเริ่ม → อัปเดต lobby roles ถ้า config เปลี่ยน
+        showLobbyRoles(roomData);
     }
-    // ถ้า joined แล้วแต่เกมยังไม่เริ่ม → คงสถานะ game-visible ไว้
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
     if (roomData.started && roomData.justStarted) {
@@ -2374,6 +2464,7 @@ socket.on("room_closed", () => {
 
     // reset UI กลับสู่หน้าเริ่ม
     document.querySelector('.app').classList.remove("game-visible");
+    document.querySelector('.app').classList.remove("game-started");
     document.getElementById("joinCard").classList.remove("hidden");
     document.getElementById("playersCard").classList.add("hidden");
     document.getElementById("chatCard").classList.add("hidden");
