@@ -186,6 +186,54 @@ input::placeholder{
     color:var(--ink-dim);
 }
 
+.room-suggestion{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin:-4px 0 12px;
+    padding:10px 12px;
+    background:var(--moon-soft);
+    border:1px solid rgba(124,92,255,.3);
+    border-radius:var(--r-sm);
+    cursor:pointer;
+    transition:transform .15s, filter .15s;
+}
+
+.room-suggestion:active{
+    transform:scale(.98);
+}
+
+.room-suggestion.hidden{
+    display:none;
+}
+
+.room-suggestion-main{
+    font-size:12.5px;
+    color:var(--ink);
+    line-height:1.5;
+}
+
+.room-suggestion-main b{
+    font-family:"JetBrains Mono",monospace;
+    color:var(--moon);
+    letter-spacing:.05em;
+    font-size:14px;
+}
+
+.room-suggestion-host{
+    font-size:11px;
+    color:var(--ink-dim);
+}
+
+.room-suggestion-tap{
+    flex-shrink:0;
+    font-size:11px;
+    font-weight:600;
+    color:var(--moon);
+    white-space:nowrap;
+}
+
 select{
     background-image:
         linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
@@ -1426,6 +1474,14 @@ body.vote-open{
         placeholder="โค้ดห้อง"
     >
 
+    <div id="roomSuggestion" class="room-suggestion hidden" onclick="useSuggestedRoom()">
+        <div class="room-suggestion-main">
+            🔗 ห้องที่เปิดอยู่: <b id="roomSuggestionCode">—</b>
+            <div class="room-suggestion-host" id="roomSuggestionHost"></div>
+        </div>
+        <span class="room-suggestion-tap">แตะเพื่อใส่อัตโนมัติ</span>
+    </div>
+
     <button onclick="join()">
         เข้าร่วมห้อง
     </button>
@@ -1596,6 +1652,40 @@ let myRole = "";
 let myAlive = true;
 let currentChatTab = "global";
 let myHuntTargetId = null; // ID ของเป้าหมายนักล่าหัว
+let suggestedRoomData = null; // ห้องล่าสุดที่เปิดอยู่ (จาก server)
+
+// แสดง/ซ่อนการ์ดแนะนำ ROOM CODE
+function renderRoomSuggestion() {
+    const box = document.getElementById("roomSuggestion");
+    if (!box) return;
+
+    if (joined || !suggestedRoomData) {
+        box.classList.add("hidden");
+        return;
+    }
+
+    document.getElementById("roomSuggestionCode").textContent = suggestedRoomData.roomId;
+
+    const hostEl = document.getElementById("roomSuggestionHost");
+    hostEl.textContent = suggestedRoomData.hostName
+        ? `โฮสต์: ${suggestedRoomData.hostName}${suggestedRoomData.started ? " (เริ่มเกมแล้ว)" : ""}`
+        : (suggestedRoomData.started ? "เริ่มเกมแล้ว" : "");
+
+    box.classList.remove("hidden");
+}
+
+// แตะการ์ดแนะนำ → ใส่โค้ดห้องให้อัตโนมัติ
+function useSuggestedRoom() {
+    if (!suggestedRoomData) return;
+    document.getElementById("room").value = suggestedRoomData.roomId;
+    document.getElementById("name").focus();
+}
+
+// รับห้องที่เปิดอยู่ล่าสุดจากเซิร์ฟเวอร์ (กรณีเล่นกับเพื่อนกลุ่มเดียว มีห้องเดียว)
+socket.on("suggested_room", (data) => {
+    suggestedRoomData = data;
+    renderRoomSuggestion();
+});
 
 // SWITCH CHAT TAB
 function switchChatTab(tab) {
@@ -1730,6 +1820,7 @@ function join() {
             }
 
             joined = true;
+            renderRoomSuggestion();
 
         }
     );
@@ -2217,6 +2308,7 @@ socket.on("room_closed", () => {
     document.getElementById("chatBoxWolf").innerHTML = "";
     document.getElementById("room").value = "";
     closeRolePopup();
+    renderRoomSuggestion();
 
 });
 
