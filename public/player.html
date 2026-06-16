@@ -542,15 +542,18 @@ button:active{
 #bottomBar{
     opacity:0;
     pointer-events:none;
-    transform:translateY(8px);
+    transform:translateX(-50%) translateY(8px);
     transition:opacity .3s ease .2s, transform .3s ease .2s;
 }
 /* #bottomBar อยู่นอก .app (เพื่อ fixed เกาะขอบจอ) จึงต้องใช้ class ของตัวเองตรงๆ
-   ไม่สามารถพึ่ง ".game-visible #bottomBar" (descendant selector) ได้ */
+   ไม่สามารถพึ่ง ".game-visible #bottomBar" (descendant selector) ได้
+   หมายเหตุ: ต้องคง translateX(-50%) ไว้ใน transform เดียวกันเสมอ เพราะ #bottomBar
+   จัดกึ่งกลางด้วย left:50%+translateX(-50%) — ถ้าตั้ง transform ใหม่โดยไม่มี translateX(-50%)
+   บาร์จะเลื่อนไปขวาเพราะ transform ค่าใหม่จะทับค่าเก่าทั้งหมด ไม่ใช่รวมกัน */
 #bottomBar.bar-visible{
     opacity:1;
     pointer-events:auto;
-    transform:translateY(0);
+    transform:translateX(-50%) translateY(0);
 }
 
 /* chat card takes all remaining space */
