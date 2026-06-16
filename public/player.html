@@ -504,6 +504,45 @@ button:active{
     flex-shrink:0;
 }
 
+/* ===== LOBBY / GAME TRANSITION ===== */
+#playersCard,
+#chatCard,
+#selectInfo{
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(12px);
+    transition:opacity .35s ease, transform .35s ease;
+}
+.game-visible #playersCard,
+.game-visible #chatCard,
+.game-visible #selectInfo{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateY(0);
+}
+.game-visible #chatCard{ transition-delay:.08s; }
+
+#joinCard{
+    transition:opacity .3s ease, transform .3s ease;
+}
+#joinCard.leaving{
+    opacity:0;
+    transform:translateY(-10px);
+    pointer-events:none;
+}
+
+#bottomBar{
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(8px);
+    transition:opacity .3s ease .2s, transform .3s ease .2s;
+}
+.game-visible #bottomBar{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateY(0);
+}
+
 /* chat card takes all remaining space */
 #chatCard{
     flex:1 1 0;
@@ -1859,6 +1898,15 @@ function join() {
             joined = true;
             renderRoomSuggestion();
 
+            // transition: ซ่อน joinCard → แสดง game UI
+            const joinCard = document.getElementById("joinCard");
+            joinCard.classList.add("leaving");
+            setTimeout(() => {
+                joinCard.classList.add("hidden");
+                joinCard.classList.remove("leaving");
+                document.body.classList.add("game-visible");
+            }, 300);
+
         }
     );
 
@@ -2186,10 +2234,14 @@ socket.on("room_update", (roomData) => {
     // สลับ card เมื่อเกมเริ่ม
     if (roomData.started) {
         document.getElementById("joinCard").classList.add("hidden");
+        document.body.classList.add("game-visible");
         showGameInfo(roomData);
-    } else {
+    } else if (!joined) {
+        // ยังไม่ได้ join → แสดง joinCard ตามปกติ
         document.getElementById("joinCard").classList.remove("hidden");
+        document.body.classList.remove("game-visible");
     }
+    // ถ้า joined แล้วแต่เกมยังไม่เริ่ม → คงสถานะ game-visible ไว้
 
     // ถ้าเพิ่งเริ่มเกมใหม่ → ล้างแชทเก่า
     if (roomData.started && roomData.justStarted) {
@@ -2331,6 +2383,7 @@ socket.on("room_closed", () => {
     myHuntTargetId = null;
 
     // reset UI กลับสู่หน้าเริ่ม
+    document.body.classList.remove("game-visible");
     document.getElementById("joinCard").classList.remove("hidden");
     document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
     document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
