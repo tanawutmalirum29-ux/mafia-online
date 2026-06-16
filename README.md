@@ -1,2 +1,2 @@
-# mafia-online
-เกม Mafia ออนไลน์
+# werewolf-online
+เกม werewolf ออนไลน์
