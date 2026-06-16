@@ -121,6 +121,14 @@ body::before{
     overflow:hidden;
 }
 
+/* joinCard อยู่กลางจอตอน lobby */
+.app:not(.game-visible) {
+    justify-content:center;
+}
+#joinCard {
+    width:100%;
+}
+
 .card{
     background:var(--panel);
     border:1px solid var(--line);
@@ -1578,7 +1586,7 @@ body.vote-open{
 
 <div id="selectInfo" class="small"></div>
 
-<div class="card" id="playersCard">
+<div class="card hidden" id="playersCard">
 
     <h3>
         ผู้เล่นในห้อง
@@ -1612,7 +1620,7 @@ body.vote-open{
 
 </div>
 
-<div id="chatCard">
+<div id="chatCard" class="hidden">
 
     <div class="chatTabs" id="chatTabs">
         <div class="chatTab active" id="tabGlobal" onclick="switchChatTab('global')">
@@ -1884,8 +1892,10 @@ function join() {
 
             // สลับหน้าทันที
             document.getElementById("joinCard").classList.add("hidden");
+            document.getElementById("playersCard").classList.remove("hidden");
+            document.getElementById("chatCard").classList.remove("hidden");
             document.getElementById("bottomBar").classList.remove("hidden");
-            document.body.classList.add("game-visible");
+            document.querySelector('.app').classList.add("game-visible");
 
         }
     );
@@ -2214,12 +2224,12 @@ socket.on("room_update", (roomData) => {
     // สลับ card เมื่อเกมเริ่ม
     if (roomData.started) {
         document.getElementById("joinCard").classList.add("hidden");
-        document.body.classList.add("game-visible");
+        document.querySelector('.app').classList.add("game-visible");
         showGameInfo(roomData);
     } else if (!joined) {
         // ยังไม่ได้ join → แสดง joinCard ตามปกติ
         document.getElementById("joinCard").classList.remove("hidden");
-        document.body.classList.remove("game-visible");
+        document.querySelector('.app').classList.remove("game-visible");
     }
     // ถ้า joined แล้วแต่เกมยังไม่เริ่ม → คงสถานะ game-visible ไว้
 
@@ -2363,8 +2373,10 @@ socket.on("room_closed", () => {
     myHuntTargetId = null;
 
     // reset UI กลับสู่หน้าเริ่ม
-    document.body.classList.remove("game-visible");
+    document.querySelector('.app').classList.remove("game-visible");
     document.getElementById("joinCard").classList.remove("hidden");
+    document.getElementById("playersCard").classList.add("hidden");
+    document.getElementById("chatCard").classList.add("hidden");
     document.getElementById("bottomBar").classList.add("hidden");
     document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
     document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
