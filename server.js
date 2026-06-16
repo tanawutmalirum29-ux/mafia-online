@@ -133,11 +133,12 @@ const roles = {
 
 };
 function broadcastRoles() {
-  io.emit("roles_data", roles);
+  io.emit("roles_data", buildRolesData());
 }
 
 io.on("connection", (socket) => {
-  socket.emit("roles_data", roles);
+  socket.emit("roles_data", buildRolesData());
+  socket.emit("suggested_room", getLatestOpenRoom());
 });
 
 const wolfRoles = Object.keys(roles).filter(
@@ -232,6 +233,46 @@ const roleDescription = {
 
 };
 
+// รวมข้อมูล roles (team/score/messages) กับ roleDescription (title/desc)
+// เข้าด้วยกัน เพื่อส่งให้ฝั่ง client ใช้งานได้ครบในก้อนเดียว (event: roles_data)
+function buildRolesData() {
+    const merged = {};
+    const keys = new Set([
+        ...Object.keys(roles),
+        ...Object.keys(roleDescription)
+    ]);
+    keys.forEach((key) => {
+        merged[key] = {
+            ...(roles[key] || {}),
+            ...(roleDescription[key] || {})
+        };
+    });
+    return merged;
+}
+
+// หาห้องที่เปิดอยู่ล่าสุด (เรียงตามลำดับที่ถูกสร้าง) สำหรับแนะนำ ROOM CODE
+// ให้ผู้เล่นแบบอัตโนมัติ — เผื่อกรณีเล่นกับเพื่อนกลุ่มเดียว มีห้องเดียวที่เปิดอยู่
+function getLatestOpenRoom() {
+    const ids = Object.keys(rooms);
+    if (ids.length === 0) return null;
+
+    const id = ids[ids.length - 1];
+    const room = rooms[id];
+    if (!room) return null;
+
+    const hostPlayer = room.players.find(p => p.isHost);
+
+    return {
+        roomId: id,
+        hostName: hostPlayer ? hostPlayer.name : "",
+        started: !!room.started
+    };
+}
+
+function broadcastSuggestedRoom() {
+    io.emit("suggested_room", getLatestOpenRoom());
+}
+
 function genId() {
 
     return Math.random()
@@ -312,6 +353,8 @@ io.on("connection", (socket) => {
             "room_update",
             rooms[id]
         );
+
+        broadcastSuggestedRoom();
 
         cb(id);
 
@@ -884,6 +927,8 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
             io.to(id).emit("room_update", room);
         }
+
+        broadcastSuggestedRoom();
     });
 
 });
