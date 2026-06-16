@@ -205,7 +205,7 @@ const roleDescription = {
 
     "ผู้มีลาง": {
         icon: "/images/auraseer.jpg",
-        title: '<img src="/images/auraseer" width="30"> ผู้มีลาง',
+        title: '<img src="/images/auraseer.jpg" width="30"> ผู้มีลาง',
         desc: "เลือก 1 คนต่อคืนเพื่อดูว่าเป็นฝ่ายดีหรือฝ่ายร้าย ลาง:ดี"
     },
 
@@ -607,7 +607,7 @@ realPlayers.forEach((p, i) => {
 
 const cannotBeHuntedTeams = ["wolf", "solo"];
 
-const cannotBeHuntedRoles = ["ศาลเตี้ย"];
+const cannotBeHuntedRoles = ["ศาลเตี้ย","ผู้ถูกสาป"];
 
 realPlayers.forEach((p) => {
 
