@@ -163,17 +163,17 @@ const roleDescription = {
 
     "หมาป่าพิทักษ์": {
         icon: "/images/guardianwolf.jpg",
-        title: "🐺 หมาป่าพิทักษ์",
+        title: '<img src="/images/guardianwolf.jpg" width="30"> หมาป่าพิทักษ์",
         desc: "คุณสามารถปกป้องหมาป่า จากการถูกโหวตประหารได้1ครั้ง  ลาง:ร้าย"
     },
     "หมาป่าดื้อรั้น": {
         icon: "/images/stubbornwolf.jpg",
-        title: "🐺 หมาป่าดื้อรั้น",
+        title: '<img src="/images/stubbornwolf.jpg" width="30"> หมาป่าดื้อรั้น",
         desc: "คุณมี2ชีวิต  ลาง:ไม่ทราบ"
     },
     "หมาป่านักเวท": {
         icon: "/images/wizardwolf.jpg",
-        title: "🐺 หมาป่านักเวทย์",
+        title: '<img src="/images/wizardwolf.jpg" width="30"> หมาป่านักเวทย์",
         desc: "ร่ายเวทได้1คนต่อคืน หากอาชีพลางสังหรณ์มาส่องจะพบว่าคนนั้นอยู่ทีมหมาป่า  ลาง:ร้าย"
     },
 
@@ -201,7 +201,7 @@ const roleDescription = {
 
 "นักกล้าม": {
         icon: "/images/muscleman.jpg",
-        title: "💪 นักกล้าม",
+        title: '<img src="/images/muscleman.jpg" width="30"> นักกล้าม",
         desc: "ป้องกัน 1 คนต่อคืน และปกป้องตัวเองอัตโนมัติ หากการปกป้องคุณถูกโจมตีจะเปิดเผยบทบาทผู้ที่โจมตีคุณและคุณจะตายหลังการประชุม  ลาง:ดี"
     },
 
@@ -213,20 +213,20 @@ const roleDescription = {
 
      "ยายแก่": {
         icon: "/images/oldlady.jpg",
-        title: "👵 ยายแก่",
+        title: '<img src="/images/oldlady.jpg" width="30"> ยายแก่",
         desc: "ทำให้คน1คนเป็นใบ้  ลาง:ดี"
     },
     
        "แม่มด": {
         icon: "/images/witch.jpg",
-        title: "🧙‍♀️ แม่มด",
+        title: '<img src="/images/witch.jpg" width="30"> แม่มด",
         desc: "คุณมียาพิษ และ ยาป้องกัน อย่างละขวด ยาป้องกันจะหมดก็ต่อเมื่อคุณป้องกันสำเร็จ  ลาง:ไม่ทราบ"
     },
 
     
      "ศาลเตี้ย": {
         icon: "/images/sheriff.jpg",
-        title: "🔫 ศาลเตี้ย",
+        title: '<img src="/images/sheriff.jpg" width="30"> ศาลเตี้ย",
         desc: "คุณมีกระสุน1นัด และสามารถดูบทบาทคนได้1คน เห็นเฉพาะคุณเท่านั้น  ลางไม่ทราบ"
     },
 
@@ -246,7 +246,7 @@ const roleDescription = {
     },
      "ฆาตกร": {
         icon: "/images/murderer.jpg",
-        title: "🗡️ ฆาตกร",
+        title: '<img src="/images/murderer.jpg" width="30"> ฆาตกร",
         desc: "สามารถฆ่าผู้เล่นได้ 1 คนต่อคืน หมาป่าฆ่าคุณไม่ได้   ลาง:ไม่ทราบ"
     }
 
