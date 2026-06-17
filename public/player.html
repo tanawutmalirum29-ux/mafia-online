@@ -617,6 +617,40 @@ button:active{
     cursor:pointer;
     transition:.15s;
     user-select:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+}
+
+.tab-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:17px;
+    height:17px;
+    padding:0 4px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:700;
+    font-family:"JetBrains Mono",monospace;
+    background:rgba(255,255,255,.15);
+    color:#fff;
+    line-height:1;
+    transition:opacity .2s;
+}
+
+.tab-badge.zero{
+    opacity:0;
+    pointer-events:none;
+}
+
+.chatTab.active .tab-badge{
+    background:rgba(59,130,246,.35);
+}
+
+.chatTab.active.wolfTab .tab-badge{
+    background:rgba(239,68,68,.35);
 }
 
 .chatTab.active{
@@ -1668,9 +1702,11 @@ body.vote-open{
     <div class="chatTabs" id="chatTabs">
         <div class="chatTab active" id="tabGlobal" onclick="switchChatTab('global')">
             🔵 แชทรวม
+            <span class="tab-badge zero" id="badgeGlobal">0</span>
         </div>
         <div class="chatTab hidden" id="tabWolf" onclick="switchChatTab('wolf')">
             🔴 แชทหมาป่า
+            <span class="tab-badge zero" id="badgeWolf">0</span>
         </div>
     </div>
 
@@ -1814,6 +1850,8 @@ socket.on("suggested_room", (data) => {
 });
 
 // SWITCH CHAT TAB
+let playerBadgeCounts = { global: 0, wolf: 0 };
+
 function switchChatTab(tab) {
 
     currentChatTab = tab;
@@ -1823,6 +1861,16 @@ function switchChatTab(tab) {
 
     document.getElementById("chatBoxGlobal").classList.toggle("hidden", tab !== "global");
     document.getElementById("chatBoxWolf").classList.toggle("hidden", tab !== "wolf");
+
+    // reset badge for active tab
+    playerBadgeCounts[tab] = 0;
+    const badgeEl = document.getElementById(tab === "global" ? "badgeGlobal" : "badgeWolf");
+    badgeEl.textContent = "0";
+    badgeEl.classList.add("zero");
+
+    // scroll to bottom
+    const box = document.getElementById(tab === "global" ? "chatBoxGlobal" : "chatBoxWolf");
+    box.scrollTop = box.scrollHeight;
 
 }
 
@@ -2362,6 +2410,12 @@ socket.on("room_update", (roomData) => {
         document.getElementById("chatBoxWolf").innerHTML = "";
         myHuntTargetId = null;
         openRoleDescKeys = new Set();
+        // reset unread badges
+        playerBadgeCounts = { global: 0, wolf: 0 };
+        document.getElementById("badgeGlobal").textContent = "0";
+        document.getElementById("badgeGlobal").classList.add("zero");
+        document.getElementById("badgeWolf").textContent = "0";
+        document.getElementById("badgeWolf").classList.add("zero");
     }
 
     const me = socket.id;
@@ -2638,6 +2692,15 @@ function renderChatMessage(msg) {
 
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
+
+    // increment unread badge if this tab is not active
+    const tabKey = msg.type === "wolf" ? "wolf" : "global";
+    if (currentChatTab !== tabKey) {
+        playerBadgeCounts[tabKey] = (playerBadgeCounts[tabKey] || 0) + 1;
+        const badgeEl = document.getElementById(tabKey === "wolf" ? "badgeWolf" : "badgeGlobal");
+        badgeEl.textContent = playerBadgeCounts[tabKey];
+        badgeEl.classList.remove("zero");
+    }
 }
 
 // RECEIVE CHAT
