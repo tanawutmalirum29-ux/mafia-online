@@ -36,7 +36,7 @@ content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable
 
 *{
     box-sizing:border-box;
-    touch-action: manipulation;
+touch-action: manipulation;
 }
 
 html{
@@ -903,54 +903,6 @@ select{
     margin-top:4px;
 }
 
-/* ---- roles in game summary (host) ---- */
-.host-roles-list{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-}
-.host-role-section-label{
-    font-family:"JetBrains Mono",monospace;
-    font-size:10px;
-    letter-spacing:.2em;
-    text-transform:uppercase;
-    color:var(--ink-dim);
-    margin:10px 0 4px;
-}
-.host-role-row{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:8px 12px;
-    background:#0e1320;
-    border:1px solid var(--line);
-    border-radius:var(--r-sm);
-    font-size:13px;
-}
-.host-role-row.wolf-role{ border-color:rgba(239,68,68,.2); }
-.host-role-row.solo-role{ border-color:rgba(251,191,36,.2); }
-.host-role-row .hrole-name{ color:var(--ink); font-weight:500; }
-.host-role-row .hrole-count{
-    font-family:"JetBrains Mono",monospace;
-    font-size:12px;
-    font-weight:700;
-    padding:2px 8px;
-    border-radius:6px;
-    background:var(--moon-soft);
-    color:var(--moon);
-    border:1px solid rgba(124,92,255,.25);
-}
-.host-role-row.wolf-role .hrole-count{
-    background:var(--wolf-soft);
-    color:var(--wolf);
-    border-color:rgba(239,68,68,.3);
-}
-.host-role-row.solo-role .hrole-count{
-    background:var(--mark-soft);
-    color:var(--mark);
-    border-color:rgba(251,191,36,.3);
-}
-
 .divider{
     height:1px;
     background:var(--line);
@@ -1012,15 +964,6 @@ select{
                     <div class="vote-panel-title">📋 การโหวต</div>
                     <div id="voteRows"></div>
                     <div class="vote-tally" id="voteTally"></div>
-                </div>
-            </div>
-
-            <!-- อาชีพในเกมรอบนี้ (live) -->
-            <div class="card" id="rolesInGameCard">
-                <h2>📋 อาชีพในเกมรอบนี้</h2>
-                <p class="sub">อัปเดตอัตโนมัติเมื่อเพิ่ม/ลดบทบาท</p>
-                <div id="hostRolesSummary">
-                    <div class="empty-note">ยังไม่ได้เลือกบทบาท</div>
                 </div>
             </div>
 
@@ -1417,7 +1360,6 @@ function renderRoles() {
 
     if (roleNames.length === 0) {
         rolesDiv.innerHTML = `<div class="empty-note">ยังไม่ได้เลือกบทบาท — เริ่มจากเลือกจากเมนูด้านบน</div>`;
-        renderHostRolesSummary();
         return;
     }
 
@@ -1476,40 +1418,6 @@ function renderRoles() {
         }
     });
 
-    // อัปเดต summary อาชีพในเกมทุกครั้ง
-    renderHostRolesSummary();
-
-}
-
-// สรุปอาชีพในเกม (live) สำหรับโฮสต์
-function renderHostRolesSummary() {
-    const wolfRolesList = ["หมาป่า","ลูกหมาป่า","หมาป่าขาว","หมาป่าพิทักษ์","หมาป่าดื้อรั้น","หมาป่านักเวท"];
-    const soloRolesList = ["คนบ้า","นักล่าหัว","ฆาตกร"];
-    const wolfTeam = {}, villagerTeam = {}, soloTeam = {};
-
-    Object.entries(roleConfig).forEach(([role, n]) => {
-        if (n <= 0) return;
-        if (wolfRolesList.includes(role) || role.includes("สุ่มหมาป่า")) wolfTeam[role] = n;
-        else if (soloRolesList.includes(role) || role.includes("สุ่มบทบาทการโหวต")) soloTeam[role] = n;
-        else villagerTeam[role] = n;
-    });
-
-    function buildSection(label, map, cssClass) {
-        if (Object.keys(map).length === 0) return "";
-        const rows = Object.entries(map).map(([role, n]) =>
-            `<div class="host-role-row ${cssClass}">
-                <span class="hrole-name">${role}</span>
-                <span class="hrole-count">${n} คน</span>
-            </div>`
-        ).join("");
-        return `<div class="host-role-section-label">${label}</div><div class="host-roles-list">${rows}</div>`;
-    }
-
-    const container = document.getElementById("hostRolesSummary");
-    const html = buildSection("🏘️ ฝ่ายชาวบ้าน", villagerTeam, "villager-role") +
-                 buildSection("🐺 ฝ่ายหมาป่า", wolfTeam, "wolf-role") +
-                 buildSection("⚡ โซโล", soloTeam, "solo-role");
-    container.innerHTML = html || `<div class="empty-note">ยังไม่ได้เลือกบทบาท</div>`;
 }
 
 // ADD ROLE
@@ -1735,11 +1643,6 @@ function toggleVoteMode() {
 
 // initial empty-state render
 renderRoles();
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('touchmove', e => {
-  if (e.touches.length > 1) e.preventDefault();
-}, { passive: false });
 
 </script>
 
