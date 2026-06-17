@@ -1068,120 +1068,151 @@ socket.on("room_update", (room) => {
     currentRoom = room;
 
     const list = document.getElementById("list");
-    list.innerHTML = "";
-
-    room.players.forEach((p) => {
-        const roleData = roles?.[p.role] || {};
-
-        const div = document.createElement("div");
-
-        div.className = "player " + (!p.alive ? "dead" : "");
-        div.setAttribute("data-id", p.id);
-
-        div.innerHTML = `
-
-            <div class="ptop">
-                <span class="pname">${p.name}</span>
-                <span class="prole">${p.role || "?"}</span>
-            </div>
-
-            ${
-                p.displayRole && p.displayRole !== p.role
-                ? `
-                    <div class="randomRole">สุ่มจาก: ${p.displayRole}</div>
-                    <div class="realRole">บทจริง: ${p.role}</div>
-                `
-                : ""
-            }
-
-            ${
-                p.huntTarget
-                ? `<div class="huntInfo">🎯 เป้าหมาย: ${p.huntTarget}</div>`
-                : ""
-            }
-
-            <div class="selectionInfo" id="sel-${p.id}">
-                ยังไม่เลือก
-            </div>
-
-            ${
-                (p.protected || p.killed || p.silenced || p.transformed)
-                ? `
-                    <div class="flags">
-                        ${p.protected ? `<span class="flag protect">🛡 ถูกปกป้อง</span>` : ""}
-                        ${p.killed ? `<span class="flag killed">☠ ถูกเล็งฆ่า</span>` : ""}
-                        ${p.silenced ? `<span class="flag silenced">🤐 โดนใบ้</span>` : ""}
-                        ${p.transformed ? `<span class="flag transformed">🐺 กลายร่างแล้ว</span>` : ""}
-                    </div>
-                `
-                : ""
-            }
-
-            ${
-                roleData?.messages?.length
-                ? `
-                    <div class="roleMessages">
-                        ${roleData.messages.map(msg => `
-                            <button class="presetBtn" onclick="sendPreset('${p.id}', \`${msg}\`)">
-                                ${msg}
-                            </button>
-                        `).join("")}
-                    </div>
-                `
-                : ""
-            }
-
-            <div class="toggles">
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','alive', this.checked)"
-                        ${p.alive ? "checked" : ""}
-                    >
-                    มีชีวิต
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','protected', this.checked)"
-                        ${p.protected ? "checked" : ""}
-                    >
-                    ปกป้อง
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','killed', this.checked)"
-                        ${p.killed ? "checked" : ""}
-                    >
-                    เล็งฆ่า
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','silenced', this.checked)"
-                        ${p.silenced ? "checked" : ""}
-                    >
-                    ใบ้
-                </label>
-
-                <label class="toggle">
-                    <input type="checkbox"
-                        onchange="toggle('${p.id}','transformed', this.checked)"
-                        ${p.transformed ? "checked" : ""}
-                    >
-                    กลายร่าง
-                </label>
-
-            </div>
-
-        `;
-
-        list.appendChild(div);
-    });
 
     if (room.players.filter(p => !p.isHost).length === 0) {
         list.innerHTML = `<div class="empty-note">ยังไม่มีผู้เล่นเข้าร่วมห้องนี้</div>`;
+    } else {
+
+        // เคลียร์ empty-note ค้าง (ถ้ามี) ก่อน sync ของจริง
+        if (list.querySelector(".empty-note")) {
+            list.innerHTML = "";
+        }
+
+        // เก็บการ์ดผู้เล่นเดิมไว้ใช้ซ้ำ แทนรื้อสร้างใหม่ทั้งลิสต์ทุกครั้งที่ติ๊กสถานะ
+        // (เดิมพอติ๊กคนใดคนหนึ่ง การ์ดของผู้เล่น "ทุกคน" จะถูกรื้อสร้างใหม่หมด ทำให้กระตุก)
+        const existingCards = {};
+        list.querySelectorAll(".player[data-id]").forEach((node) => {
+            existingCards[node.dataset.id] = node;
+        });
+        const seenIds = new Set();
+
+        room.players.forEach((p, idx) => {
+            seenIds.add(p.id);
+            const roleData = roles?.[p.role] || {};
+
+            let div = existingCards[p.id];
+            if (!div) {
+                div = document.createElement("div");
+                div.setAttribute("data-id", p.id);
+            }
+
+            div.className = "player " + (!p.alive ? "dead" : "");
+
+            const newHTML = `
+
+                <div class="ptop">
+                    <span class="pname">${p.name}</span>
+                    <span class="prole">${p.role || "?"}</span>
+                </div>
+
+                ${
+                    p.displayRole && p.displayRole !== p.role
+                    ? `
+                        <div class="randomRole">สุ่มจาก: ${p.displayRole}</div>
+                        <div class="realRole">บทจริง: ${p.role}</div>
+                    `
+                    : ""
+                }
+
+                ${
+                    p.huntTarget
+                    ? `<div class="huntInfo">🎯 เป้าหมาย: ${p.huntTarget}</div>`
+                    : ""
+                }
+
+                <div class="selectionInfo" id="sel-${p.id}">
+                    ยังไม่เลือก
+                </div>
+
+                ${
+                    (p.protected || p.killed || p.silenced || p.transformed)
+                    ? `
+                        <div class="flags">
+                            ${p.protected ? `<span class="flag protect">🛡 ถูกปกป้อง</span>` : ""}
+                            ${p.killed ? `<span class="flag killed">☠ ถูกเล็งฆ่า</span>` : ""}
+                            ${p.silenced ? `<span class="flag silenced">🤐 โดนใบ้</span>` : ""}
+                            ${p.transformed ? `<span class="flag transformed">🐺 กลายร่างแล้ว</span>` : ""}
+                        </div>
+                    `
+                    : ""
+                }
+
+                ${
+                    roleData?.messages?.length
+                    ? `
+                        <div class="roleMessages">
+                            ${roleData.messages.map(msg => `
+                                <button class="presetBtn" onclick="sendPreset('${p.id}', \`${msg}\`)">
+                                    ${msg}
+                                </button>
+                            `).join("")}
+                        </div>
+                    `
+                    : ""
+                }
+
+                <div class="toggles">
+
+                    <label class="toggle">
+                        <input type="checkbox"
+                            onchange="toggle('${p.id}','alive', this.checked)"
+                            ${p.alive ? "checked" : ""}
+                        >
+                        มีชีวิต
+                    </label>
+
+                    <label class="toggle">
+                        <input type="checkbox"
+                            onchange="toggle('${p.id}','protected', this.checked)"
+                            ${p.protected ? "checked" : ""}
+                        >
+                        ปกป้อง
+                    </label>
+
+                    <label class="toggle">
+                        <input type="checkbox"
+                            onchange="toggle('${p.id}','killed', this.checked)"
+                            ${p.killed ? "checked" : ""}
+                        >
+                        เล็งฆ่า
+                    </label>
+
+                    <label class="toggle">
+                        <input type="checkbox"
+                            onchange="toggle('${p.id}','silenced', this.checked)"
+                            ${p.silenced ? "checked" : ""}
+                        >
+                        ใบ้
+                    </label>
+
+                    <label class="toggle">
+                        <input type="checkbox"
+                            onchange="toggle('${p.id}','transformed', this.checked)"
+                            ${p.transformed ? "checked" : ""}
+                        >
+                        กลายร่าง
+                    </label>
+
+                </div>
+
+            `;
+
+            // อัปเดต DOM เฉพาะการ์ดที่ข้อมูลเปลี่ยนจริงๆ การ์ดคนอื่นที่ไม่เปลี่ยนจะไม่ถูกแตะเลย
+            if (div.innerHTML !== newHTML) {
+                div.innerHTML = newHTML;
+            }
+
+            if (list.children[idx] !== div) {
+                list.insertBefore(div, list.children[idx] || null);
+            }
+        });
+
+        // ลบการ์ดของผู้เล่นที่ไม่อยู่ในห้องแล้ว (หลุดห้อง/ตัดการเชื่อมต่อ)
+        Object.keys(existingCards).forEach((id) => {
+            if (!seenIds.has(id)) {
+                existingCards[id].remove();
+            }
+        });
     }
 
 
