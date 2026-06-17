@@ -733,6 +733,82 @@ select{
     color:var(--ink-dim);
 }
 
+/* ---- chat tabs (host) ---- */
+
+.chat-tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:12px;
+}
+
+.chat-tab{
+    flex:1;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:9px 14px;
+    border-radius:var(--r-sm);
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-dim);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.15s;
+    box-shadow:none;
+    width:auto;
+}
+
+.chat-tab:hover{
+    border-color:var(--moon);
+    background:var(--moon-soft);
+    color:var(--ink);
+    transform:none;
+    filter:none;
+}
+
+.chat-tab.active-global{
+    border-color:rgba(59,130,246,.5);
+    background:rgba(59,130,246,.12);
+    color:#93c5fd;
+}
+
+.chat-tab.active-wolf{
+    border-color:rgba(239,68,68,.5);
+    background:var(--wolf-soft);
+    color:#fca5a5;
+}
+
+.chat-tab .tab-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:18px;
+    height:18px;
+    padding:0 5px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:700;
+    font-family:"JetBrains Mono",monospace;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    line-height:1;
+}
+
+.chat-tab.active-global .tab-badge{ background:rgba(59,130,246,.35); }
+.chat-tab.active-wolf .tab-badge{ background:rgba(239,68,68,.35); }
+
+.chat-box{
+    display:none;
+}
+
+.chat-box.visible{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
 .btn-vote{
     background:linear-gradient(135deg,#f59e0b,#d97706);
     box-shadow:0 4px 18px rgba(245,158,11,.28);
@@ -964,24 +1040,33 @@ select{
                 <h2>แชท</h2>
                 <p class="sub">ผู้เล่าเรื่องเห็นทุกแชท — รวม, หมาป่า, และส่วนตัว</p>
 
-                <div class="chat-controls">
-                    <select id="chatType">
-                        <option value="global">🔵 แชทรวม</option>
-                        <option value="wolf">🔴 เฉพาะหมาป่า</option>
-                    </select>
+                <!-- TABS -->
+                <div class="chat-tabs">
+                    <button class="chat-tab active-global" id="tabGlobal" onclick="switchHostTab('global')">
+                        🔵 แชทรวม
+                        <span class="tab-badge" id="badgeGlobal">0</span>
+                    </button>
+                    <button class="chat-tab" id="tabWolf" onclick="switchHostTab('wolf')">
+                        🔴 หมาป่า
+                        <span class="tab-badge" id="badgeWolf">0</span>
+                    </button>
+                </div>
 
+                <!-- INPUT -->
+                <div class="chat-controls">
                     <div class="chat-input-row">
                         <input
                             id="hostMsg"
                             class="hostMsgInput"
                             placeholder="พิมพ์ข้อความจากผู้เล่าเรื่อง..."
                         >
-
                         <button class="btn" onclick="sendHostMsg()">ส่ง</button>
                     </div>
                 </div>
 
-                <div id="chatLog" class="chat-log"></div>
+                <!-- CHAT BOXES -->
+                <div id="chatBoxGlobal" class="chat-log chat-box visible"></div>
+                <div id="chatBoxWolf" class="chat-log chat-box"></div>
             </div>
 
         </div>
@@ -1498,7 +1583,11 @@ function updateConfig() {
 function startGame() {
 
     // ล้างแชทรอบก่อน
-    document.getElementById("chatLog").innerHTML = "";
+    document.getElementById("chatBoxGlobal").innerHTML = "";
+    document.getElementById("chatBoxWolf").innerHTML = "";
+    hostBadgeCounts = { global: 0, wolf: 0 };
+    document.getElementById("badgeGlobal").textContent = "0";
+    document.getElementById("badgeWolf").textContent = "0";
 
     socket.emit(
         "start_game",
@@ -1521,6 +1610,32 @@ function toggle(playerId, key, value) {
     );
 
 }
+// HOST CHAT TAB
+let currentHostTab = "global";
+let hostBadgeCounts = { global: 0, wolf: 0 };
+
+function switchHostTab(tab) {
+    currentHostTab = tab;
+
+    // update tab active state
+    document.getElementById("tabGlobal").className =
+        "chat-tab" + (tab === "global" ? " active-global" : "");
+    document.getElementById("tabWolf").className =
+        "chat-tab" + (tab === "wolf" ? " active-wolf" : "");
+
+    // show/hide boxes
+    document.getElementById("chatBoxGlobal").classList.toggle("visible", tab === "global");
+    document.getElementById("chatBoxWolf").classList.toggle("visible", tab === "wolf");
+
+    // reset badge for active tab
+    hostBadgeCounts[tab] = 0;
+    document.getElementById(tab === "global" ? "badgeGlobal" : "badgeWolf").textContent = "0";
+
+    // scroll to bottom of active box
+    const box = document.getElementById(tab === "global" ? "chatBoxGlobal" : "chatBoxWolf");
+    box.scrollTop = box.scrollHeight;
+}
+
 function sendHostMsg() {
 
     const text =
@@ -1529,10 +1644,7 @@ function sendHostMsg() {
         ).value
         .trim();
 
-    const type =
-        document.getElementById(
-            "chatType"
-        ).value;
+    const type = currentHostTab;
 
     if (!text) return;
 
@@ -1575,7 +1687,10 @@ document.getElementById("hostMsg").addEventListener("keydown", (e) => {
 
 socket.on("chat_message", (data) => {
 
-    const log = document.getElementById("chatLog");
+    // route to correct box
+    const isWolf = data.type === "wolf";
+    const boxId = isWolf ? "chatBoxWolf" : "chatBoxGlobal";
+    const log = document.getElementById(boxId);
 
     const div = document.createElement("div");
 
@@ -1601,6 +1716,14 @@ socket.on("chat_message", (data) => {
 
     log.appendChild(div);
     log.scrollTop = log.scrollHeight;
+
+    // update badge if tab not active
+    const tabKey = isWolf ? "wolf" : "global";
+    if (currentHostTab !== tabKey) {
+        hostBadgeCounts[tabKey] = (hostBadgeCounts[tabKey] || 0) + 1;
+        const badgeEl = document.getElementById(tabKey === "wolf" ? "badgeWolf" : "badgeGlobal");
+        badgeEl.textContent = hostBadgeCounts[tabKey];
+    }
 
 });
 
