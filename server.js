@@ -10,7 +10,9 @@ const server =
 const io =
     new Server(server);
 
-app.use(express.static("public"));
+// maxAge: ให้เบราว์เซอร์ cache ไฟล์ static (รูปไอคอนอาชีพ ฯลฯ) ไว้ ไม่ต้องโหลดซ้ำทุกครั้งที่เจอ
+// ช่วยให้รูปที่เคยโชว์ไปแล้วในหน้าอื่น/ตอนอื่นของเกม ขึ้นทันทีจาก cache ไม่ต้องรอโหลดใหม่
+app.use(express.static("public", { maxAge: "7d" }));
 
 const rooms = {};
 const roles = {
@@ -205,7 +207,7 @@ const roleDescription = {
 
     "ผู้มีลาง": {
         icon: "/images/auraseer.jpg",
-        title: '<img src="/images/auraseer.jpg" width="30"> ผู้มีลาง',
+        title: '<img src="/images/auraseer" width="30"> ผู้มีลาง',
         desc: "เลือก 1 คนต่อคืนเพื่อดูว่าเป็นฝ่ายดีหรือฝ่ายร้าย ลาง:ดี"
     },
 
@@ -607,7 +609,7 @@ realPlayers.forEach((p, i) => {
 
 const cannotBeHuntedTeams = ["wolf", "solo"];
 
-const cannotBeHuntedRoles = ["ศาลเตี้ย","ผู้ถูกสาป"];
+const cannotBeHuntedRoles = ["ศาลเตี้ย"];
 
 realPlayers.forEach((p) => {
 
