@@ -37,7 +37,6 @@ content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable
     box-sizing:border-box;
     -webkit-user-select:none;
     user-select:none;
-    touch-action:manipulation;
 }
 html{
     height:100%;
@@ -331,7 +330,7 @@ button:active{
 }
 
 .hidden{
-    display:none;
+    display:none !important;
 }
 
 .small{
@@ -2731,11 +2730,7 @@ document.addEventListener(
 
 });
 
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('touchmove', e => {
-  if (e.touches.length > 1) e.preventDefault();
-}, { passive: false });
+
 
 </script>
 
