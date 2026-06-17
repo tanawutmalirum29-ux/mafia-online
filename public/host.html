@@ -1012,10 +1012,23 @@ function getRoleIcon(role) {
     return (roles[role] && roles[role].icon) || "/images/default-role.jpg";
 }
 
+// พรีโหลดรูปไอคอนอาชีพทั้งหมดล่วงหน้า กันรูปกระตุก/เด้งช้าตอนเพิ่มอาชีพจริงๆ
+const preloadedIcons = new Set();
+function preloadRoleImages(rolesData) {
+    Object.values(rolesData || {}).forEach((info) => {
+        const src = info && info.icon;
+        if (!src || preloadedIcons.has(src)) return;
+        preloadedIcons.add(src);
+        const img = new Image();
+        img.src = src;
+    });
+}
+
 socket.on("roles_data", (data) => {
 
     // เก็บข้อมูล roles ทั้งหมดไว้ใช้ทั้งระบบ
     roles = data || {};
+    preloadRoleImages(roles);
 
     const select = document.getElementById("roleSelect");
 
@@ -1271,87 +1284,81 @@ socket.on(
 // ROLE UI
 function renderRoles() {
 
-    const rolesDiv =
-        document.getElementById(
-            "roles"
-        );
+    const rolesDiv = document.getElementById("roles");
 
-    rolesDiv.innerHTML = "";
-
-    let total = 0;
-
-    Object.keys(roleConfig)
-    .forEach((role) => {
-
-        if (
-            roleConfig[role] <= 0
-        ) {
-
-            delete roleConfig[
-                role
-            ];
-
-            return;
-
+    // ลบอาชีพที่เหลือ 0 หรือต่ำกว่าออกจาก config ก่อน
+    Object.keys(roleConfig).forEach((role) => {
+        if (roleConfig[role] <= 0) {
+            delete roleConfig[role];
         }
-
-        total += roleConfig[role];
-
-        const div =
-            document.createElement(
-                "div"
-            );
-
-        div.className =
-            "roleBox";
-
-        div.innerHTML = `
-
-            <div class="name">
-                <img class="role-icon" src="${getRoleIcon(role)}" alt="${role}" onerror="this.style.display='none'">
-                <span>${role}</span>
-                <span class="count">x${roleConfig[role]}</span>
-            </div>
-
-            <div class="btns">
-
-                <button
-                    class="roleBtn"
-                    onclick="
-                    changeRole(
-                        '${role}',
-                        1
-                    )"
-                    aria-label="เพิ่ม ${role}"
-                >
-                    +
-                </button>
-
-                <button
-                    class="roleBtn"
-                    onclick="
-                    changeRole(
-                        '${role}',
-                        -1
-                    )"
-                    aria-label="ลด ${role}"
-                >
-                    −
-                </button>
-
-            </div>
-
-        `;
-
-        rolesDiv.appendChild(div);
-
     });
+
+    const roleNames = Object.keys(roleConfig);
+    let total = 0;
+    roleNames.forEach((role) => { total += roleConfig[role]; });
 
     document.getElementById("roleTotal").innerText = total;
 
-    if (total === 0) {
+    if (roleNames.length === 0) {
         rolesDiv.innerHTML = `<div class="empty-note">ยังไม่ได้เลือกบทบาท — เริ่มจากเลือกจากเมนูด้านบน</div>`;
+        renderHostRolesSummary();
+        return;
     }
+
+    // ถ้ามี empty-note ค้างอยู่ ให้เคลียร์ก่อน sync ของจริง
+    if (rolesDiv.querySelector(".empty-note")) {
+        rolesDiv.innerHTML = "";
+    }
+
+    // เก็บกล่องอาชีพที่มีอยู่แล้วไว้ใช้ซ้ำ (ตาม role) แทนการรื้อสร้างใหม่ทุกครั้ง
+    // กันไม่ให้รูป/อนิเมชันของกล่องที่ "ไม่ได้เปลี่ยน" กระตุกซ้ำตอนกดเพิ่ม/ลดอาชีพอื่น
+    const existingNodes = {};
+    rolesDiv.querySelectorAll(".roleBox[data-role]").forEach((node) => {
+        existingNodes[node.dataset.role] = node;
+    });
+
+    roleNames.forEach((role, idx) => {
+
+        let div = existingNodes[role];
+
+        if (!div) {
+            // อาชีพใหม่ที่ยังไม่มีกล่อง → สร้างใหม่ (จะเล่นอนิเมชัน rise ตอนเข้ามาจริงๆ)
+            div = document.createElement("div");
+            div.className = "roleBox";
+            div.dataset.role = role;
+
+            div.innerHTML = `
+                <div class="name">
+                    <img class="role-icon" src="${getRoleIcon(role)}" alt="${role}" onerror="this.style.display='none'">
+                    <span>${role}</span>
+                    <span class="count"></span>
+                </div>
+                <div class="btns">
+                    <button class="roleBtn" onclick="changeRole('${role}', 1)" aria-label="เพิ่ม ${role}">+</button>
+                    <button class="roleBtn" onclick="changeRole('${role}', -1)" aria-label="ลด ${role}">−</button>
+                </div>
+            `;
+        }
+
+        // อัปเดตแค่ตัวเลขจำนวน ไม่แตะรูป/ปุ่มของกล่องเดิม เพื่อไม่ให้รีโหลด/เล่นอนิเมชันซ้ำ
+        const countSpan = div.querySelector(".count");
+        const countText = `x${roleConfig[role]}`;
+        if (countSpan.textContent !== countText) {
+            countSpan.textContent = countText;
+        }
+
+        // จัดลำดับกล่องให้ตรงกับลำดับที่เลือก/เพิ่มไว้
+        if (rolesDiv.children[idx] !== div) {
+            rolesDiv.insertBefore(div, rolesDiv.children[idx] || null);
+        }
+    });
+
+    // ลบกล่องอาชีพที่ถูกลดจนหมดออกจากหน้าจริง
+    Object.keys(existingNodes).forEach((role) => {
+        if (!roleConfig[role]) {
+            existingNodes[role].remove();
+        }
+    });
 
     // อัปเดต summary อาชีพในเกมทุกครั้ง
     renderHostRolesSummary();

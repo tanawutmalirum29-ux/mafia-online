@@ -1834,6 +1834,19 @@ function getRoleIcon(role) {
 let allRolesData = {};   // จาก roles_data event
 let openRoleDescKeys = new Set(); // เก็บว่าใบไหนกำลังเปิดคำอธิบายอยู่ (คงสถานะไว้ตอน re-render)
 let lastRoomData = null; // เก็บ roomData ล่าสุดเพื่อ re-render กริดหลังรับบท
+
+// พรีโหลดรูปไอคอนอาชีพทั้งหมดล่วงหน้า (โหลดแอบไว้ใน cache ของเบราว์เซอร์)
+// เพื่อกันรูปกระตุก/เด้งช้าเวลาที่ต้องโผล่ขึ้นมาจริงๆ (เปิดดูบท, เปิดคำอธิบายอาชีพ ฯลฯ)
+const preloadedIcons = new Set();
+function preloadRoleImages(rolesData) {
+    Object.values(rolesData || {}).forEach((info) => {
+        const src = info && info.icon;
+        if (!src || preloadedIcons.has(src)) return;
+        preloadedIcons.add(src);
+        const img = new Image();
+        img.src = src;
+    });
+}
 const wolfRoles = [
     "หมาป่า",
     "ลูกหมาป่า",
@@ -2125,6 +2138,7 @@ myHuntTargetId = data.huntTargetId || null;
 // ROLES DATA
 socket.on("roles_data", (data) => {
     allRolesData = data;
+    preloadRoleImages(allRolesData);
 });
 
 // แสดง roles ทั้งหมดในเกมรอบนี้
@@ -2245,26 +2259,51 @@ function showGameInfo(roomData) {
 // แยก render กริดผู้เล่นเป็น function เพื่อสามารถเรียกใหม่ได้หลังรับบท
 function renderPlayerGrid(roomData) {
     const players = document.getElementById("players");
-    players.innerHTML = "";
     const me = socket.id;
     const selected = roomData.selectedTargets?.[me];
     const amIWolf = allWolfRoles.includes(myRole);
     const others = roomData.players.filter(p => !p.isHost);
+
     if (others.length === 0) {
         players.innerHTML = `<div class="empty-note">รอผู้เล่นคนอื่นเข้าร่วมห้อง...</div>`;
         return;
     }
-    others.forEach((p) => {
+
+    // ถ้ามี empty-note ค้างอยู่ (ตอนยังไม่มีคนอื่น) ให้เคลียร์ก่อน sync ของจริง
+    if (players.querySelector(".empty-note")) {
+        players.innerHTML = "";
+    }
+
+    // เก็บกล่องผู้เล่นที่มีอยู่แล้วไว้ใช้ซ้ำ แทนการรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนกดเลือกเป้าหมาย
+    // (กันรูป/การ์ดผู้เล่นที่ "ไม่ได้เปลี่ยน" กระตุกซ้ำ)
+    const existingNodes = {};
+    players.querySelectorAll(".player[data-pid]").forEach((node) => {
+        existingNodes[node.dataset.pid] = node;
+    });
+    const seenIds = new Set();
+
+    others.forEach((p, idx) => {
+        seenIds.add(p.id);
+
         const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
         const isMyHuntTarget = (myRole === "นักล่าหัว") && myHuntTargetId && (p.id === myHuntTargetId) && p.alive;
-        const div = document.createElement("div");
-        div.className = "player " + (!p.alive ? "dead" : "") + (selected === p.id ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "");
+        const isSelected = selected === p.id;
+
+        let div = existingNodes[p.id];
+        if (!div) {
+            div = document.createElement("div");
+            div.dataset.pid = p.id;
+        }
+
+        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "");
+
         div.onclick = () => {
             if (!myAlive) return;
             if (!p.alive) return;
             if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
         };
-        div.innerHTML = `
+
+        const newInnerHTML = `
             <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
                 ${isMyHuntTarget ? `<span style="font-size:14px;line-height:1;" title="เป้าหมายของคุณ">🎯</span> ` : ""}${p.name}
                 ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
@@ -2272,7 +2311,22 @@ function renderPlayerGrid(roomData) {
             <div class="status">${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}</div>
             ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
         `;
-        players.appendChild(div);
+        // อัปเดตเนื้อหาเฉพาะตอนที่เปลี่ยนจริงๆ เพื่อไม่ให้รูปไอคอนต้องสร้าง/โหลดใหม่ทุกครั้ง
+        if (div.innerHTML !== newInnerHTML) {
+            div.innerHTML = newInnerHTML;
+        }
+
+        // จัดลำดับให้ตรงกับลำดับผู้เล่นจริง (เผื่อมีคนเข้าร่วมห้องเพิ่มระหว่างทาง)
+        if (players.children[idx] !== div) {
+            players.insertBefore(div, players.children[idx] || null);
+        }
+    });
+
+    // ลบกล่องของผู้เล่นที่ไม่อยู่ในห้องแล้ว (หลุดห้อง/ตัดการเชื่อมต่อ)
+    Object.keys(existingNodes).forEach((pid) => {
+        if (!seenIds.has(pid)) {
+            existingNodes[pid].remove();
+        }
     });
 }
 
@@ -2355,11 +2409,19 @@ socket.on("room_update", (roomData) => {
         });
 
         const vpDiv = document.getElementById("votePlayers");
-        vpDiv.innerHTML = "";
 
         const alivePlayers = roomData.players.filter(p => !p.isHost);
 
-        alivePlayers.forEach(p => {
+        // เก็บกล่องโหวตที่มีอยู่แล้วไว้ใช้ซ้ำ แทนรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนโหวต
+        const existingVoteNodes = {};
+        vpDiv.querySelectorAll(".vote-player[data-pid]").forEach((node) => {
+            existingVoteNodes[node.dataset.pid] = node;
+        });
+        const seenVoteIds = new Set();
+
+        alivePlayers.forEach((p, idx) => {
+
+            seenVoteIds.add(p.id);
 
             const isMe = p.id === me;
             const isMyVote = myVoteTarget === p.id;
@@ -2368,7 +2430,12 @@ socket.on("room_update", (roomData) => {
             // ชื่อที่ p โหวตไป
             const votedForName = voteTargetName[p.id] || null;
 
-            const div = document.createElement("div");
+            let div = existingVoteNodes[p.id];
+            if (!div) {
+                div = document.createElement("div");
+                div.dataset.pid = p.id;
+            }
+
             div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "") + (isMe ? " is-me" : "");
 
             div.onclick = () => {
@@ -2382,7 +2449,7 @@ socket.on("room_update", (roomData) => {
                 }
             };
 
-            div.innerHTML = `
+            const newVoteHTML = `
                 <div class="vote-pname" style="${isMe ? "color:#facc15;font-weight:700;" : ""}">
                     ${p.name}
                     ${p.alive ? "" : " 💀"}
@@ -2391,8 +2458,20 @@ socket.on("room_update", (roomData) => {
                 </div>
                 ${votedForName ? `<div class="vote-voter-list">โหวต: ${votedForName}</div>` : ""}
             `;
+            if (div.innerHTML !== newVoteHTML) {
+                div.innerHTML = newVoteHTML;
+            }
 
-            vpDiv.appendChild(div);
+            if (vpDiv.children[idx] !== div) {
+                vpDiv.insertBefore(div, vpDiv.children[idx] || null);
+            }
+        });
+
+        // ลบกล่องของผู้เล่นที่ไม่อยู่ในห้องแล้ว
+        Object.keys(existingVoteNodes).forEach((pid) => {
+            if (!seenVoteIds.has(pid)) {
+                existingVoteNodes[pid].remove();
+            }
         });
 
     } else {
