@@ -259,6 +259,56 @@ a, button, input, select{
     margin-top:2px;
 }
 
+/* ---- card collapsible header ---- */
+
+.card-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+}
+
+.collapse-btn{
+    flex:0 0 auto;
+    width:32px;
+    height:32px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:transparent;
+    color:var(--ink-dim);
+    cursor:pointer;
+    transition:border-color .2s, background .2s, color .2s;
+}
+
+.collapse-btn:hover{
+    border-color:var(--moon);
+    background:var(--moon-soft);
+    color:var(--ink);
+}
+
+.collapse-btn svg{
+    width:16px;
+    height:16px;
+    transition:transform .25s ease;
+}
+
+.collapse-btn.is-collapsed svg{
+    transform:rotate(180deg);
+}
+
+.card-body{
+    overflow:hidden;
+    transition:max-height .25s ease, opacity .2s ease;
+}
+
+.card-body.is-collapsed{
+    opacity:0;
+    pointer-events:none;
+}
+
 /* ---- form controls ---- */
 
 select, .hostMsgInput{
@@ -1019,26 +1069,39 @@ html.modal-open body{
         <div class="col">
 
             <div class="card">
-                <h2>ตั้งค่าบทบาท</h2>
-                <p class="sub">เลือกบทบาทและจำนวนให้ตรงกับผู้เล่นในห้อง</p>
-
-                <div class="role-picker">
-                    <select id="roleSelect"></select>
-                    <button class="btn" onclick="addRole()">+ เพิ่ม</button>
+                <div class="card-head">
+                    <div>
+                        <h2>ตั้งค่าบทบาท</h2>
+                        <p class="sub">เลือกบทบาทและจำนวนให้ตรงกับผู้เล่นในห้อง</p>
+                    </div>
+                    <button class="collapse-btn" id="roleCollapseBtn" onclick="toggleRoleCard()" aria-label="ย่อ/ขยายการ์ดตั้งค่าบทบาท" aria-expanded="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="config-summary">
-                    <span>รายการบทบาท</span>
-                    <span>รวม <b id="roleTotal">0</b> ใบ</span>
+                <div class="card-body" id="roleCardBody">
+
+                    <div class="role-picker">
+                        <select id="roleSelect"></select>
+                        <button class="btn" onclick="addRole()">+ เพิ่ม</button>
+                    </div>
+
+                    <div class="config-summary">
+                        <span>รายการบทบาท</span>
+                        <span>รวม <b id="roleTotal">0</b> ใบ</span>
+                    </div>
+
+                    <div id="roles" class="roleConfigList"></div>
+
+                    <hr class="divider">
+
+                    <button class="btn btn-block" onclick="startGame()">
+                        🌙 เริ่มเกม
+                    </button>
+
                 </div>
-
-                <div id="roles" class="roleConfigList"></div>
-
-                <hr class="divider">
-
-                <button class="btn btn-block" onclick="startGame()">
-                    🌙 เริ่มเกม
-                </button>
             </div>
 
         </div>
@@ -1735,6 +1798,41 @@ socket.on("chat_message", (data) => {
 let voteMode = false;
 function toggleVoteMode() {
     socket.emit("toggle_vote_mode", { roomId });
+}
+
+// TOGGLE ROLE CARD (เปิด/ปิดการ์ดตั้งค่าบทบาท)
+function toggleRoleCard() {
+
+    const body = document.getElementById("roleCardBody");
+    const btn = document.getElementById("roleCollapseBtn");
+    const isCollapsed = body.classList.contains("is-collapsed");
+
+    if (isCollapsed) {
+        // เปิด: ขยายกลับไปตามความสูงจริงของเนื้อหา
+        body.classList.remove("is-collapsed");
+        body.style.maxHeight = body.scrollHeight + "px";
+        btn.classList.remove("is-collapsed");
+        btn.setAttribute("aria-expanded", "true");
+
+        body.addEventListener("transitionend", function clearMaxHeight(e) {
+            if (e.propertyName === "max-height") {
+                body.style.maxHeight = "none";
+                body.removeEventListener("transitionend", clearMaxHeight);
+            }
+        });
+    } else {
+        // ปิด: ล็อกความสูงปัจจุบันก่อน แล้วค่อยยุบลงเป็น 0 เพื่อให้มีอนิเมชัน
+        body.style.maxHeight = body.scrollHeight + "px";
+
+        requestAnimationFrame(() => {
+            body.classList.add("is-collapsed");
+            body.style.maxHeight = "0px";
+        });
+
+        btn.classList.add("is-collapsed");
+        btn.setAttribute("aria-expanded", "false");
+    }
+
 }
 
 // initial empty-state render
