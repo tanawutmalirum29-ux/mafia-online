@@ -20,6 +20,10 @@ const rooms = {};
 // (กันกรณีเน็ตสะดุดแค่แป๊บเดียว / มือถือล็อกสกรีน / สลับแอป แล้ว socket หลุดชั่วครู่)
 const RECONNECT_GRACE_MS = 20000;
 
+// โฮสต์ใช้เวลารอเชื่อมต่อใหม่นานกว่าผู้เล่นทั่วไปเล็กน้อย เพราะถ้าโฮสต์ไม่กลับมาจริงๆ
+// ห้องทั้งห้องจะถูกปิด (กระทบทุกคน) ไม่ใช่แค่ผู้เล่นคนเดียวหลุดออกจากเกม
+const HOST_RECONNECT_GRACE_MS = 30000;
+
 // เก็บ timer ของผู้เล่นที่กำลังรอถูกเตะ แยกไว้นอก room/player object เสมอ
 // (ห้ามฝัง timer handle ไว้ใน room หรือ player เพราะ object พวกนั้นถูกส่งทั้งก้อนผ่าน
 // io.emit("room_update", room) ซึ่งต้อง JSON-serialize ได้ ถ้ามี timer handle ติดไปจะพัง)
@@ -374,6 +378,10 @@ io.on("connection", (socket) => {
 
         const id = genId();
 
+        // โฮสต์ก็ต้องมี token เหมือนผู้เล่นทั่วไป เพื่อให้ "เชื่อมต่อใหม่" เข้าห้องเดิมได้
+        // เวลาเน็ตหลุดแล้วกลับมา (ไม่ใช่ปิดห้องทันทีเหมือนเดิม)
+        const hostToken = genId() + genId();
+
         rooms[id] = {
     host: socket.id,
     config: {},
@@ -383,6 +391,8 @@ io.on("connection", (socket) => {
     players: [
                 {
                     id: socket.id,
+
+                    token: hostToken,
 
                     name: name,
 
@@ -410,7 +420,7 @@ io.on("connection", (socket) => {
 
         broadcastSuggestedRoom();
 
-        cb(id);
+        cb({ roomId: id, token: hostToken });
 
     });
 
@@ -1071,34 +1081,52 @@ socket.on("select_target", ({ roomId, targetId }) => {
     });
 
 
+    // ปิดห้องจริงๆ (ใช้ทั้งตอนโฮสต์ไม่กลับมาเชื่อมต่อภายในเวลาที่กำหนด
+    // และตอนโฮสต์กดปิดห้องเองด้วยปุ่ม "ปิดห้อง")
+    function closeRoom(roomId, reason) {
+
+        const room = rooms[roomId];
+        if (!room) return;
+
+        io.to(roomId).emit("room_closed", { reason });
+
+        for (const p of room.players) {
+            io.sockets.sockets.get(p.id)?.leave(roomId);
+
+            if (pendingRemovals[p.token]) {
+                clearTimeout(pendingRemovals[p.token].timer);
+                delete pendingRemovals[p.token];
+            }
+        }
+
+        delete rooms[roomId];
+
+        broadcastSuggestedRoom();
+    }
+
+    // ปิดห้องเอง (โฮสต์กดปุ่ม "ปิดห้อง" ตั้งใจ ไม่ใช่เน็ตหลุด)
+    socket.on("close_room", (roomId) => {
+
+        const room = rooms[roomId];
+        if (!room) return;
+
+        if (socket.id !== room.host) return; // ต้องเป็นโฮสต์ของห้องนั้นเท่านั้น
+
+        closeRoom(roomId, "host_closed");
+    });
+
     socket.on("disconnect", () => {
 
         for (const id in rooms) {
 
             const room = rooms[id];
 
-            const wasHost = room.host === socket.id;
-
-            // โฮสต์หลุด/รีห้อง -> ปิดห้องทันทีเหมือนเดิม (หน้าจอโฮสต์ไม่ได้ใช้ระบบรีคอนเนกต์นี้)
-            if (wasHost) {
-                io.to(id).emit("room_closed", {
-                    reason: "host_disconnected"
-                });
-
-                for (const p of room.players) {
-                    io.sockets.sockets.get(p.id)?.leave(id);
-                }
-
-                delete rooms[id];
-                continue;
-            }
-
             const player = room.players.find(p => p.id === socket.id);
             if (!player) continue;
 
-            // ไม่เตะผู้เล่นออกจากห้องทันที — ให้เวลา "หลุดแล้วกลับมาใหม่"
-            // (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอป) ก่อนค่อยลบออกจริง
-            // ผู้เล่นคนอื่นจะเห็นสถานะ "🟡 กำลังเชื่อมต่อใหม่..." แทนการหายไปจากกริดทันที
+            // ไม่เตะผู้เล่น (หรือปิดห้องเพราะโฮสต์) ทันที — ให้เวลา "หลุดแล้วกลับมาใหม่"
+            // (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอป) ก่อนค่อยทำจริง เหมือนกันทั้งโฮสต์และผู้เล่น
+            // ผู้เล่นคนอื่นจะเห็นสถานะ "🟡 กำลังเชื่อมต่อใหม่..." แทนการถูกเตะออก/ห้องปิดทันที
             player.disconnected = true;
 
             io.to(id).emit("room_update", room);
@@ -1106,6 +1134,8 @@ socket.on("select_target", ({ roomId, targetId }) => {
             if (pendingRemovals[player.token]) {
                 clearTimeout(pendingRemovals[player.token].timer);
             }
+
+            const graceMs = player.isHost ? HOST_RECONNECT_GRACE_MS : RECONNECT_GRACE_MS;
 
             pendingRemovals[player.token] = {
                 roomId: id,
@@ -1117,7 +1147,13 @@ socket.on("select_target", ({ roomId, targetId }) => {
                     if (!stillRoom) return;
 
                     const stillPlayer = stillRoom.players.find(p => p.token === player.token);
-                    if (!stillPlayer || !stillPlayer.disconnected) return; // กลับมาเชื่อมต่อแล้ว ไม่ต้องลบออก
+                    if (!stillPlayer || !stillPlayer.disconnected) return; // กลับมาเชื่อมต่อแล้ว ไม่ต้องทำอะไร
+
+                    // โฮสต์ไม่กลับมาเชื่อมต่อภายในเวลาที่กำหนด -> ปิดห้องทั้งห้องจริงๆ
+                    if (stillPlayer.isHost) {
+                        closeRoom(id, "host_disconnected");
+                        return;
+                    }
 
                     stillRoom.players = stillRoom.players.filter(p => p.token !== player.token);
 
@@ -1129,7 +1165,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
                     broadcastSuggestedRoom();
 
-                }, RECONNECT_GRACE_MS)
+                }, graceMs)
             };
         }
 
