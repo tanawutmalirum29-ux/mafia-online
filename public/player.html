@@ -333,6 +333,27 @@ button:active{
     display:none !important;
 }
 
+/* แบนเนอร์แจ้งสถานะขาดการเชื่อมต่อ/กำลังเชื่อมต่อใหม่ */
+.conn-banner{
+    position:fixed;
+    top:0;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:50;
+    max-width:560px;
+    width:calc(100% - 24px);
+    margin-top:8px;
+    padding:9px 14px;
+    border-radius:var(--r-sm);
+    background:var(--mark-soft);
+    border:1px solid rgba(251,191,36,.4);
+    color:var(--mark);
+    font-size:12.5px;
+    font-weight:600;
+    text-align:center;
+    animation:rise .3s ease both;
+}
+
 .small{
     font-size:13px;
     line-height:1.7;
@@ -427,6 +448,10 @@ button:active{
     opacity:.45;
     filter:grayscale(100%);
     cursor:default;
+}
+
+.player.reconnecting{
+    opacity:.6;
 }
 
 /* Hunt target marker */
@@ -1704,6 +1729,8 @@ body.vote-open{
 
 <div class="app">
 
+<div id="connBanner" class="conn-banner hidden">🔌 ขาดการเชื่อมต่อ กำลังพยายามเชื่อมต่อใหม่...</div>
+
 <!-- JOIN CARD -->
 <div class="card" id="joinCard">
 
@@ -1925,6 +1952,31 @@ let myAlive = true;
 let currentChatTab = "global";
 let myHuntTargetId = null; // ID ของเป้าหมายนักล่าหัว
 let suggestedRoomData = null; // ห้องล่าสุดที่เปิดอยู่ (จาก server)
+let currentRoomId = null; // ห้องที่ join อยู่ตอนนี้ ใช้ตอนเชื่อมต่อใหม่อัตโนมัติ
+
+// ===== จำตัวตนผู้เล่นไว้ในเครื่อง (localStorage) =====
+// 1) ใช้ auto-fill ชื่อ/ห้องล่าสุดให้ตอนเปิดเว็บใหม่หรือรีเฟรช
+// 2) ใช้เป็น "token" ประจำเครื่อง/เบราว์เซอร์นี้ เพื่อให้ตอนเน็ตหลุด-กลับมา
+//    เซิร์ฟเวอร์รู้ว่าเป็นผู้เล่นคนเดิม ไม่ใช่คนใหม่ (กันบทบาท/สถานะหาย และกันกริดผู้เล่นไม่อัปเดต)
+function getClientToken() {
+    let t = localStorage.getItem("ww_token");
+    if (!t) {
+        t = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+        localStorage.setItem("ww_token", t);
+    }
+    return t;
+}
+const clientToken = getClientToken();
+
+// เติมชื่อ/โค้ดห้องล่าสุดที่เคยกรอกไว้ ให้อัตโนมัติทันทีที่เปิดหน้า
+(function restoreLastSession() {
+    const savedName = localStorage.getItem("ww_playerName");
+    const savedRoom = localStorage.getItem("ww_lastRoom");
+    if (savedName) document.getElementById("name").value = savedName;
+    if (savedRoom) document.getElementById("room").value = savedRoom;
+})();
 
 // แสดง/ซ่อนการ์ดแนะนำ ROOM CODE
 function renderRoomSuggestion() {
@@ -2087,11 +2139,16 @@ function join() {
 
     }
 
+    // จำชื่อ + โค้ดห้องไว้ในเครื่อง เพื่อ auto-fill ให้ครั้งหน้า
+    localStorage.setItem("ww_playerName", playerName);
+    localStorage.setItem("ww_lastRoom", roomCode);
+
     socket.emit(
         "join_room",
         {
             roomId: roomCode,
-            name: playerName
+            name: playerName,
+            token: clientToken
         },
 
         (res) => {
@@ -2107,6 +2164,7 @@ function join() {
             }
 
             joined = true;
+            currentRoomId = roomCode;
             renderRoomSuggestion();
 
             // สลับหน้าทันที
@@ -2225,8 +2283,10 @@ socket.on(
     "your_role",
     (data) => {
 
-    // เล่นอนิเมชั่นเปิดเผยบท
-    playRoleReveal(data);
+    // เล่นอนิเมชั่นเปิดเผยบท (ข้ามถ้าเป็นการส่งซ้ำแบบ "เงียบ" ตอนเชื่อมต่อใหม่ ไม่ใช่ได้บทครั้งแรก)
+    if (!data.silent) {
+        playRoleReveal(data);
+    }
 
 myRole = data.role;
 myHuntTargetId = data.huntTargetId || null;
@@ -2458,7 +2518,7 @@ function renderPlayerGrid(roomData) {
             div.dataset.pid = p.id;
         }
 
-        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "");
+        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "") + (p.disconnected ? " reconnecting" : "");
 
         div.onclick = () => {
             if (!myAlive) return;
@@ -2471,7 +2531,7 @@ function renderPlayerGrid(roomData) {
                 ${isMyHuntTarget ? `<span style="font-size:14px;line-height:1;" title="เป้าหมายของคุณ">🎯</span> ` : ""}${p.name}
                 ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
             </div>
-            <div class="status">${p.alive ? "🟢 มีชีวิต" : "🔴 ตายแล้ว"}</div>
+            <div class="status">${!p.alive ? "🔴 ตายแล้ว" : p.disconnected ? "🟡 กำลังเชื่อมต่อใหม่..." : "🟢 มีชีวิต"}</div>
             ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
         `;
         // อัปเดตเนื้อหาเฉพาะตอนที่เปลี่ยนจริงๆ เพื่อไม่ให้รูปไอคอนต้องสร้าง/โหลดใหม่ทุกครั้ง
@@ -2766,15 +2826,45 @@ socket.on("room_update", (roomData) => {
 
 });
 
-// DISCONNECT
+// DISCONNECT — แสดงแบนเนอร์เตือนแทน alert (alert จะรบกวนมากถ้าเน็ตสะดุดแค่แป๊บเดียว
+// เพราะ socket.io จะพยายามเชื่อมต่อใหม่ให้อัตโนมัติอยู่แล้ว)
 socket.on(
     "disconnect",
     () => {
 
     if (joined) {
+        document.getElementById("connBanner").classList.remove("hidden");
+    }
 
-        alert(
-            "ขาดการเชื่อมต่อเซิร์ฟเวอร์"
+});
+
+// CONNECT — เรียกทั้งตอนเชื่อมต่อครั้งแรก และทุกครั้งที่ socket.io เชื่อมต่อใหม่สำเร็จ
+// (เช่น เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอปกลับมา) ถ้าตอนหลุดเรา "join" ห้องอยู่
+// ให้ส่ง token เดิมไป join_room ซ้ำทันที เพื่อให้เซิร์ฟเวอร์รู้ว่าเป็นคนเดิม
+// แล้วส่งกริดผู้เล่น/บทบาทกลับมาให้ใหม่ ไม่ต้องกดเข้าร่วมห้องเองอีกรอบ
+socket.on("connect", () => {
+
+    document.getElementById("connBanner").classList.add("hidden");
+
+    if (joined && currentRoomId) {
+
+        socket.emit(
+            "join_room",
+            {
+                roomId: currentRoomId,
+                name: localStorage.getItem("ww_playerName") || "",
+                token: clientToken
+            },
+            (res) => {
+                if (res && res.error) {
+                    // ห้องถูกปิดไปแล้วระหว่างที่เราหลุดการเชื่อมต่อ
+                    alert("ห้องถูกปิดไปแล้ว หรือไม่พบห้อง");
+                    joined = false;
+                    currentRoomId = null;
+                }
+                // ถ้าสำเร็จ: room_update / your_role จะตามมาทาง event ปกติ
+                // ทำให้กริดผู้เล่นและบทบาทกลับมาแสดงผลถูกต้องโดยอัตโนมัติ
+            }
         );
 
     }
@@ -2789,6 +2879,7 @@ socket.on("room_closed", () => {
     alert("ห้องถูกปิด เนื่องจากผู้สร้างห้องออกจากเกม");
 
     joined = false;
+    currentRoomId = null;
     myRole = "";
     myHuntTargetId = null;
 
