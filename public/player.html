@@ -2939,10 +2939,10 @@ socket.on("connect", () => {
             },
             (res) => {
                 if (res && res.error) {
-                    // ห้องถูกปิดไปแล้วระหว่างที่เราหลุดการเชื่อมต่อ
-                    alert("ห้องถูกปิดไปแล้ว หรือไม่พบห้อง");
-                    joined = false;
-                    currentRoomId = null;
+                    // ห้องถูกปิดไปแล้วระหว่างที่เราหลุดการเชื่อมต่อ (เช่น โฮสต์รี/ปิดห้อง
+                    // ขณะเราสลับแท็บ/ล็อกสกรีนอยู่) ต้องรีเซ็ต UI กลับไปหน้ากรอกห้อง/ชื่อ
+                    // ด้วย ไม่ใช่แค่เคลียร์ตัวแปร ไม่งั้นจะค้างอยู่หน้าเกม
+                    resetToJoinScreen("ห้องถูกปิดไปแล้ว หรือไม่พบห้อง");
                 }
                 // ถ้าสำเร็จ: room_update / your_role จะตามมาทาง event ปกติ
                 // ทำให้กริดผู้เล่นและบทบาทกลับมาแสดงผลถูกต้องโดยอัตโนมัติ
@@ -2953,12 +2953,12 @@ socket.on("connect", () => {
 
 });
 
-// ROOM CLOSED (โฮสต์หลุด/รีห้อง)
-socket.on("room_closed", () => {
+// รีเซ็ต UI กลับไปหน้ากรอกห้อง/ชื่อ ใช้กลางทั้งกรณี room_closed ปกติ
+// และกรณีที่ join_room ตอน reconnect ถูกปฏิเสธ (ห้องถูกปิด/ไม่พบห้อง)
+// เพื่อไม่ให้ผู้เล่นค้างอยู่หน้าเกมทั้งที่ไม่ได้อยู่ในห้องแล้ว
+function resetToJoinScreen(message) {
 
-    if (!joined) return;
-
-    alert("ห้องถูกปิด เนื่องจากผู้สร้างห้องออกจากเกม");
+    if (message) alert(message);
 
     joined = false;
     currentRoomId = null;
@@ -2993,6 +2993,15 @@ socket.on("room_closed", () => {
     document.getElementById("room").value = "";
     closeRolePopup();
     renderRoomSuggestion();
+
+}
+
+// ROOM CLOSED (โฮสต์หลุด/รีห้อง)
+socket.on("room_closed", () => {
+
+    if (!joined) return;
+
+    resetToJoinScreen("ห้องถูกปิด เนื่องจากผู้สร้างห้องออกจากเกม");
 
 });
 
