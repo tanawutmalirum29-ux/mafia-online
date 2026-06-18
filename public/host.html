@@ -2198,7 +2198,7 @@ function startGame() {
 // TOGGLE
 function kickPlayer(playerId, playerName) {
     if (!confirm(`เตะ "${playerName}" ออกจากห้องใช่ไหม?`)) return;
-    socket.emit("kick_player", { roomId: currentRoomId, playerId });
+    socket.emit("kick_player", { roomId, playerId });
 }
 
 function toggle(playerId, key, value) {
