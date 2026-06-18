@@ -609,6 +609,39 @@ select{
 .flag.silenced{ background:rgba(148,163,184,.14); color:#94a3b8; border:1px solid rgba(148,163,184,.3); }
 .flag.transformed{ background:var(--mark-soft); color:var(--mark); border:1px solid rgba(251,191,36,.3); }
 
+/* ---- player status summary card ---- */
+
+.status-summary{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.status-group-title{
+    margin-bottom:8px;
+}
+
+.status-group-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.status-name-chip{
+    font-size:12.5px;
+    font-weight:500;
+    padding:5px 12px;
+    border-radius:999px;
+    background:#0e1320;
+    border:1px solid var(--line);
+    color:var(--ink);
+}
+
+.status-empty{
+    font-size:12.5px;
+    color:var(--ink-dim);
+}
+
 /* preset messages */
 
 .roleMessages{
@@ -1126,6 +1159,36 @@ html.modal-open body{
                 </div>
             </div>
 
+            <div class="card">
+                <h2>สรุปสถานะผู้เล่น</h2>
+                <p class="sub">ใครถูกติ๊กสถานะอยู่ในขณะนี้</p>
+
+                <div class="status-summary" id="statusSummary">
+
+                    <div class="status-group">
+                        <div class="status-group-title">
+                            <span class="flag killed">☠ เล็งฆ่า</span>
+                        </div>
+                        <div class="status-group-list" id="statusKilled"></div>
+                    </div>
+
+                    <div class="status-group">
+                        <div class="status-group-title">
+                            <span class="flag protect">🛡 ปกป้อง</span>
+                        </div>
+                        <div class="status-group-list" id="statusProtected"></div>
+                    </div>
+
+                    <div class="status-group">
+                        <div class="status-group-title">
+                            <span class="flag silenced">🤐 ใบ้</span>
+                        </div>
+                        <div class="status-group-list" id="statusSilenced"></div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
 
         <!-- ===== RIGHT COLUMN ===== -->
@@ -1283,6 +1346,7 @@ document.getElementById("room").onclick = () => {
 socket.on("room_update", (room) => {
 
     currentRoom = room;
+    renderStatusSummary(room);
 
     const list = document.getElementById("list");
 
@@ -1400,14 +1464,6 @@ socket.on("room_update", (room) => {
                             ${p.silenced ? "checked" : ""}
                         >
                         ใบ้
-                    </label>
-
-                    <label class="toggle">
-                        <input type="checkbox"
-                            onchange="toggle('${p.id}','transformed', this.checked)"
-                            ${p.transformed ? "checked" : ""}
-                        >
-                        กลายร่าง
                     </label>
 
                 </div>
@@ -1607,6 +1663,34 @@ socket.on(
 
     }
 );
+
+// PLAYER STATUS SUMMARY (ใครโดนติ๊ก ฆ่า/ป้องกัน/ใบ้)
+function renderStatusSummary(room) {
+
+    const players = (room.players || []).filter((p) => !p.isHost);
+
+    const groups = [
+        { key: "killed", elId: "statusKilled" },
+        { key: "protected", elId: "statusProtected" },
+        { key: "silenced", elId: "statusSilenced" },
+    ];
+
+    groups.forEach(({ key, elId }) => {
+
+        const el = document.getElementById(elId);
+        const matched = players.filter((p) => p[key]);
+
+        if (matched.length === 0) {
+            el.innerHTML = `<span class="status-empty">— ไม่มี —</span>`;
+        } else {
+            el.innerHTML = matched
+                .map((p) => `<span class="status-name-chip">${p.name}</span>`)
+                .join("");
+        }
+
+    });
+
+}
 
 // ROLE UI
 function renderRoles() {
@@ -1952,6 +2036,7 @@ function toggleRoleCard() {
 
 // initial empty-state render
 renderRoles();
+renderStatusSummary({ players: [] });
 
 </script>
 
