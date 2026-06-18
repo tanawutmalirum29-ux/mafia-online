@@ -967,8 +967,20 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
     if (!room.selectedTargets) room.selectedTargets = {};
 
+    const protectRoles = ["หมอ", "บอดี้การ์ด"];
+    const selector = room.players.find(p => p.id === socket.id);
+    const isProtector = selector && protectRoles.includes(selector.role);
+
     // ถ้า null = ยกเลิกการเลือก
     if (!targetId) {
+        // ถ้าเป็น หมอ/บอดี้การ์ด ให้ถอด protected จาก target เดิมด้วย
+        if (isProtector) {
+            const prevTargetId = room.selectedTargets[socket.id];
+            if (prevTargetId) {
+                const prevTarget = room.players.find(p => p.id === prevTargetId);
+                if (prevTarget) prevTarget.protected = false;
+            }
+        }
         delete room.selectedTargets[socket.id];
     } else {
 
@@ -976,6 +988,16 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
         const targetPlayer = room.players.find(p => p.id === targetId);
         if (!targetPlayer || !targetPlayer.alive) return;
+
+        // ถ้าเป็น หมอ/บอดี้การ์ด: ถอด protected จาก target เดิม แล้วติ๊ก protected ให้ target ใหม่
+        if (isProtector) {
+            const prevTargetId = room.selectedTargets[socket.id];
+            if (prevTargetId && prevTargetId !== targetId) {
+                const prevTarget = room.players.find(p => p.id === prevTargetId);
+                if (prevTarget) prevTarget.protected = false;
+            }
+            targetPlayer.protected = true;
+        }
 
         room.selectedTargets[socket.id] = targetId;
     }
