@@ -1062,6 +1062,76 @@ room.justStarted = false;
         io.to(roomId).emit("room_update", room);
     });
 
+
+    // RESOLVE NIGHT — สรุปผลกลางคืน
+    // • คน killed=true + protected=false → ตาย
+    // • คน killed=true + protected=true → รอด
+    // • ล้าง killed/protected ทุกคน
+    // • ล้าง selectedTargets ของหมอ/บอดี้การ์ด/ยายแก่ พร้อมถอด flag ที่ค้างอยู่
+    // • silenced คงไว้ถึงรอบหน้า (ถ้ายายแก่ไม่เลือกซ้ำจะถูกถอดเองใน select_target)
+    socket.on("resolve_night", (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (socket.id !== room.host) return;
+
+        const protectRoles = ["หมอ", "บอดี้การ์ด"];
+        const silenceRoles = ["ยายแก่"];
+        const specialRoles = [...protectRoles, ...silenceRoles];
+
+        // ผลกลางคืน: คนที่โดนเล็งฆ่าแต่ไม่ได้รับการปกป้อง → ตาย
+        const nightMessages = [];
+        room.players.forEach(p => {
+            if (p.killed) {
+                if (p.protected) {
+                    // รอด
+                    nightMessages.push({ name: "เกม", text: `${p.name} โดนเล็งฆ่าแต่รอดเพราะถูกปกป้อง!`, type: "global", isSystem: true });
+                } else {
+                    // ตาย
+                    p.alive = false;
+                    cleanupAfterDeath(room, p);
+                    nightMessages.push({ name: "เกม", text: `${p.name} ถูกฆ่าในคืนนี้`, type: "global", isSystem: true });
+                }
+            }
+        });
+
+        // ล้าง selectedTargets ของ special roles ทั้งหมด พร้อมถอด flag ที่ติดอยู่
+        if (room.selectedTargets) {
+            Object.keys(room.selectedTargets).forEach(selectorId => {
+                const selector = room.players.find(p => p.id === selectorId);
+                if (!selector || !specialRoles.includes(selector.role)) return;
+
+                const targetId = room.selectedTargets[selectorId];
+                const target = room.players.find(p => p.id === targetId);
+                if (target) {
+                    if (protectRoles.includes(selector.role)) target.protected = false;
+                    if (silenceRoles.includes(selector.role)) target.silenced = false;
+                }
+                delete room.selectedTargets[selectorId];
+            });
+        }
+
+        // ล้าง killed/protected ทุกคน (silenced คงไว้ถึงรอบหน้า)
+        room.players.forEach(p => {
+            p.killed = false;
+            p.protected = false;
+        });
+
+        // ส่งข้อความผลกลางคืนเข้าแชท
+        room.globalChatHistory = room.globalChatHistory || [];
+        if (nightMessages.length === 0) {
+            const msg = { name: "เกม", text: "คืนนี้ผ่านไปอย่างสงบ ไม่มีใครเสียชีวิต", type: "global", isSystem: true };
+            room.globalChatHistory.push(msg);
+            io.to(roomId).emit("chat_message", msg);
+        } else {
+            nightMessages.forEach(msg => {
+                room.globalChatHistory.push(msg);
+                io.to(roomId).emit("chat_message", msg);
+            });
+        }
+
+        io.to(roomId).emit("room_update", room);
+    });
+
 socket.on("select_target", ({ roomId, targetId }) => {
 
     const room = rooms[roomId];
@@ -1070,8 +1140,10 @@ socket.on("select_target", ({ roomId, targetId }) => {
     if (!room.selectedTargets) room.selectedTargets = {};
 
     const protectRoles = ["หมอ", "บอดี้การ์ด"];
+    const silenceRoles = ["ยายแก่"];
     const selector = room.players.find(p => p.id === socket.id);
     const isProtector = selector && protectRoles.includes(selector.role);
+    const isSilencer = selector && silenceRoles.includes(selector.role);
 
     // ถ้า null = ยกเลิกการเลือก
     if (!targetId) {
@@ -1081,6 +1153,14 @@ socket.on("select_target", ({ roomId, targetId }) => {
             if (prevTargetId) {
                 const prevTarget = room.players.find(p => p.id === prevTargetId);
                 if (prevTarget) prevTarget.protected = false;
+            }
+        }
+        // ถ้าเป็น ยายแก่ ให้ถอด silenced จาก target เดิมด้วย
+        if (isSilencer) {
+            const prevTargetId = room.selectedTargets[socket.id];
+            if (prevTargetId) {
+                const prevTarget = room.players.find(p => p.id === prevTargetId);
+                if (prevTarget) prevTarget.silenced = false;
             }
         }
         delete room.selectedTargets[socket.id];
@@ -1099,6 +1179,16 @@ socket.on("select_target", ({ roomId, targetId }) => {
                 if (prevTarget) prevTarget.protected = false;
             }
             targetPlayer.protected = true;
+        }
+
+        // ถ้าเป็น ยายแก่: ถอด silenced จาก target เดิม แล้วติ๊ก silenced ให้ target ใหม่
+        if (isSilencer) {
+            const prevTargetId = room.selectedTargets[socket.id];
+            if (prevTargetId && prevTargetId !== targetId) {
+                const prevTarget = room.players.find(p => p.id === prevTargetId);
+                if (prevTarget) prevTarget.silenced = false;
+            }
+            targetPlayer.silenced = true;
         }
 
         room.selectedTargets[socket.id] = targetId;
