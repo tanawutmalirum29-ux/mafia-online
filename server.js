@@ -1145,6 +1145,57 @@ socket.on("select_target", ({ roomId, targetId }) => {
     });
 
     // =========================
+    // KICK PLAYER
+    // =========================
+    socket.on("kick_player", ({ roomId, playerId }) => {
+
+        const room = rooms[roomId];
+        if (!room) return;
+        if (socket.id !== room.host) return;
+
+        const player = room.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        // แจ้งผู้เล่นที่โดนเตะก่อนลบออก
+        io.to(playerId).emit("kicked");
+
+        // ยกเลิก pending removal ที่มีอยู่
+        if (pendingRemovals[player.token]) {
+            clearTimeout(pendingRemovals[player.token].timer);
+            delete pendingRemovals[player.token];
+        }
+
+        // ลบออกจาก selectedTargets
+        if (room.selectedTargets) {
+            Object.keys(room.selectedTargets).forEach(sid => {
+                if (room.selectedTargets[sid] === playerId) delete room.selectedTargets[sid];
+            });
+            delete room.selectedTargets[playerId];
+        }
+
+        // ถอด protected ถ้า player นี้เป็น หมอ/บอดี้การ์ด
+        const protectRoles = ["หมอ", "บอดี้การ์ด"];
+        if (protectRoles.includes(player.role) && room.selectedTargets) {
+            const prevTargetId = room.selectedTargets[playerId];
+            if (prevTargetId) {
+                const prevTarget = room.players.find(p => p.id === prevTargetId);
+                if (prevTarget) prevTarget.protected = false;
+            }
+        }
+
+        // ลบผู้เล่นออกจากห้อง
+        room.players = room.players.filter(p => p.id !== playerId);
+
+        if (room.players.length === 0) {
+            delete rooms[roomId];
+        } else {
+            io.to(roomId).emit("room_update", room);
+        }
+
+        broadcastSuggestedRoom();
+    });
+
+    // =========================
     // PRIVATE HOST MSG
     // =========================
     socket.on("host_private_msg", ({ roomId, playerId, text }) => {
