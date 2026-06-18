@@ -354,6 +354,44 @@ function genId() {
 
 }
 
+// ลบ "เล็งเป้าหมาย" ที่ค้างอยู่บนผู้เล่นที่ตายแล้ว (ไม่ว่าจะตายจาก toggle alive
+// ในแผงโฮสต์ หรือถูกประหารอัตโนมัติจากการปิดโหมดโหวต) — ใช้ร่วมกันเพื่อกันโค้ดซ้ำ
+function cleanupAfterDeath(room, player) {
+    if (room.selectedTargets) {
+        Object.keys(room.selectedTargets).forEach((selectorId) => {
+            if (room.selectedTargets[selectorId] === player.id) {
+                // ถ้า selector เป็น หมอ/บอดี้การ์ด ให้ถอด protected จาก target ที่ตายด้วย
+                const protectRoles = ["หมอ", "บอดี้การ์ด"];
+                const selector = room.players.find(p => p.id === selectorId);
+                if (selector && protectRoles.includes(selector.role)) {
+                    player.protected = false;
+                }
+                delete room.selectedTargets[selectorId];
+            }
+        });
+
+        // ลบ selectedTargets ที่ player ที่ตายแล้วเป็นคนเลือกไว้ด้วย
+        if (room.selectedTargets[player.id]) {
+            const protectRoles = ["หมอ", "บอดี้การ์ด"];
+            if (protectRoles.includes(player.role)) {
+                const prevTarget = room.players.find(p => p.id === room.selectedTargets[player.id]);
+                if (prevTarget) prevTarget.protected = false;
+            }
+            delete room.selectedTargets[player.id];
+        }
+    }
+}
+
+// จำนวนโหวตที่ต้องใช้เพื่อประหาร = จำนวนผู้เล่นที่มีชีวิต (ไม่รวมโฮสต์) หารสอง
+// ปัดขึ้นเสมอ (เช่น .5 ปัดขึ้นเป็นจำนวนเต็มถัดไป) — ใช้ทั้งแสดงผลและตัดสินผลโหวต
+function getVoteThreshold(room) {
+    const aliveVoters = room.players.filter(p => !p.isHost && p.alive).length;
+    return {
+        aliveVoters,
+        threshold: Math.ceil(aliveVoters / 2)
+    };
+}
+
 // SHUFFLE
 function shuffle(arr) {
 
@@ -865,28 +903,7 @@ room.justStarted = false;
     // เมื่อติ๊ก alive = false ให้ลบ selectedTargets ทุกรายการที่เล็งคนนี้อยู่ออก
     // (ป้องกันสถานะ "เลือกไว้" ค้างอยู่บนผู้เล่นที่ตายแล้ว)
     if (key === "alive" && value === false) {
-        if (room.selectedTargets) {
-            Object.keys(room.selectedTargets).forEach((selectorId) => {
-                if (room.selectedTargets[selectorId] === playerId) {
-                    // ถ้า selector เป็น หมอ/บอดี้การ์ด ให้ถอด protected จาก target ที่ตายด้วย
-                    const protectRoles = ["หมอ", "บอดี้การ์ด"];
-                    const selector = room.players.find(p => p.id === selectorId);
-                    if (selector && protectRoles.includes(selector.role)) {
-                        player.protected = false;
-                    }
-                    delete room.selectedTargets[selectorId];
-                }
-            });
-        }
-        // ลบ selectedTargets ที่ player ที่ตายแล้วเป็นคนเลือกไว้ด้วย
-        if (room.selectedTargets && room.selectedTargets[playerId]) {
-            const protectRoles = ["หมอ", "บอดี้การ์ด"];
-            if (protectRoles.includes(player.role)) {
-                const prevTarget = room.players.find(p => p.id === room.selectedTargets[playerId]);
-                if (prevTarget) prevTarget.protected = false;
-            }
-            delete room.selectedTargets[playerId];
-        }
+        cleanupAfterDeath(room, player);
     }
 
     io.to(roomId).emit("room_update", room);
@@ -901,6 +918,28 @@ room.justStarted = false;
         room.voteMode = !room.voteMode;
 
         if (!room.voteMode) {
+            // ปิดโหมด: นับคะแนนโหวต แล้วประหารคนที่คะแนนถึงเงื่อนไขอัตโนมัติ
+            // เงื่อนไข = จำนวนโหวตที่ได้รับ >= จำนวนคนมีชีวิต/2 (ปัดขึ้น)
+            const votes = room.votes || {};
+            const { threshold } = getVoteThreshold(room);
+
+            const tally = {};
+            Object.values(votes).forEach((tid) => {
+                tally[tid] = (tally[tid] || 0) + 1;
+            });
+
+            if (threshold > 0) {
+                Object.keys(tally).forEach((tid) => {
+                    if (tally[tid] >= threshold) {
+                        const target = room.players.find(p => p.id === tid);
+                        if (target && target.alive) {
+                            target.alive = false;
+                            cleanupAfterDeath(room, target);
+                        }
+                    }
+                });
+            }
+
             room.votes = {};
         }
 
