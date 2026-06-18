@@ -410,6 +410,11 @@ select{
     box-shadow:0 4px 18px rgba(239,68,68,.28);
 }
 
+.btn-resolve{
+    background:linear-gradient(135deg,#f59e0b,#b45309);
+    box-shadow:0 4px 18px rgba(245,158,11,.28);
+}
+
 .btn-close-room{
     margin-top:16px;
     padding:8px 16px;
@@ -1347,6 +1352,10 @@ html.modal-open body{
                     </div>
 
                 </div>
+
+                <button class="btn btn-resolve btn-block" id="resolveBtn" onclick="resolveNight()" style="margin-top:14px;">
+                    🌅 สรุปผลรอบนี้
+                </button>
             </div>
 
         </div>
@@ -1668,6 +1677,12 @@ socket.on("room_closed", (data) => {
     // reload ทันทีโดยไม่รอ user กด OK
     setTimeout(() => location.reload(), 800);
 });
+
+// ปุ่ม "สรุปผลรอบนี้" — ประมวลผลกลางคืนฝั่งเซิร์ฟเวอร์
+function resolveNight() {
+    if (!roomId) return;
+    socket.emit("resolve_night", roomId);
+}
 
 // ปุ่ม "ปิดห้อง" — ให้โฮสต์ปิดห้องเองได้ตรงๆ แทนที่จะต้องพึ่งการตรวจจับการหลุดของเน็ต
 function closeRoomManually() {

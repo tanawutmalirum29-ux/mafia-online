@@ -797,6 +797,31 @@ button:active{
     display:none;
 }
 
+.silenced-notice{
+    display:none;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    border-radius:10px;
+    background:rgba(148,163,184,.12);
+    border:1px solid rgba(148,163,184,.3);
+    color:#94a3b8;
+    font-size:13px;
+    font-weight:600;
+    width:100%;
+}
+
+.silenced-notice.visible{
+    display:flex;
+}
+
+.chatRow input:disabled,
+.chatRow button:disabled{
+    opacity:.35;
+    cursor:not-allowed;
+    pointer-events:none;
+}
+
 /* ---- roles in game summary ---- */
 .roles-list{
     display:flex;
@@ -1926,7 +1951,11 @@ body.vote-open{
 
     <div class="chatRow">
 
-        <div class="chatInputRow">
+        <div id="silencedNotice" class="silenced-notice">
+            🤐 คุณถูกใบ้ในรอบนี้ — พิมพ์ข้อความไม่ได้
+        </div>
+
+        <div class="chatInputRow" id="chatInputRow">
             <input
                 id="chatInput"
                 placeholder="พิมพ์ข้อความ..."
@@ -2022,6 +2051,7 @@ function selectTarget(targetId) {
 
 let joined = false;
 let myRole = "";
+let mySilenced = false;
 let myAlive = true;
 let currentChatTab = "global";
 let myHuntTargetId = null; // ID ของเป้าหมายนักล่าหัว
@@ -2690,7 +2720,26 @@ socket.on("room_update", (roomData) => {
 
     // อัพเดทสถานะมีชีวิตของตัวเอง
     const myPlayer = roomData.players.find(p => p.id === me);
-    if (myPlayer) { myAlive = myPlayer.alive; }
+    if (myPlayer) {
+        myAlive = myPlayer.alive;
+        mySilenced = !!myPlayer.silenced;
+    }
+
+    // อัปเดต UI โดนใบ้
+    const silencedNotice = document.getElementById("silencedNotice");
+    const chatInputEl = document.getElementById("chatInput");
+    const chatSendBtn = document.querySelector(".sendBtn");
+    if (silencedNotice) {
+        if (mySilenced) {
+            silencedNotice.classList.add("visible");
+            if (chatInputEl) { chatInputEl.disabled = true; chatInputEl.placeholder = "🤐 ถูกใบ้ — พิมพ์ไม่ได้"; }
+            if (chatSendBtn) chatSendBtn.disabled = true;
+        } else {
+            silencedNotice.classList.remove("visible");
+            if (chatInputEl) { chatInputEl.disabled = false; chatInputEl.placeholder = "พิมพ์ข้อความ..."; }
+            if (chatSendBtn) chatSendBtn.disabled = false;
+        }
+    }
 
     // render กริดผู้เล่น
     renderPlayerGrid(roomData);
@@ -3028,6 +3077,9 @@ socket.on("room_closed", () => {
 
 // SEND CHAT
 function sendChat() {
+
+    // ถ้าโดนใบ้ ห้ามส่งแชท
+    if (mySilenced) return;
 
     const input =
         document.getElementById(
