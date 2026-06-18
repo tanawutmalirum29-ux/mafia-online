@@ -1310,6 +1310,93 @@ body.vote-open{
     min-height:18px;
 }
 
+/* ===== WOLF KILL MODE ===== */
+/* ใช้โครงเดียวกับโหมดโหวต แต่โทนสีแดงและขึ้นเฉพาะทีมหมาป่า */
+
+#killOverlay{
+    position:fixed;
+    inset:0;
+    z-index:998;
+    background:rgba(6,9,18,.75);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+    animation:fadeIn .25s ease;
+}
+
+#killOverlay.hidden{
+    display:none;
+}
+
+#killSection{
+    position:fixed;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    z-index:999;
+    width:min(480px, calc(100vw - 32px));
+    max-height:min(600px, calc(100vh - 48px));
+    display:flex;
+    flex-direction:column;
+    background:#12172f;
+    border:1px solid rgba(239,68,68,.25);
+    border-radius:var(--r-lg);
+    box-shadow:0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(239,68,68,.15);
+    overflow:hidden;
+    animation:popIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+
+#killSection.hidden{
+    display:none;
+}
+
+#killHeader{
+    padding:16px 18px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+}
+
+#killBody{
+    overflow-y:auto;
+    padding:14px 18px 20px;
+    flex:1;
+}
+
+.kill-banner{
+    background:rgba(239,68,68,.1) !important;
+    border-color:rgba(239,68,68,.3) !important;
+}
+
+#killMyStatus{
+    text-align:center;
+    font-size:13px;
+    color:var(--wolf);
+    font-weight:600;
+    margin-bottom:10px;
+    min-height:18px;
+}
+
+#killPlayers{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+}
+
+#killPlayers .vote-player.voted-selected{
+    border-color:var(--wolf);
+    box-shadow:0 0 0 1px var(--wolf), 0 0 16px rgba(239,68,68,.25);
+    background:rgba(239,68,68,.07);
+}
+
+#killPlayers .vote-player.same-team{
+    cursor:not-allowed;
+    opacity:.55;
+    border-style:dashed;
+}
+
+#killPlayers .vote-player.same-team:active{
+    transform:none;
+}
+
 /* ===== ROLE REVEAL ANIMATION ===== */
 
 #roleRevealOverlay{
@@ -1697,6 +1784,29 @@ body.vote-open{
 
 </div>
 
+<!-- WOLF KILL OVERLAY -->
+<div id="killOverlay" class="hidden"></div>
+
+<!-- WOLF KILL SECTION POPUP (เห็นเฉพาะทีมหมาป่า) -->
+<div id="killSection" class="hidden">
+
+    <div id="killHeader">
+        <div class="vote-banner kill-banner" style="margin-bottom:0;">
+            <div class="vote-banner-icon">🐺</div>
+            <div>
+                <div class="vote-banner-text" style="color:var(--wolf);">โหมดหมาป่าเลือกฆ่า — เลือกเหยื่อ</div>
+                <div class="vote-banner-sub">หมาป่าด้วยกันจะเห็นว่าใครเลือกใคร</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="killBody">
+        <div id="killMyStatus"></div>
+        <div id="killPlayers"></div>
+    </div>
+
+</div>
+
 <div id="chatCard" class="hidden">
 
     <div class="chatTabs" id="chatTabs">
@@ -1912,6 +2022,11 @@ const allWolfRoles = [
 function castVote(targetId) {
     const roomId = document.getElementById("room").value.trim().toUpperCase();
     socket.emit("cast_vote", { roomId, targetId });
+}
+
+function castWolfKill(targetId) {
+    const roomId = document.getElementById("room").value.trim().toUpperCase();
+    socket.emit("cast_wolf_kill", { roomId, targetId });
 }
 
 function openRolePopup() {
@@ -2436,7 +2551,6 @@ socket.on("room_update", (roomData) => {
     if (roomData.voteMode) {
         voteSection.classList.remove("hidden");
         voteOverlay.classList.remove("hidden");
-        document.body.classList.add("vote-open");
 
         // สถานะโหวตของตัวเอง
         const voteMyStatus = document.getElementById("voteMyStatus");
@@ -2531,6 +2645,110 @@ socket.on("room_update", (roomData) => {
     } else {
         voteSection.classList.add("hidden");
         voteOverlay.classList.add("hidden");
+    }
+
+    // ===== WOLF KILL MODE (เห็นเฉพาะทีมหมาป่า) =====
+    const killSection = document.getElementById("killSection");
+    const killOverlay = document.getElementById("killOverlay");
+    const killVotes = roomData.wolfKillVotes || {};
+    const myKillTarget = killVotes[me];
+    const amIWolfForKill = allWolfRoles.includes(myRole);
+
+    if (roomData.wolfKillMode && amIWolfForKill) {
+        killSection.classList.remove("hidden");
+        killOverlay.classList.remove("hidden");
+
+        // สถานะการเลือกของตัวเอง
+        const killMyStatus = document.getElementById("killMyStatus");
+        if (!myAlive) {
+            killMyStatus.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+        } else if (myKillTarget) {
+            const kt = roomData.players.find(p => p.id === myKillTarget);
+            killMyStatus.innerHTML = `🩸 คุณเลือก: <b>${kt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+        } else {
+            killMyStatus.innerHTML = `แตะชื่อเพื่อเลือกเหยื่อ`;
+        }
+
+        // map ผู้เลือก → ชื่อเป้าหมายที่เลือก (ให้หมาป่าด้วยกันเห็นกัน)
+        const killTargetName = {};
+        Object.entries(killVotes).forEach(([vid, tid]) => {
+            const target = roomData.players.find(p => p.id === tid);
+            if (target) killTargetName[vid] = target.name;
+        });
+
+        const kpDiv = document.getElementById("killPlayers");
+        const alivePlayersForKill = roomData.players.filter(p => !p.isHost);
+
+        // เก็บกล่องที่มีอยู่แล้วไว้ใช้ซ้ำ แทนรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนเลือก
+        const existingKillNodes = {};
+        kpDiv.querySelectorAll(".vote-player[data-pid]").forEach((node) => {
+            existingKillNodes[node.dataset.pid] = node;
+        });
+        const seenKillIds = new Set();
+
+        alivePlayersForKill.forEach((p, idx) => {
+
+            seenKillIds.add(p.id);
+
+            const isMe = p.id === me;
+            const isMyKillVote = myKillTarget === p.id;
+            const isWolfMateKill = p.id !== me && allWolfRoles.includes(p.role);
+            const votedForName = killTargetName[p.id] || null;
+
+            let div = existingKillNodes[p.id];
+            if (!div) {
+                div = document.createElement("div");
+                div.dataset.pid = p.id;
+            }
+
+            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyKillVote ? " voted-selected" : "") + (isMe ? " is-me" : "") + (isWolfMateKill ? " same-team" : "");
+
+            div.onclick = () => {
+                if (isMe) return;       // ห้ามเลือกตัวเอง
+                if (isWolfMateKill) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
+                if (!myAlive) return;
+                if (!p.alive) return;
+                if (isMyKillVote) {
+                    castWolfKill(null);
+                } else {
+                    castWolfKill(p.id);
+                }
+            };
+
+            const newKillHTML = `
+                <div class="vote-pname" style="${isMe ? "color:#facc15;font-weight:700;" : ""}">
+                    ${p.name}
+                    ${p.alive ? "" : " 💀"}
+                    ${isMe ? `<span class="vote-me-tag">ฉัน</span>` : ""}
+                    ${isWolfMateKill ? `<span style="display:block;margin-top:3px;font-size:10px;color:var(--wolf);">🐺 ${p.role} · ห้ามเลือก</span>` : ""}
+                </div>
+                ${votedForName ? `<div class="vote-voter-list">เลือก: ${votedForName}</div>` : ""}
+            `;
+            if (div.innerHTML !== newKillHTML) {
+                div.innerHTML = newKillHTML;
+            }
+
+            if (kpDiv.children[idx] !== div) {
+                kpDiv.insertBefore(div, kpDiv.children[idx] || null);
+            }
+        });
+
+        // ลบกล่องของผู้เล่นที่ไม่อยู่ในห้องแล้ว
+        Object.keys(existingKillNodes).forEach((pid) => {
+            if (!seenKillIds.has(pid)) {
+                existingKillNodes[pid].remove();
+            }
+        });
+
+    } else {
+        killSection.classList.add("hidden");
+        killOverlay.classList.add("hidden");
+    }
+
+    // เปิด/ปิด overlay-lock ของหน้าจอ ถ้ามีป๊อปอัปใดป๊อปอัปหนึ่งกำลังแสดงอยู่
+    if (roomData.voteMode || (roomData.wolfKillMode && amIWolfForKill)) {
+        document.body.classList.add("vote-open");
+    } else {
         document.body.classList.remove("vote-open");
     }
 
@@ -2594,6 +2812,11 @@ socket.on("room_closed", () => {
     document.getElementById("players").innerHTML = "";
     document.getElementById("chatBoxGlobal").innerHTML = "";
     document.getElementById("chatBoxWolf").innerHTML = "";
+    document.getElementById("voteSection").classList.add("hidden");
+    document.getElementById("voteOverlay").classList.add("hidden");
+    document.getElementById("killSection").classList.add("hidden");
+    document.getElementById("killOverlay").classList.add("hidden");
+    document.body.classList.remove("vote-open");
     document.getElementById("room").value = "";
     closeRolePopup();
     renderRoomSuggestion();
