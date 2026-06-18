@@ -354,6 +354,20 @@ button:active{
     animation:rise .3s ease both;
 }
 
+/* แบนเนอร์แจ้งว่ากำลังอยู่ในโหมดผู้ทดสอบ (token ผูกกับแท็บนี้เท่านั้น) */
+.tester-banner{
+    max-width:560px;
+    margin:0 auto 14px;
+    padding:9px 14px;
+    border-radius:var(--r-sm);
+    background:rgba(20,184,166,.12);
+    border:1px solid rgba(20,184,166,.35);
+    color:#5eead4;
+    font-size:12px;
+    font-weight:600;
+    text-align:center;
+}
+
 .small{
     font-size:13px;
     line-height:1.7;
@@ -1729,6 +1743,8 @@ body.vote-open{
 
 <div class="app">
 
+<div id="testerBanner" class="tester-banner hidden">🧪 โหมดผู้ทดสอบ — บัญชีนี้ผูกกับแท็บนี้เท่านั้น</div>
+
 <div id="connBanner" class="conn-banner hidden">🔌 ขาดการเชื่อมต่อ กำลังพยายามเชื่อมต่อใหม่...</div>
 
 <!-- JOIN CARD -->
@@ -1954,17 +1970,33 @@ let myHuntTargetId = null; // ID ของเป้าหมายนักล�
 let suggestedRoomData = null; // ห้องล่าสุดที่เปิดอยู่ (จาก server)
 let currentRoomId = null; // ห้องที่ join อยู่ตอนนี้ ใช้ตอนเชื่อมต่อใหม่อัตโนมัติ
 
-// ===== จำตัวตนผู้เล่นไว้ในเครื่อง (localStorage) =====
+// ===== โหมดผู้ทดสอบ =====
+// ปกติ token ผูกกับ localStorage ซึ่ง "ใช้ร่วมกันทั้งเบราว์เซอร์" ทุกแท็บ
+// เลยทำให้เปิดหลายแท็บบนมือถือเครื่องเดียวแล้วต่อห้องเดียวกัน กลายเป็นผู้เล่นคนเดิมซ้ำ (reconnect)
+// โหมดผู้ทดสอบ (?tester=1 จากหน้าแรกที่กรอกรหัสผ่านแล้ว) จะสลับไปใช้ sessionStorage แทน
+// ซึ่ง "แยกอิสระต่อแท็บ/หน้าต่าง" — เปิดกี่แท็บก็ได้คนละ token กัน เปิดเป็นผู้เล่นคนละคนได้จริง
+// แต่ยังรีเฟรชหน้าในแท็บเดิมได้โดยไม่หลุด เพราะ sessionStorage อยู่รอดผ่านการรีเฟรช
+// (จะหลุดก็ตอนปิดแท็บ/หน้าต่างนั้นไปจริงๆ หรือโดนเตะ/ห้องยุบ เหมือนผู้เล่นปกติ)
+const urlParams = new URLSearchParams(window.location.search);
+const TESTER_MODE = urlParams.get("tester") === "1" || sessionStorage.getItem("ww_tester") === "1";
+if (TESTER_MODE) sessionStorage.setItem("ww_tester", "1");
+const ww_store = TESTER_MODE ? sessionStorage : localStorage;
+
+if (TESTER_MODE) {
+    document.getElementById("testerBanner")?.classList.remove("hidden");
+}
+
+// ===== จำตัวตนผู้เล่นไว้ในเครื่อง (localStorage ปกติ / sessionStorage ถ้าเป็นโหมดผู้ทดสอบ) =====
 // 1) ใช้ auto-fill ชื่อ/ห้องล่าสุดให้ตอนเปิดเว็บใหม่หรือรีเฟรช
 // 2) ใช้เป็น "token" ประจำเครื่อง/เบราว์เซอร์นี้ เพื่อให้ตอนเน็ตหลุด-กลับมา
 //    เซิร์ฟเวอร์รู้ว่าเป็นผู้เล่นคนเดิม ไม่ใช่คนใหม่ (กันบทบาท/สถานะหาย และกันกริดผู้เล่นไม่อัปเดต)
 function getClientToken() {
-    let t = localStorage.getItem("ww_token");
+    let t = ww_store.getItem("ww_token");
     if (!t) {
         t = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
-        localStorage.setItem("ww_token", t);
+        ww_store.setItem("ww_token", t);
     }
     return t;
 }
@@ -1972,8 +2004,8 @@ const clientToken = getClientToken();
 
 // เติมชื่อ/โค้ดห้องล่าสุดที่เคยกรอกไว้ ให้อัตโนมัติทันทีที่เปิดหน้า
 (function restoreLastSession() {
-    const savedName = localStorage.getItem("ww_playerName");
-    const savedRoom = localStorage.getItem("ww_lastRoom");
+    const savedName = ww_store.getItem("ww_playerName");
+    const savedRoom = ww_store.getItem("ww_lastRoom");
     if (savedName) document.getElementById("name").value = savedName;
     if (savedRoom) document.getElementById("room").value = savedRoom;
 })();
@@ -2140,8 +2172,8 @@ function join() {
     }
 
     // จำชื่อ + โค้ดห้องไว้ในเครื่อง เพื่อ auto-fill ให้ครั้งหน้า
-    localStorage.setItem("ww_playerName", playerName);
-    localStorage.setItem("ww_lastRoom", roomCode);
+    ww_store.setItem("ww_playerName", playerName);
+    ww_store.setItem("ww_lastRoom", roomCode);
 
     socket.emit(
         "join_room",
@@ -2852,7 +2884,7 @@ socket.on("connect", () => {
             "join_room",
             {
                 roomId: currentRoomId,
-                name: localStorage.getItem("ww_playerName") || "",
+                name: ww_store.getItem("ww_playerName") || "",
                 token: clientToken
             },
             (res) => {
