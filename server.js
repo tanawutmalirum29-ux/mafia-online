@@ -20,10 +20,6 @@ const rooms = {};
 // (กันกรณีเน็ตสะดุดแค่แป๊บเดียว / มือถือล็อกสกรีน / สลับแอป แล้ว socket หลุดชั่วครู่)
 const RECONNECT_GRACE_MS = 20000;
 
-// โฮสต์ใช้เวลารอเชื่อมต่อใหม่นานกว่าผู้เล่นทั่วไปเล็กน้อย เพราะถ้าโฮสต์ไม่กลับมาจริงๆ
-// ห้องทั้งห้องจะถูกปิด (กระทบทุกคน) ไม่ใช่แค่ผู้เล่นคนเดียวหลุดออกจากเกม
-const HOST_RECONNECT_GRACE_MS = 30000;
-
 // เก็บ timer ของผู้เล่นที่กำลังรอถูกเตะ แยกไว้นอก room/player object เสมอ
 // (ห้ามฝัง timer handle ไว้ใน room หรือ player เพราะ object พวกนั้นถูกส่งทั้งก้อนผ่าน
 // io.emit("room_update", room) ซึ่งต้อง JSON-serialize ได้ ถ้ามี timer handle ติดไปจะพัง)
@@ -331,6 +327,24 @@ function broadcastSuggestedRoom() {
     io.emit("suggested_room", getLatestOpenRoom());
 }
 
+// รายชื่อห้องที่ยังเปิดอยู่ทั้งหมด ให้หน้าโฮสต์เอาไปแสดงเป็นกริดให้เลือก
+// "ล็อกอินเข้าคุม" ห้องเดิม เผื่อโฮสต์เปลี่ยนอุปกรณ์/ล้าง localStorage/เปิดมาเจอ
+// ห้องที่เคยสร้างไว้ค้างอยู่ (เพราะตอนนี้ห้องจะไม่ถูกลบอัตโนมัติแล้ว)
+function getOpenRoomsList() {
+    return Object.keys(rooms).map((id) => {
+        const room = rooms[id];
+        const hostPlayer = room.players.find(p => p.isHost);
+
+        return {
+            roomId: id,
+            hostName: hostPlayer ? hostPlayer.name : "",
+            hostConnected: hostPlayer ? !hostPlayer.disconnected : false,
+            playerCount: room.players.filter(p => !p.isHost).length,
+            started: !!room.started
+        };
+    });
+}
+
 function genId() {
 
     return Math.random()
@@ -421,6 +435,54 @@ io.on("connection", (socket) => {
         broadcastSuggestedRoom();
 
         cb({ roomId: id, token: hostToken });
+
+    });
+
+    // LIST OPEN ROOMS — ให้หน้าโฮสต์ขอรายชื่อห้องที่ยังเปิดอยู่ทั้งหมด
+    // เอาไปแสดงเป็นกริดให้เลือกว่าจะ "เข้าคุม" ห้องไหน (ห้องไม่ถูกลบอัตโนมัติแล้ว
+    // จึงอาจมีหลายห้องค้างอยู่พร้อมกันได้ เช่น เปลี่ยนอุปกรณ์/ล้างเบราว์เซอร์)
+    socket.on("list_open_rooms", (cb) => {
+        cb(getOpenRoomsList());
+    });
+
+    // HOST LOGIN — ให้ผู้ที่เปิดหน้าโฮสต์เข้าคุมห้องที่เลือกจากกริดได้ทันที
+    // โดยไม่ต้องมี token เดิมตรงกัน (หน้าโฮสต์เป็นหน้าที่ไว้วางใจอยู่แล้ว ไม่มีผู้เล่นทั่วไป
+    // เข้าถึงได้) ข้อมูลห้องเดิมทั้งหมด (บทบาท/ผู้เล่น/แชท) จะยังอยู่ครบ แค่ย้าย
+    // "ใครคือโฮสต์" ไปเป็น socket ปัจจุบัน แล้วผูก token ของเบราว์เซอร์นี้เป็นโฮสต์ต่อ
+    socket.on("host_login", ({ roomId, token }, cb) => {
+
+        const room = rooms[roomId];
+        if (!room) return cb({ error: "room not found" });
+
+        const hostPlayer = room.players.find(p => p.isHost);
+        if (!hostPlayer) return cb({ error: "host slot missing" });
+
+        const oldId = hostPlayer.id;
+        const oldToken = hostPlayer.token;
+
+        if (oldId !== socket.id) {
+            remapPlayerId(room, oldId, socket.id);
+            hostPlayer.id = socket.id;
+        }
+
+        hostPlayer.token = token || hostPlayer.token;
+        hostPlayer.disconnected = false;
+        room.host = socket.id;
+
+        // เคลียร์ timer รอลบที่อาจค้างอยู่ทั้งของ token เดิมและ token ใหม่
+        [oldToken, hostPlayer.token].forEach((t) => {
+            if (pendingRemovals[t]) {
+                clearTimeout(pendingRemovals[t].timer);
+                delete pendingRemovals[t];
+            }
+        });
+
+        socket.join(roomId);
+
+        io.to(roomId).emit("room_update", room);
+        broadcastSuggestedRoom();
+
+        cb({ ok: true, roomData: room, token: hostPlayer.token });
 
     });
 
@@ -1124,18 +1186,26 @@ socket.on("select_target", ({ roomId, targetId }) => {
             const player = room.players.find(p => p.id === socket.id);
             if (!player) continue;
 
-            // ไม่เตะผู้เล่น (หรือปิดห้องเพราะโฮสต์) ทันที — ให้เวลา "หลุดแล้วกลับมาใหม่"
-            // (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอป) ก่อนค่อยทำจริง เหมือนกันทั้งโฮสต์และผู้เล่น
-            // ผู้เล่นคนอื่นจะเห็นสถานะ "🟡 กำลังเชื่อมต่อใหม่..." แทนการถูกเตะออก/ห้องปิดทันที
+            // ไม่เตะผู้เล่นทันที — ให้เวลา "หลุดแล้วกลับมาใหม่"
+            // (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอป) ก่อนค่อยทำจริง
+            // ผู้เล่นคนอื่นจะเห็นสถานะ "🟡 กำลังเชื่อมต่อใหม่..." แทนการถูกเตะออกทันที
             player.disconnected = true;
 
             io.to(id).emit("room_update", room);
 
+            // โฮสต์: ห้องจะไม่ถูกลบ/ปิดอัตโนมัติอีกต่อไปแม้โฮสต์หลุดแล้วไม่กลับมาเลย
+            // ห้องจะถูกปิดได้ก็ต่อเมื่อมีคนกดปุ่ม "ปิดห้อง" เองเท่านั้น (close_room)
+            // ถ้าใครเปิดหน้าโฮสต์ขึ้นมาใหม่ (อุปกรณ์เดิม/อุปกรณ์อื่น) จะเจอห้องนี้
+            // อยู่ในกริดห้องที่ยังเปิดอยู่ ให้เลือกเข้าคุมต่อได้ทันทีผ่าน "host_login"
+            // โดยข้อมูลห้องเดิมทั้งหมดยังอยู่ครบ ไม่ต้องตั้ง timer ลบห้องแบบผู้เล่นทั่วไป
+            if (player.isHost) {
+                broadcastSuggestedRoom();
+                continue;
+            }
+
             if (pendingRemovals[player.token]) {
                 clearTimeout(pendingRemovals[player.token].timer);
             }
-
-            const graceMs = player.isHost ? HOST_RECONNECT_GRACE_MS : RECONNECT_GRACE_MS;
 
             pendingRemovals[player.token] = {
                 roomId: id,
@@ -1149,12 +1219,6 @@ socket.on("select_target", ({ roomId, targetId }) => {
                     const stillPlayer = stillRoom.players.find(p => p.token === player.token);
                     if (!stillPlayer || !stillPlayer.disconnected) return; // กลับมาเชื่อมต่อแล้ว ไม่ต้องทำอะไร
 
-                    // โฮสต์ไม่กลับมาเชื่อมต่อภายในเวลาที่กำหนด -> ปิดห้องทั้งห้องจริงๆ
-                    if (stillPlayer.isHost) {
-                        closeRoom(id, "host_disconnected");
-                        return;
-                    }
-
                     stillRoom.players = stillRoom.players.filter(p => p.token !== player.token);
 
                     if (stillRoom.players.length === 0) {
@@ -1165,7 +1229,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
                     broadcastSuggestedRoom();
 
-                }, graceMs)
+                }, RECONNECT_GRACE_MS)
             };
         }
 
