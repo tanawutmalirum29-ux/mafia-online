@@ -199,6 +199,26 @@ a, button, input, select{
     margin-top:2px;
 }
 
+.conn-banner{
+    position:fixed;
+    top:0;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:50;
+    max-width:560px;
+    width:calc(100% - 24px);
+    margin-top:8px;
+    padding:9px 14px;
+    border-radius:var(--r-sm);
+    background:var(--mark-soft);
+    border:1px solid rgba(251,191,36,.4);
+    color:var(--mark);
+    font-size:12.5px;
+    font-weight:600;
+    text-align:center;
+    animation:rise .3s ease both;
+}
+
 /* ---- grid ---- */
 
 .layout{
@@ -388,6 +408,12 @@ select{
 .btn-danger{
     background:linear-gradient(135deg,#ef4444,#b91c1c);
     box-shadow:0 4px 18px rgba(239,68,68,.28);
+}
+
+.btn-close-room{
+    margin-top:16px;
+    padding:8px 16px;
+    font-size:12.5px;
 }
 
 /* role picker row */
@@ -1036,6 +1062,12 @@ select{
     border-color:rgba(34,197,94,.3);
 }
 
+/* ---- generic visibility helper ---- */
+
+.hidden{
+    display:none;
+}
+
 /* ---- vote popup ---- */
 
 .vote-modal-overlay{
@@ -1108,6 +1140,8 @@ html.modal-open body{
 
 <div class="app">
 
+    <div id="connBanner" class="conn-banner hidden">🔌 ขาดการเชื่อมต่อ กำลังพยายามเชื่อมต่อใหม่...</div>
+
     <!-- ===== SEAL / ROOM CODE ===== -->
     <div class="seal-wrap">
         <div class="eyebrow">ห้องควบคุมผู้เล่าเรื่อง</div>
@@ -1116,6 +1150,7 @@ html.modal-open body{
             <span class="seal-code" id="room">••••</span>
         </div>
         <div class="seal-hint">บอกรหัสนี้กับผู้เล่นเพื่อเข้าร่วมห้อง</div>
+        <button class="btn btn-danger btn-close-room" id="closeRoomBtn" onclick="closeRoomManually()">✕ ปิดห้อง</button>
     </div>
 
     <div class="layout">
@@ -1280,6 +1315,22 @@ const socket = io();
 let roomId = "";
 let currentRoom = null;
 
+// ===== จำตัวตนโฮสต์ไว้ในเครื่อง (localStorage) =====
+// ใช้เป็น "token" ประจำเครื่อง/เบราว์เซอร์นี้ เพื่อให้ตอนเน็ตหลุด-กลับมา
+// (หรือเปิดแท็บใหม่ขณะห้องเดิมยังไม่ปิด) เซิร์ฟเวอร์รู้ว่าเป็นโฮสต์คนเดิม
+// ไม่ใช่คนใหม่ -> ห้องไม่ถูกปิดทันทีทุกครั้งที่เน็ตกระตุก
+function getHostToken() {
+    let t = localStorage.getItem("ww_host_token");
+    if (!t) {
+        t = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+        localStorage.setItem("ww_host_token", t);
+    }
+    return t;
+}
+const hostToken = getHostToken();
+
 
 const roleConfig = {};
 
@@ -1329,18 +1380,103 @@ socket.on("roles_data", (data) => {
 });
 
 
-// CREATE ROOM
-socket.emit(
-    "create_room",
-    { name: hostName },
-    (id) => {
-        roomId = id;
-        document.getElementById("room").innerText = id;
-document.getElementById("room").onclick = () => {
-    navigator.clipboard.writeText(roomId);
-};
+// แสดงรหัสห้องบนหน้าจอ + ผูกปุ่มคัดลอก (ใช้ทั้งตอนสร้างห้องใหม่และตอนกลับเข้าห้องเดิม)
+function applyRoomId(id) {
+    roomId = id;
+    document.getElementById("room").innerText = id;
+    document.getElementById("room").onclick = () => {
+        navigator.clipboard.writeText(roomId);
+    };
+    localStorage.setItem("ww_host_room", id);
+}
+
+// CREATE ROOM (ห้องใหม่)
+function createNewRoom() {
+    socket.emit(
+        "create_room",
+        { name: hostName },
+        (res) => {
+            applyRoomId(res.roomId);
+        }
+    );
+}
+
+// ตอนเปิดหน้านี้: ถ้ามีห้องเดิมที่เคยสร้างไว้ (เน็ตหลุดแล้วเปิดหน้าใหม่/รีเฟรช แต่ห้องยัง
+// ไม่ทันถูกปิดที่ฝั่งเซิร์ฟเวอร์) ให้พยายาม "กลับเข้าไปคุมห้องเดิม" ด้วย token เดิมก่อน
+// ถ้าห้องนั้นไม่มีแล้วจริงๆ (ปิดไปแล้ว) ค่อยสร้างห้องใหม่
+const savedHostRoom = localStorage.getItem("ww_host_room");
+if (savedHostRoom) {
+    socket.emit(
+        "join_room",
+        { roomId: savedHostRoom, name: hostName, token: hostToken },
+        (res) => {
+            if (res && res.ok && res.roomData && res.roomData.host === socket.id) {
+                applyRoomId(savedHostRoom);
+            } else {
+                createNewRoom();
+            }
+        }
+    );
+} else {
+    createNewRoom();
+}
+
+// CONNECT — เรียกทั้งตอนเชื่อมต่อครั้งแรก และทุกครั้งที่ socket.io เชื่อมต่อใหม่สำเร็จ
+// (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอปกลับมา) ถ้าเรามีห้องที่คุมอยู่แล้ว ให้ join_room ซ้ำ
+// ด้วย token เดิมทันที เพื่อให้เซิร์ฟเวอร์รู้ว่าเรายังเป็นโฮสต์คนเดิม ห้องจะไม่ถูกปิด
+// และผู้เล่นจะไม่ถูกเตะออกเพราะเน็ตของโฮสต์กระตุกแค่แป๊บเดียว
+socket.on("connect", () => {
+
+    document.getElementById("connBanner").classList.add("hidden");
+
+    if (roomId) {
+        socket.emit(
+            "join_room",
+            { roomId, name: hostName, token: hostToken },
+            (res) => {
+                if (!res || res.error) {
+                    // ห้องถูกปิดไปแล้วจริงๆ (หลุดนานเกินเวลารอ)
+                    alert("ห้องถูกปิดไปแล้ว เนื่องจากขาดการเชื่อมต่อนานเกินไป");
+                    roomId = "";
+                    localStorage.removeItem("ww_host_room");
+                }
+                // ถ้าสำเร็จ: room_update จะตามมาทาง event ปกติ คุมห้องต่อได้เลย
+            }
+        );
     }
-);
+
+});
+
+// DISCONNECT — แสดงแบนเนอร์เตือนแทนการตัดการเชื่อมต่อแบบเงียบๆ
+// (alert จะรบกวนเกินไปถ้าเน็ตสะดุดแค่แป๊บเดียว เพราะ socket.io พยายามต่อใหม่ให้อัตโนมัติ)
+socket.on("disconnect", () => {
+    if (roomId) {
+        document.getElementById("connBanner").classList.remove("hidden");
+    }
+});
+
+// ROOM CLOSED (ห้องถูกปิดจริง — โฮสต์ไม่กลับมาเชื่อมต่อทันเวลา หรือกดปิดห้องเอง)
+socket.on("room_closed", (data) => {
+
+    if (data && data.reason === "host_closed") {
+        alert("ปิดห้องเรียบร้อยแล้ว");
+    } else {
+        alert("ห้องถูกปิด เนื่องจากขาดการเชื่อมต่อนานเกินไป");
+    }
+
+    localStorage.removeItem("ww_host_room");
+    location.reload();
+});
+
+// ปุ่ม "ปิดห้อง" — ให้โฮสต์ปิดห้องเองได้ตรงๆ แทนที่จะต้องพึ่งการตรวจจับการหลุดของเน็ต
+function closeRoomManually() {
+    if (!roomId) return;
+
+    const ok = confirm("ต้องการปิดห้องนี้เลยหรือไม่? ผู้เล่นทุกคนในห้องจะถูกเตะออกทันที และย้อนกลับไม่ได้");
+    if (!ok) return;
+
+    socket.emit("close_room", roomId);
+}
 
 // ROOM UPDATE (SOURCE OF TRUTH)
 socket.on("room_update", (room) => {
