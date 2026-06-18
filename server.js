@@ -15,6 +15,41 @@ const io =
 app.use(express.static("public", { maxAge: "7d" }));
 
 const rooms = {};
+
+// ระยะเวลาที่ยอม "รอ" ผู้เล่นที่หลุดการเชื่อมต่อก่อนเตะออกจากห้องจริง
+// (กันกรณีเน็ตสะดุดแค่แป๊บเดียว / มือถือล็อกสกรีน / สลับแอป แล้ว socket หลุดชั่วครู่)
+const RECONNECT_GRACE_MS = 20000;
+
+// เก็บ timer ของผู้เล่นที่กำลังรอถูกเตะ แยกไว้นอก room/player object เสมอ
+// (ห้ามฝัง timer handle ไว้ใน room หรือ player เพราะ object พวกนั้นถูกส่งทั้งก้อนผ่าน
+// io.emit("room_update", room) ซึ่งต้อง JSON-serialize ได้ ถ้ามี timer handle ติดไปจะพัง)
+const pendingRemovals = {};
+
+// เมื่อผู้เล่นเชื่อมต่อใหม่ด้วย socket id ใหม่ (เน็ตหลุด-กลับมา / รีหน้าเว็บ)
+// ต้องไล่แก้ id เดิมที่ฝังอยู่ในโหวต/เป้าหมายต่างๆ ให้กลายเป็น id ใหม่ ไม่ให้ข้อมูลเดิมหาย
+function remapPlayerId(room, oldId, newId) {
+    const idMaps = [room.votes, room.selectedTargets, room.wolfKillVotes];
+
+    idMaps.forEach((map) => {
+        if (!map) return;
+        Object.keys(map).forEach((key) => {
+            const val = map[key];
+            if (key === oldId) {
+                delete map[key];
+                map[newId] = (val === oldId) ? newId : val;
+            } else if (val === oldId) {
+                map[key] = newId;
+            }
+        });
+    });
+
+    room.players.forEach((p) => {
+        if (p.huntTargetId === oldId) p.huntTargetId = newId;
+    });
+
+    if (room.host === oldId) room.host = newId;
+}
+
 const roles = {
   "หมาป่า": {
     team: "wolf",
@@ -382,7 +417,7 @@ io.on("connection", (socket) => {
     // JOIN ROOM
     socket.on(
         "join_room",
-        ({ roomId, name }, cb) => {
+        ({ roomId, name, token }, cb) => {
 
         roomId =
             roomId.toUpperCase();
@@ -398,32 +433,65 @@ io.on("connection", (socket) => {
 
         }
 
-        const already =
-            room.players.find(
+        // ผู้เล่นคนนี้เคยอยู่ในห้องนี้มาก่อนแล้ว (token เดิมตรงกัน)
+        // = กำลังเชื่อมต่อใหม่หลังเน็ตหลุด/รีหน้าเว็บ ไม่ใช่ผู้เล่นใหม่
+        // เก็บบทบาท/สถานะเป็น-ตาย/การเลือกเป้าหมายเดิมไว้ทั้งหมด แค่สลับ socket id
+        let player = token
+            ? room.players.find(p => p.token === token)
+            : null;
+
+        const isReconnect = !!player;
+
+        if (player) {
+
+            const oldId = player.id;
+
+            if (oldId !== socket.id) {
+                remapPlayerId(room, oldId, socket.id);
+                player.id = socket.id;
+            }
+
+            player.name = name || player.name;
+            player.disconnected = false;
+
+            if (pendingRemovals[token]) {
+                clearTimeout(pendingRemovals[token].timer);
+                delete pendingRemovals[token];
+            }
+
+        } else {
+
+            player = room.players.find(
                 p => p.id === socket.id
             );
 
-        if (!already) {
+            if (!player) {
 
-            room.players.push({
+                player = {
 
-                id: socket.id,
+                    id: socket.id,
 
-                name: name,
+                    token: token || genId(),
 
-                isHost: false,
+                    name: name,
 
-                role: null,
+                    isHost: false,
 
-                displayRole: null,
+                    role: null,
 
-                alive: true,
+                    displayRole: null,
 
-                protected: false,
+                    alive: true,
 
-                killed: false
+                    protected: false,
 
-            });
+                    killed: false
+
+                };
+
+                room.players.push(player);
+
+            }
 
         }
 
@@ -434,9 +502,32 @@ io.on("connection", (socket) => {
             room
         );
 
+        // กลับมาเชื่อมต่อใหม่ระหว่างเกมที่เริ่มไปแล้ว -> ส่งบทเดิมกลับไปให้ทันที
+        // (silent: true กันไม่ให้เล่นอนิเมชั่นเปิดบทซ้ำทุกครั้งที่เน็ตสะดุด)
+        if (isReconnect && room.started && player.role) {
+
+            io.to(socket.id).emit("your_role", {
+                role: player.role,
+                displayRole: player.displayRole,
+                huntTarget: player.huntTarget,
+                huntTargetId: player.huntTargetId || null,
+                roleInfo: roleDescription[player.role] || null,
+                silent: true
+            });
+
+            if (
+                wolfRoles.includes(player.role) &&
+                room.wolfChatHistory &&
+                room.wolfChatHistory.length > 0
+            ) {
+                io.to(socket.id).emit("wolf_chat_history", room.wolfChatHistory);
+            }
+        }
+
         cb({
             ok: true,
-            roomData: room
+            roomData: room,
+            token: player.token
         });
 
     });
@@ -988,10 +1079,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
             const wasHost = room.host === socket.id;
 
-            room.players =
-                room.players.filter(p => p.id !== socket.id);
-
-            // ถ้าโฮสต์หลุด/รีห้อง -> ปิดห้องทันที แจ้งผู้เล่นทุกคนให้กลับหน้าหลัก
+            // โฮสต์หลุด/รีห้อง -> ปิดห้องทันทีเหมือนเดิม (หน้าจอโฮสต์ไม่ได้ใช้ระบบรีคอนเนกต์นี้)
             if (wasHost) {
                 io.to(id).emit("room_closed", {
                     reason: "host_disconnected"
@@ -1005,13 +1093,44 @@ socket.on("select_target", ({ roomId, targetId }) => {
                 continue;
             }
 
-            // cleanup room empty
-            if (room.players.length === 0) {
-                delete rooms[id];
-                continue;
-            }
+            const player = room.players.find(p => p.id === socket.id);
+            if (!player) continue;
+
+            // ไม่เตะผู้เล่นออกจากห้องทันที — ให้เวลา "หลุดแล้วกลับมาใหม่"
+            // (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอป) ก่อนค่อยลบออกจริง
+            // ผู้เล่นคนอื่นจะเห็นสถานะ "🟡 กำลังเชื่อมต่อใหม่..." แทนการหายไปจากกริดทันที
+            player.disconnected = true;
 
             io.to(id).emit("room_update", room);
+
+            if (pendingRemovals[player.token]) {
+                clearTimeout(pendingRemovals[player.token].timer);
+            }
+
+            pendingRemovals[player.token] = {
+                roomId: id,
+                timer: setTimeout(() => {
+
+                    delete pendingRemovals[player.token];
+
+                    const stillRoom = rooms[id];
+                    if (!stillRoom) return;
+
+                    const stillPlayer = stillRoom.players.find(p => p.token === player.token);
+                    if (!stillPlayer || !stillPlayer.disconnected) return; // กลับมาเชื่อมต่อแล้ว ไม่ต้องลบออก
+
+                    stillRoom.players = stillRoom.players.filter(p => p.token !== player.token);
+
+                    if (stillRoom.players.length === 0) {
+                        delete rooms[id];
+                    } else {
+                        io.to(id).emit("room_update", stillRoom);
+                    }
+
+                    broadcastSuggestedRoom();
+
+                }, RECONNECT_GRACE_MS)
+            };
         }
 
         broadcastSuggestedRoom();
