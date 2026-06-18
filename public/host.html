@@ -2212,9 +2212,8 @@ document.getElementById("hostMsg").addEventListener("keydown", (e) => {
     }
 });
 
-socket.on("chat_message", (data) => {
+function appendChatMsg(data, silent) {
 
-    // route to correct box
     const isWolf = data.type === "wolf";
     const boxId = isWolf ? "chatBoxWolf" : "chatBoxGlobal";
     const log = document.getElementById(boxId);
@@ -2244,14 +2243,27 @@ socket.on("chat_message", (data) => {
     log.appendChild(div);
     log.scrollTop = log.scrollHeight;
 
-    // update badge if tab not active
-    const tabKey = isWolf ? "wolf" : "global";
-    if (currentHostTab !== tabKey) {
-        hostBadgeCounts[tabKey] = (hostBadgeCounts[tabKey] || 0) + 1;
-        const badgeEl = document.getElementById(tabKey === "wolf" ? "badgeWolf" : "badgeGlobal");
-        badgeEl.textContent = hostBadgeCounts[tabKey];
+    // อัปเดต badge เฉพาะข้อความใหม่จริงๆ (ไม่นับตอน replay ประวัติ)
+    if (!silent) {
+        const tabKey = isWolf ? "wolf" : "global";
+        if (currentHostTab !== tabKey) {
+            hostBadgeCounts[tabKey] = (hostBadgeCounts[tabKey] || 0) + 1;
+            const badgeEl = document.getElementById(tabKey === "wolf" ? "badgeWolf" : "badgeGlobal");
+            badgeEl.textContent = hostBadgeCounts[tabKey];
+        }
     }
+}
 
+socket.on("chat_message", (data) => { appendChatMsg(data, false); });
+
+// รับประวัติแชทหมาป่าเมื่อโฮสต์ล็อกอินใหม่
+socket.on("wolf_chat_history", (history) => {
+    history.forEach(msg => appendChatMsg(msg, true));
+});
+
+// รับประวัติแชทรวมเมื่อโฮสต์ล็อกอินใหม่
+socket.on("global_chat_history", (history) => {
+    history.forEach(msg => appendChatMsg(msg, true));
 });
 
 // TOGGLE VOTE MODE
