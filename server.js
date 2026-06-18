@@ -928,17 +928,44 @@ room.justStarted = false;
                 tally[tid] = (tally[tid] || 0) + 1;
             });
 
-            if (threshold > 0) {
-                Object.keys(tally).forEach((tid) => {
-                    if (tally[tid] >= threshold) {
-                        const target = room.players.find(p => p.id === tid);
+            let executed = null;
+
+            if (threshold > 0 && Object.keys(tally).length > 0) {
+                // หาคะแนนสูงสุดที่ถึงเกณฑ์
+                const maxVotes = Math.max(...Object.values(tally));
+
+                if (maxVotes >= threshold) {
+                    // หาผู้ที่ได้คะแนนสูงสุด
+                    const topCandidates = Object.keys(tally).filter(
+                        tid => tally[tid] === maxVotes
+                    );
+
+                    if (topCandidates.length === 1) {
+                        // มีคนเดียวที่ได้สูงสุด → ประหาร
+                        const target = room.players.find(p => p.id === topCandidates[0]);
                         if (target && target.alive) {
                             target.alive = false;
                             cleanupAfterDeath(room, target);
+                            executed = target;
                         }
                     }
-                });
+                    // ถ้า topCandidates.length > 1 = เสมอกันที่สูงสุด → ไม่ประหารใคร
+                }
+                // ถ้า maxVotes < threshold → ไม่ถึงเกณฑ์ → ไม่ประหารใคร
             }
+
+            // ส่งข้อความผลโหวตให้ทุกคนในห้อง
+            const resultMsg = {
+                name: "เกม",
+                text: executed
+                    ? `ชาวบ้านตัดสินใจประหาร ${executed.name}`
+                    : "ชาวบ้านตัดสินใจไม่ประหารใคร",
+                type: "global",
+                isSystem: true
+            };
+            room.globalChatHistory = room.globalChatHistory || [];
+            room.globalChatHistory.push(resultMsg);
+            io.to(roomId).emit("chat_message", resultMsg);
 
             room.votes = {};
         }
