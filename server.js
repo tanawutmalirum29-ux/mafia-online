@@ -482,6 +482,14 @@ io.on("connection", (socket) => {
         io.to(roomId).emit("room_update", room);
         broadcastSuggestedRoom();
 
+        // ส่งประวัติแชททั้งหมดให้โฮสต์ที่ล็อกอินใหม่
+        if (room.wolfChatHistory && room.wolfChatHistory.length > 0) {
+            io.to(socket.id).emit("wolf_chat_history", room.wolfChatHistory);
+        }
+        if (room.globalChatHistory && room.globalChatHistory.length > 0) {
+            io.to(socket.id).emit("global_chat_history", room.globalChatHistory);
+        }
+
         cb({ ok: true, roomData: room, token: hostPlayer.token });
 
     });
@@ -853,6 +861,33 @@ room.justStarted = false;
 
     player[key] = value;
 
+    // เมื่อติ๊ก alive = false ให้ลบ selectedTargets ทุกรายการที่เล็งคนนี้อยู่ออก
+    // (ป้องกันสถานะ "เลือกไว้" ค้างอยู่บนผู้เล่นที่ตายแล้ว)
+    if (key === "alive" && value === false) {
+        if (room.selectedTargets) {
+            Object.keys(room.selectedTargets).forEach((selectorId) => {
+                if (room.selectedTargets[selectorId] === playerId) {
+                    // ถ้า selector เป็น หมอ/บอดี้การ์ด ให้ถอด protected จาก target ที่ตายด้วย
+                    const protectRoles = ["หมอ", "บอดี้การ์ด"];
+                    const selector = room.players.find(p => p.id === selectorId);
+                    if (selector && protectRoles.includes(selector.role)) {
+                        player.protected = false;
+                    }
+                    delete room.selectedTargets[selectorId];
+                }
+            });
+        }
+        // ลบ selectedTargets ที่ player ที่ตายแล้วเป็นคนเลือกไว้ด้วย
+        if (room.selectedTargets && room.selectedTargets[playerId]) {
+            const protectRoles = ["หมอ", "บอดี้การ์ด"];
+            if (protectRoles.includes(player.role)) {
+                const prevTarget = room.players.find(p => p.id === room.selectedTargets[playerId]);
+                if (prevTarget) prevTarget.protected = false;
+            }
+            delete room.selectedTargets[playerId];
+        }
+    }
+
     io.to(roomId).emit("room_update", room);
 });
 
@@ -1048,11 +1083,14 @@ socket.on("select_target", ({ roomId, targetId }) => {
         }
 
         // GLOBAL CHAT
-        io.to(roomId).emit("chat_message", {
+        const globalMsg = {
             name: player.name,
             text: msg,
             type: "global"
-        });
+        };
+        room.globalChatHistory = room.globalChatHistory || [];
+        room.globalChatHistory.push(globalMsg);
+        io.to(roomId).emit("chat_message", globalMsg);
     });
 
     // =========================
@@ -1093,12 +1131,15 @@ socket.on("select_target", ({ roomId, targetId }) => {
             return;
         }
 
-        io.to(roomId).emit("chat_message", {
+        const globalHostMsg = {
             name: "HOST",
             text: msg,
             type: "global",
             isHost: true
-        });
+        };
+        room.globalChatHistory = room.globalChatHistory || [];
+        room.globalChatHistory.push(globalHostMsg);
+        io.to(roomId).emit("chat_message", globalHostMsg);
 
     });
 
