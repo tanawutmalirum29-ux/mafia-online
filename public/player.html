@@ -485,6 +485,44 @@ button:active{
     box-shadow:0 0 0 1px rgba(239,68,68,.3), 0 0 14px rgba(239,68,68,.15);
 }
 
+/* Kicked overlay */
+#kickedOverlay{
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    background:rgba(0,0,0,.82);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation:fadeIn .3s ease both;
+}
+
+.kicked-box{
+    background:#0e1320;
+    border:1px solid rgba(239,68,68,.4);
+    border-radius:16px;
+    padding:40px 48px;
+    text-align:center;
+    box-shadow:0 0 40px rgba(239,68,68,.15);
+}
+
+.kicked-icon{
+    font-size:52px;
+    margin-bottom:16px;
+}
+
+.kicked-title{
+    font-size:22px;
+    font-weight:700;
+    color:#f87171;
+    margin-bottom:8px;
+}
+
+.kicked-sub{
+    font-size:14px;
+    color:#94a3b8;
+}
+
 .hunt-target-badge{
     position:relative;
     width:26px;
@@ -3072,8 +3110,28 @@ socket.on("wolf_chat_history", (messages) => {
     (messages || []).forEach(renderChatMessage);
 });
 
-// ENTER SEND
-document.addEventListener(
+socket.on("kicked", () => {
+    // ล้าง token ออก ป้องกัน reconnect loop
+    sessionStorage.removeItem("playerToken");
+    localStorage.removeItem("playerToken");
+
+    // แสดง overlay แจ้งถูกเตะ
+    const overlay = document.createElement("div");
+    overlay.id = "kickedOverlay";
+    overlay.innerHTML = `
+        <div class="kicked-box">
+            <div class="kicked-icon">⛔</div>
+            <div class="kicked-title">คุณถูกเตะออกจากห้อง</div>
+            <div class="kicked-sub">กำลังพากลับไปหน้าหลัก...</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // redirect หลัง 2.5 วิ
+    setTimeout(() => { location.href = "/"; }, 2500);
+});
+
+
     "keydown",
     (e) => {
 

@@ -600,6 +600,28 @@ select{
     border:1px solid rgba(148,163,184,.25);
 }
 
+.kick-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    font-weight:600;
+    padding:2px 8px;
+    border-radius:999px;
+    margin-left:6px;
+    vertical-align:middle;
+    cursor:pointer;
+    background:rgba(239,68,68,.12);
+    border:1px solid rgba(239,68,68,.3);
+    color:#f87171;
+    transition:background .15s, border-color .15s;
+}
+
+.kick-btn:hover{
+    background:rgba(239,68,68,.25);
+    border-color:rgba(239,68,68,.55);
+}
+
 .player .ptop{
     display:flex;
     align-items:flex-start;
@@ -1698,6 +1720,7 @@ socket.on("room_update", (room) => {
                             ? `<span class="conn-dot away">🟡 กำลังเชื่อมต่อ...</span>`
                             : `<span class="conn-dot online">🟢 ออนไลน์</span>`
                         }
+                        <button class="kick-btn" onclick="kickPlayer('${p.id}', '${p.name}')">⛔ เตะ</button>
                     </span>
                     <span class="prole">${p.role || "?"}</span>
                 </div>
@@ -2173,6 +2196,11 @@ function startGame() {
 }
 
 // TOGGLE
+function kickPlayer(playerId, playerName) {
+    if (!confirm(`เตะ "${playerName}" ออกจากห้องใช่ไหม?`)) return;
+    socket.emit("kick_player", { roomId: currentRoomId, playerId });
+}
+
 function toggle(playerId, key, value) {
 
     socket.emit(
