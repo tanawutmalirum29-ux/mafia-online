@@ -1415,6 +1415,7 @@ html.modal-open body{
     <div class="vote-modal" id="votePanel">
         <button class="vote-modal-close" onclick="toggleVoteMode()" aria-label="ปิดหน้าต่างโหวต">✕</button>
         <div class="vote-panel-title">📋 การโหวต</div>
+        <div id="voteNeeded" style="font-size:13px;color:var(--ink-dim);text-align:center;margin-bottom:8px;"></div>
         <div id="voteRows"></div>
         <div class="vote-tally" id="voteTally"></div>
     </div>
@@ -1868,6 +1869,16 @@ socket.on("room_update", (room) => {
     const votes = room.votes || {};
     const players = room.players.filter(p => !p.isHost);
 
+    // จำนวนโหวตที่ต้องใช้เพื่อประหาร = ผู้เล่นที่มีชีวิต/2 ปัดขึ้น
+    const aliveVoters = players.filter(p => p.alive).length;
+    const voteThreshold = Math.ceil(aliveVoters / 2);
+    const voteNeededDiv = document.getElementById("voteNeeded");
+    if (voteNeededDiv) {
+        voteNeededDiv.textContent = aliveVoters > 0
+            ? `ต้องการ ${voteThreshold} โหวต (จากผู้มีชีวิต ${aliveVoters} คน) เพื่อประหาร`
+            : "";
+    }
+
     // render who voted for whom
     const voteRows = document.getElementById("voteRows");
     voteRows.innerHTML = "";
@@ -1903,10 +1914,11 @@ socket.on("room_update", (room) => {
         const sorted = Object.entries(tally).sort((a,b) => b[1]-a[1]);
         sorted.forEach(([tid, count]) => {
             const pl = room.players.find(x => x.id === tid);
+            const reachedThreshold = voteThreshold > 0 && count >= voteThreshold;
             const row = document.createElement("div");
             row.className = "tally-row" + (count === maxVote ? " top-voted" : "");
             row.innerHTML = `
-                <span>${pl ? pl.name : "?"}</span>
+                <span>${pl ? pl.name : "?"}${reachedThreshold ? ' <span style="color:#ef4444;font-size:11px;">☠️ ถึงเกณฑ์ประหาร</span>' : ""}</span>
                 <span class="tally-count">${count} โหวต</span>
             `;
             tallyDiv.appendChild(row);

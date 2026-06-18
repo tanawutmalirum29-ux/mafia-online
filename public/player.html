@@ -1873,6 +1873,7 @@ body.vote-open{
             <div>
                 <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
                 <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
+                <div class="vote-banner-sub" id="voteThresholdText"></div>
             </div>
         </div>
     </div>
@@ -2704,6 +2705,16 @@ socket.on("room_update", (roomData) => {
         voteSection.classList.remove("hidden");
         voteOverlay.classList.remove("hidden");
 
+        // จำนวนโหวตที่ต้องใช้เพื่อประหาร = ผู้เล่นที่มีชีวิต/2 ปัดขึ้น
+        const aliveVotersCount = roomData.players.filter(p => !p.isHost && p.alive).length;
+        const voteThreshold = Math.ceil(aliveVotersCount / 2);
+        const voteThresholdText = document.getElementById("voteThresholdText");
+        if (voteThresholdText) {
+            voteThresholdText.textContent = aliveVotersCount > 0
+                ? `ต้องการ ${voteThreshold} โหวต (จากผู้มีชีวิต ${aliveVotersCount} คน) เพื่อประหาร`
+                : "";
+        }
+
         // สถานะโหวตของตัวเอง
         const voteMyStatus = document.getElementById("voteMyStatus");
         if (!myAlive) {
@@ -2774,7 +2785,7 @@ socket.on("room_update", (roomData) => {
                     ${p.name}
                     ${p.alive ? "" : " 💀"}
                     ${isMe ? `<span class="vote-me-tag">ฉัน</span>` : ""}
-                    ${receivedCount > 0 ? `<span class="vote-count-badge">${receivedCount} โหวต</span>` : ""}
+                    ${receivedCount > 0 ? `<span class="vote-count-badge" style="${voteThreshold > 0 && receivedCount >= voteThreshold ? "background:#ef4444;" : ""}">${receivedCount} โหวต${voteThreshold > 0 && receivedCount >= voteThreshold ? " ☠️" : ""}</span>` : ""}
                 </div>
                 ${votedForName ? `<div class="vote-voter-list">โหวต: ${votedForName}</div>` : ""}
             `;
