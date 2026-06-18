@@ -18,7 +18,7 @@ const rooms = {};
 
 // ระยะเวลาที่ยอม "รอ" ผู้เล่นที่หลุดการเชื่อมต่อก่อนเตะออกจากห้องจริง
 // (กันกรณีเน็ตสะดุดแค่แป๊บเดียว / มือถือล็อกสกรีน / สลับแอป แล้ว socket หลุดชั่วครู่)
-const RECONNECT_GRACE_MS = 20000;
+const RECONNECT_GRACE_MS = 60000; // 1 นาที — หลังจากนี้จะเปลี่ยนเป็น offline (ไม่ลบกริด)
 
 // เก็บ timer ของผู้เล่นที่กำลังรอถูกเตะ แยกไว้นอก room/player object เสมอ
 // (ห้ามฝัง timer handle ไว้ใน room หรือ player เพราะ object พวกนั้นถูกส่งทั้งก้อนผ่าน
@@ -533,6 +533,7 @@ io.on("connection", (socket) => {
 
             player.name = name || player.name;
             player.disconnected = false;
+            player.offline = false;
 
             if (pendingRemovals[token]) {
                 clearTimeout(pendingRemovals[token].timer);
@@ -1282,14 +1283,11 @@ socket.on("select_target", ({ roomId, targetId }) => {
                     const stillPlayer = stillRoom.players.find(p => p.token === player.token);
                     if (!stillPlayer || !stillPlayer.disconnected) return; // กลับมาเชื่อมต่อแล้ว ไม่ต้องทำอะไร
 
-                    stillRoom.players = stillRoom.players.filter(p => p.token !== player.token);
+                    // ครบ 1 นาทีแล้วยังไม่กลับมา → เปลี่ยนเป็น offline แต่ไม่ลบกริดออก
+                    stillPlayer.disconnected = false;
+                    stillPlayer.offline = true;
 
-                    if (stillRoom.players.length === 0) {
-                        delete rooms[id];
-                    } else {
-                        io.to(id).emit("room_update", stillRoom);
-                    }
-
+                    io.to(id).emit("room_update", stillRoom);
                     broadcastSuggestedRoom();
 
                 }, RECONNECT_GRACE_MS)
