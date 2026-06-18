@@ -951,6 +951,59 @@ select{
     margin-bottom:10px;
 }
 
+/* ---- room picker grid ---- */
+
+#roomPickerPanel{
+    max-width:520px;
+}
+
+.roomPickerGrid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px;
+}
+
+@media (max-width: 480px){
+    .roomPickerGrid{
+        grid-template-columns:1fr;
+    }
+}
+
+.roomPickCard{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:14px;
+    border:1px solid var(--line);
+    border-radius:var(--r-md);
+    background:#0e1320;
+}
+
+.roomPickCard.roomPickNew{
+    border-style:dashed;
+    border-color:rgba(124,92,255,.4);
+    background:var(--moon-soft);
+    align-items:flex-start;
+    justify-content:center;
+}
+
+.roomPickCode{
+    font-family:"Charm","IBM Plex Sans Thai",serif;
+    font-weight:700;
+    font-size:20px;
+    color:#fff;
+    letter-spacing:.08em;
+}
+
+.roomPickMeta, .roomPickStatus{
+    font-size:12px;
+    color:var(--ink-dim);
+}
+
+.roomPickCard .btn{
+    margin-top:4px;
+}
+
 .vote-row{
     display:flex;
     align-items:center;
@@ -1141,6 +1194,15 @@ html.modal-open body{
 <div class="app">
 
     <div id="connBanner" class="conn-banner hidden">🔌 ขาดการเชื่อมต่อ กำลังพยายามเชื่อมต่อใหม่...</div>
+
+    <!-- ===== ROOM PICKER (เลือกห้องที่ยังเปิดอยู่ หรือสร้างห้องใหม่) ===== -->
+    <div class="vote-modal-overlay hidden" id="roomPickerOverlay">
+        <div class="vote-modal" id="roomPickerPanel">
+            <div class="vote-panel-title">🗂️ ห้องที่ยังเปิดอยู่</div>
+            <p class="sub" style="margin:-6px 0 14px;">เลือกห้องที่จะเข้าคุม หรือสร้างห้องใหม่</p>
+            <div id="roomPickerGrid" class="roomPickerGrid"></div>
+        </div>
+    </div>
 
     <!-- ===== SEAL / ROOM CODE ===== -->
     <div class="seal-wrap">
@@ -1397,46 +1459,115 @@ function createNewRoom() {
         { name: hostName },
         (res) => {
             applyRoomId(res.roomId);
+            hideRoomPicker();
         }
     );
 }
 
-// ตอนเปิดหน้านี้: ถ้ามีห้องเดิมที่เคยสร้างไว้ (เน็ตหลุดแล้วเปิดหน้าใหม่/รีเฟรช แต่ห้องยัง
-// ไม่ทันถูกปิดที่ฝั่งเซิร์ฟเวอร์) ให้พยายาม "กลับเข้าไปคุมห้องเดิม" ด้วย token เดิมก่อน
-// ถ้าห้องนั้นไม่มีแล้วจริงๆ (ปิดไปแล้ว) ค่อยสร้างห้องใหม่
-const savedHostRoom = localStorage.getItem("ww_host_room");
-if (savedHostRoom) {
+// เข้าคุมห้องที่เลือกจากกริด (หรือกลับเข้าห้องเดิมอัตโนมัติ) — ใช้ "host_login"
+// เสมอแทน join_room เพราะห้องไม่ถูกลบอัตโนมัติแล้ว ข้อมูลห้องเดิมทั้งหมด
+// (บทบาท/ผู้เล่น/แชท) จะยังอยู่ครบ ไม่ว่าจะล็อกอินจากอุปกรณ์เดิมหรืออุปกรณ์ใหม่
+function loginToRoom(id) {
     socket.emit(
-        "join_room",
-        { roomId: savedHostRoom, name: hostName, token: hostToken },
+        "host_login",
+        { roomId: id, token: hostToken },
         (res) => {
-            if (res && res.ok && res.roomData && res.roomData.host === socket.id) {
-                applyRoomId(savedHostRoom);
+            if (res && res.ok) {
+                applyRoomId(id);
+                hideRoomPicker();
             } else {
-                createNewRoom();
+                alert("เข้าคุมห้องนี้ไม่ได้ (อาจถูกปิดไปแล้ว)");
+                refreshRoomPicker();
             }
         }
     );
-} else {
-    createNewRoom();
 }
 
+// ดึงรายชื่อห้องที่ยังเปิดอยู่ทั้งหมดมาแสดงในกริดใหม่
+function refreshRoomPicker() {
+    socket.emit("list_open_rooms", (list) => {
+        renderRoomPicker(list || []);
+    });
+}
+
+// วาดกริดห้องที่ยังเปิดอยู่ ให้เลือกเข้าคุม หรือสร้างห้องใหม่
+function renderRoomPicker(list) {
+
+    const grid = document.getElementById("roomPickerGrid");
+    grid.innerHTML = "";
+
+    list.forEach((r) => {
+
+        const card = document.createElement("div");
+        card.className = "roomPickCard";
+
+        card.innerHTML = `
+            <div class="roomPickCode">${r.roomId}</div>
+            <div class="roomPickMeta">${r.playerCount} ผู้เล่น • ${r.started ? "กำลังเล่น" : "รอเริ่ม"}</div>
+            <div class="roomPickStatus">${r.hostConnected ? "🟢 มีผู้คุมอยู่" : "🟡 ไม่มีผู้คุมอยู่"}</div>
+            <button class="btn btn-block">เข้าคุมห้องนี้</button>
+        `;
+
+        card.querySelector("button").onclick = () => loginToRoom(r.roomId);
+
+        grid.appendChild(card);
+    });
+
+    const newCard = document.createElement("div");
+    newCard.className = "roomPickCard roomPickNew";
+    newCard.innerHTML = `
+        <div class="roomPickCode">+ ห้องใหม่</div>
+        <div class="roomPickMeta">เริ่มเกมใหม่ทั้งหมด</div>
+        <button class="btn btn-block">สร้างห้องใหม่</button>
+    `;
+    newCard.querySelector("button").onclick = () => createNewRoom();
+    grid.appendChild(newCard);
+
+    document.getElementById("roomPickerOverlay").classList.remove("hidden");
+    document.documentElement.classList.add("modal-open");
+}
+
+function hideRoomPicker() {
+    document.getElementById("roomPickerOverlay").classList.add("hidden");
+    document.documentElement.classList.remove("modal-open");
+}
+
+// ตอนเปิดหน้านี้: ขอรายชื่อห้องที่ยังเปิดอยู่ทั้งหมดก่อนเสมอ (ห้องไม่ถูกลบอัตโนมัติแล้ว
+// จึงอาจมีหลายห้องค้างอยู่พร้อมกัน) ถ้ามีห้องเดิมที่เคยคุม (จาก localStorage) อยู่ในนั้น
+// ให้กลับเข้าคุมอัตโนมัติทันทีโดยไม่ต้องเลือกใหม่ ถ้าไม่มี/ห้องเดิมปิดไปแล้ว แต่ยังมี
+// ห้องอื่นเปิดอยู่ (เช่น เปลี่ยนอุปกรณ์ / ล้างเบราว์เซอร์) ให้เลือกจากกริดเอง
+// ถ้าไม่มีห้องเปิดอยู่เลยค่อยสร้างห้องใหม่ให้อัตโนมัติ
+const savedHostRoom = localStorage.getItem("ww_host_room");
+
+socket.emit("list_open_rooms", (list) => {
+
+    list = list || [];
+
+    if (savedHostRoom && list.some(r => r.roomId === savedHostRoom)) {
+        loginToRoom(savedHostRoom);
+    } else if (list.length > 0) {
+        renderRoomPicker(list);
+    } else {
+        createNewRoom();
+    }
+
+});
+
 // CONNECT — เรียกทั้งตอนเชื่อมต่อครั้งแรก และทุกครั้งที่ socket.io เชื่อมต่อใหม่สำเร็จ
-// (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอปกลับมา) ถ้าเรามีห้องที่คุมอยู่แล้ว ให้ join_room ซ้ำ
-// ด้วย token เดิมทันที เพื่อให้เซิร์ฟเวอร์รู้ว่าเรายังเป็นโฮสต์คนเดิม ห้องจะไม่ถูกปิด
-// และผู้เล่นจะไม่ถูกเตะออกเพราะเน็ตของโฮสต์กระตุกแค่แป๊บเดียว
+// (เน็ตสะดุด/มือถือล็อกสกรีน/สลับแอปกลับมา) ถ้าเรามีห้องที่คุมอยู่แล้ว ให้ host_login
+// ซ้ำด้วย token เดิมทันที เพื่อยืนยันว่าเรายังเป็นผู้คุมห้องนี้อยู่
 socket.on("connect", () => {
 
     document.getElementById("connBanner").classList.add("hidden");
 
     if (roomId) {
         socket.emit(
-            "join_room",
-            { roomId, name: hostName, token: hostToken },
+            "host_login",
+            { roomId, token: hostToken },
             (res) => {
                 if (!res || res.error) {
-                    // ห้องถูกปิดไปแล้วจริงๆ (หลุดนานเกินเวลารอ)
-                    alert("ห้องถูกปิดไปแล้ว เนื่องจากขาดการเชื่อมต่อนานเกินไป");
+                    // ห้องถูกปิดไปแล้วจริงๆ (กดปิดห้องระหว่างที่เราหลุดอยู่)
+                    alert("ห้องถูกปิดไปแล้ว");
                     roomId = "";
                     localStorage.removeItem("ww_host_room");
                 }
@@ -1455,13 +1586,13 @@ socket.on("disconnect", () => {
     }
 });
 
-// ROOM CLOSED (ห้องถูกปิดจริง — โฮสต์ไม่กลับมาเชื่อมต่อทันเวลา หรือกดปิดห้องเอง)
+// ROOM CLOSED (โฮสต์กดปิดห้องเอง — ห้องไม่ถูกปิดอัตโนมัติจากการหลุดเน็ตอีกต่อไป)
 socket.on("room_closed", (data) => {
 
     if (data && data.reason === "host_closed") {
         alert("ปิดห้องเรียบร้อยแล้ว");
     } else {
-        alert("ห้องถูกปิด เนื่องจากขาดการเชื่อมต่อนานเกินไป");
+        alert("ห้องถูกปิดไปแล้ว");
     }
 
     localStorage.removeItem("ww_host_room");
