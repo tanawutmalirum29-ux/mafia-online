@@ -471,6 +471,14 @@ button:active{
     cursor:default;
 }
 
+.player.offline{
+    opacity:.45;
+    border-color:rgba(148,163,184,.2);
+    background:rgba(148,163,184,.03);
+    cursor:default;
+    filter:grayscale(30%);
+}
+
 /* Hunt target marker */
 .player.hunt-target{
     border-color:rgba(239,68,68,.5);
@@ -2553,12 +2561,12 @@ function renderPlayerGrid(roomData) {
             div.dataset.pid = p.id;
         }
 
-        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "") + (p.disconnected ? " reconnecting" : "");
+        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "") + (p.disconnected ? " reconnecting" : "") + (p.offline ? " offline" : "");
 
         div.onclick = () => {
             if (!myAlive) return;
             if (!p.alive) return;
-            if (p.disconnected) return;
+            if (p.disconnected || p.offline) return;
             if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
         };
 
@@ -2567,7 +2575,7 @@ function renderPlayerGrid(roomData) {
                 ${isMyHuntTarget ? `<span style="font-size:14px;line-height:1;" title="เป้าหมายของคุณ">🎯</span> ` : ""}${p.name}
                 ${isWolfMate ? `<span style="margin-left:6px;font-size:12px;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:2px 7px;border-radius:6px;border:1px solid rgba(239,68,68,.3);">🐺 ${p.role}</span>` : ""}
             </div>
-            <div class="status">${!p.alive ? "🔴 ตายแล้ว" : p.disconnected ? "🟡 กำลังเชื่อมต่อใหม่..." : "🟢 มีชีวิต"}</div>
+            <div class="status">${!p.alive ? "🔴 ตายแล้ว" : p.offline ? "⚫ ออฟไลน์" : p.disconnected ? "🟡 กำลังเชื่อมต่อใหม่..." : "🟢 มีชีวิต"}</div>
             ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
         `;
         // อัปเดตเนื้อหาเฉพาะตอนที่เปลี่ยนจริงๆ เพื่อไม่ให้รูปไอคอนต้องสร้าง/โหลดใหม่ทุกครั้ง

@@ -564,6 +564,12 @@ select{
     background:rgba(251,191,36,.04);
 }
 
+.player.offline{
+    border-color:rgba(148,163,184,.25);
+    background:rgba(148,163,184,.03);
+    opacity:.55;
+}
+
 .conn-dot{
     display:inline-flex;
     align-items:center;
@@ -586,6 +592,12 @@ select{
     color:var(--mark);
     background:var(--mark-soft);
     border:1px solid rgba(251,191,36,.35);
+}
+
+.conn-dot.offline{
+    color:#94a3b8;
+    background:rgba(148,163,184,.12);
+    border:1px solid rgba(148,163,184,.25);
 }
 
 .player .ptop{
@@ -1673,14 +1685,16 @@ socket.on("room_update", (room) => {
                 div.setAttribute("data-id", p.id);
             }
 
-            div.className = "player " + (!p.alive ? "dead" : "") + (p.disconnected ? " reconnecting" : "");
+            div.className = "player " + (!p.alive ? "dead" : "") + (p.disconnected ? " reconnecting" : "") + (p.offline ? " offline" : "");
 
             const newHTML = `
 
                 <div class="ptop">
                     <span class="pname">
                         ${p.name}
-                        ${p.disconnected
+                        ${p.offline
+                            ? `<span class="conn-dot offline">⚫ ออฟไลน์</span>`
+                            : p.disconnected
                             ? `<span class="conn-dot away">🟡 กำลังเชื่อมต่อ...</span>`
                             : `<span class="conn-dot online">🟢 ออนไลน์</span>`
                         }
