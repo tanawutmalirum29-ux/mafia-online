@@ -566,11 +566,19 @@ button:active{
     50%{ box-shadow:0 0 14px rgba(239,68,68,.8); transform:scale(1.1); }
 }
 
-.status{
-    font-size:10px;
-    margin-top:2px;
-    color:var(--ink-dim);
+.status-dot{
+    display:inline-block;
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    margin-left:5px;
+    vertical-align:middle;
+    box-shadow:0 0 4px currentColor;
 }
+.status-dot.dot-alive{ background:#22c55e; }
+.status-dot.dot-dead{ background:#ef4444; }
+.status-dot.dot-offline{ background:#6b7280; }
+.status-dot.dot-reconnecting{ background:#fbbf24; }
 
 .empty-note{
     font-size:13px;
@@ -2608,13 +2616,15 @@ function renderPlayerGrid(roomData) {
             if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
         };
 
+        const dotClass = !p.alive ? "dot-dead" : p.offline ? "dot-offline" : p.disconnected ? "dot-reconnecting" : "dot-alive";
+        const dotTitle = !p.alive ? "ตายแล้ว" : p.offline ? "ออฟไลน์" : p.disconnected ? "กำลังเชื่อมต่อใหม่..." : "มีชีวิต";
+
         const newInnerHTML = `
             <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
-                ${isMyHuntTarget ? `<span style="font-size:14px;line-height:1;" title="เป้าหมายของคุณ">🎯</span> ` : ""}${p.name}
+                ${isMyHuntTarget ? `<span style="font-size:14px;line-height:1;" title="เป้าหมายของคุณ">🎯</span> ` : ""}${p.name}<span class="status-dot ${dotClass}" title="${dotTitle}"></span>
                 ${isWolfMate ? `<span style="display:block;margin-top:2px;font-size:9px;line-height:1.3;color:var(--wolf);font-weight:600;background:var(--wolf-soft);padding:1px 4px;border-radius:5px;border:1px solid rgba(239,68,68,.3);white-space:nowrap;">🐺 ${p.role}</span>` : ""}
             </div>
-            <div class="status">${!p.alive ? "🔴 ตายแล้ว" : p.offline ? "⚫ ออฟไลน์" : p.disconnected ? "🟡 กำลังเชื่อมต่อใหม่..." : "🟢 มีชีวิต"}</div>
-            ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : ""}
+            ${(myRole && p.id === me) ? `<div class="player-role-icon" title="${myRole}">${getRoleIcon(myRole)}</div>` : isWolfMate ? `<div class="player-role-icon" title="${p.role}">${getRoleIcon(p.role)}</div>` : ""}
         `;
         // อัปเดตเนื้อหาเฉพาะตอนที่เปลี่ยนจริงๆ เพื่อไม่ให้รูปไอคอนต้องสร้าง/โหลดใหม่ทุกครั้ง
         if (div.innerHTML !== newInnerHTML) {
