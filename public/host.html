@@ -559,6 +559,35 @@ select{
     filter:grayscale(60%);
 }
 
+.player.reconnecting{
+    border-color:rgba(251,191,36,.4);
+    background:rgba(251,191,36,.04);
+}
+
+.conn-dot{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:11px;
+    font-weight:600;
+    padding:2px 8px;
+    border-radius:999px;
+    margin-left:6px;
+    vertical-align:middle;
+}
+
+.conn-dot.online{
+    color:var(--safe);
+    background:var(--safe-soft);
+    border:1px solid rgba(34,197,94,.3);
+}
+
+.conn-dot.away{
+    color:var(--mark);
+    background:var(--mark-soft);
+    border:1px solid rgba(251,191,36,.35);
+}
+
 .player .ptop{
     display:flex;
     align-items:flex-start;
@@ -1644,12 +1673,18 @@ socket.on("room_update", (room) => {
                 div.setAttribute("data-id", p.id);
             }
 
-            div.className = "player " + (!p.alive ? "dead" : "");
+            div.className = "player " + (!p.alive ? "dead" : "") + (p.disconnected ? " reconnecting" : "");
 
             const newHTML = `
 
                 <div class="ptop">
-                    <span class="pname">${p.name}</span>
+                    <span class="pname">
+                        ${p.name}
+                        ${p.disconnected
+                            ? `<span class="conn-dot away">🟡 กำลังเชื่อมต่อ...</span>`
+                            : `<span class="conn-dot online">🟢 ออนไลน์</span>`
+                        }
+                    </span>
                     <span class="prole">${p.role || "?"}</span>
                 </div>
 

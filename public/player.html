@@ -466,6 +466,9 @@ button:active{
 
 .player.reconnecting{
     opacity:.6;
+    border-color:rgba(251,191,36,.45);
+    background:rgba(251,191,36,.04);
+    cursor:default;
 }
 
 /* Hunt target marker */
@@ -2555,6 +2558,7 @@ function renderPlayerGrid(roomData) {
         div.onclick = () => {
             if (!myAlive) return;
             if (!p.alive) return;
+            if (p.disconnected) return;
             if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
         };
 
