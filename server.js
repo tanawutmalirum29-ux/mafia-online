@@ -163,17 +163,17 @@ const roleDescription = {
 
     "หมาป่าพิทักษ์": {
         icon: "/images/guardianwolf.jpg",
-        title: '<img src="/images/guardianwolf.jpg" width="30"> หมาป่าพิทักษ์',
+        title: "🐺 หมาป่าพิทักษ์",
         desc: "คุณสามารถปกป้องหมาป่า จากการถูกโหวตประหารได้1ครั้ง  ลาง:ร้าย"
     },
     "หมาป่าดื้อรั้น": {
         icon: "/images/stubbornwolf.jpg",
-        title: '<img src="/images/stubbornwolf.jpg" width="30"> หมาป่าดื้อรั้น',
+        title: "🐺 หมาป่าดื้อรั้น",
         desc: "คุณมี2ชีวิต  ลาง:ไม่ทราบ"
     },
     "หมาป่านักเวท": {
         icon: "/images/wizardwolf.jpg",
-        title: '<img src="/images/wizardwolf.jpg" width="30"> หมาป่านักเวทย์',
+        title: "🐺 หมาป่านักเวทย์",
         desc: "ร่ายเวทได้1คนต่อคืน หากอาชีพลางสังหรณ์มาส่องจะพบว่าคนนั้นอยู่ทีมหมาป่า  ลาง:ร้าย"
     },
 
@@ -201,7 +201,7 @@ const roleDescription = {
 
 "นักกล้าม": {
         icon: "/images/muscleman.jpg",
-        title: '<img src="/images/muscleman.jpg" width="30"> นักกล้าม',
+        title: "💪 นักกล้าม",
         desc: "ป้องกัน 1 คนต่อคืน และปกป้องตัวเองอัตโนมัติ หากการปกป้องคุณถูกโจมตีจะเปิดเผยบทบาทผู้ที่โจมตีคุณและคุณจะตายหลังการประชุม  ลาง:ดี"
     },
 
@@ -213,20 +213,20 @@ const roleDescription = {
 
      "ยายแก่": {
         icon: "/images/oldlady.jpg",
-        title: '<img src="/images/oldlady.jpg" width="30"> ยายแก่',
+        title: "👵 ยายแก่",
         desc: "ทำให้คน1คนเป็นใบ้  ลาง:ดี"
     },
     
        "แม่มด": {
         icon: "/images/witch.jpg",
-        title: '<img src="/images/witch.jpg" width="30"> แม่มด',
+        title: "🧙‍♀️ แม่มด",
         desc: "คุณมียาพิษ และ ยาป้องกัน อย่างละขวด ยาป้องกันจะหมดก็ต่อเมื่อคุณป้องกันสำเร็จ  ลาง:ไม่ทราบ"
     },
 
     
      "ศาลเตี้ย": {
         icon: "/images/sheriff.jpg",
-        title: '<img src="/images/sheriff.jpg" width="30"> ศาลเตี้ย',
+        title: "🔫 ศาลเตี้ย",
         desc: "คุณมีกระสุน1นัด และสามารถดูบทบาทคนได้1คน เห็นเฉพาะคุณเท่านั้น  ลางไม่ทราบ"
     },
 
@@ -246,7 +246,7 @@ const roleDescription = {
     },
      "ฆาตกร": {
         icon: "/images/murderer.jpg",
-        title: '<img src="/images/murderer.jpg" width="30"> ฆาตกร',
+        title: "🗡️ ฆาตกร",
         desc: "สามารถฆ่าผู้เล่นได้ 1 คนต่อคืน หมาป่าฆ่าคุณไม่ได้   ลาง:ไม่ทราบ"
     }
 
@@ -726,6 +726,72 @@ room.justStarted = false;
             const target = room.players.find(p => p.id === targetId);
             if (!target || !target.alive) return;
             room.votes[socket.id] = targetId;
+        }
+
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // TOGGLE WOLF KILL MODE
+    socket.on("toggle_wolf_kill_mode", ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (socket.id !== room.host) return;
+
+        room.wolfKillMode = !room.wolfKillMode;
+
+        if (room.wolfKillMode) {
+            // เปิดโหมด: เคลียร์การเลือกของรอบก่อนหน้า
+            room.wolfKillVotes = {};
+        } else {
+            // ปิดโหมด: สรุปผล แล้วติ๊ก "เล็งฆ่า" ให้อัตโนมัติ
+            const votes = room.wolfKillVotes || {};
+            const chosenTargets = [...new Set(
+                Object.values(votes).filter((tid) => {
+                    const t = room.players.find(p => p.id === tid);
+                    return t && !wolfRoles.includes(t.role); // กันกรณีเป้าหมายกลายเป็นหมาป่าไปแล้ว
+                })
+            )];
+
+            if (chosenTargets.length > 0) {
+
+                // ถ้าหมาป่าเลือกเป้าหมายมากกว่า 1 คน ให้สุ่มมาแค่คนเดียว
+                const finalTargetId =
+                    chosenTargets.length === 1
+                        ? chosenTargets[0]
+                        : chosenTargets[
+                            Math.floor(Math.random() * chosenTargets.length)
+                        ];
+
+                const target = room.players.find(p => p.id === finalTargetId);
+                if (target) target.killed = true;
+            }
+
+            room.wolfKillVotes = {};
+        }
+
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // CAST WOLF KILL (เฉพาะทีมหมาป่า)
+    socket.on("cast_wolf_kill", ({ roomId, targetId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (!room.wolfKillMode) return;
+
+        const voter = room.players.find(p => p.id === socket.id);
+        if (!voter || !voter.alive || voter.isHost) return;
+        if (!wolfRoles.includes(voter.role)) return;
+
+        if (!room.wolfKillVotes) room.wolfKillVotes = {};
+
+        if (!targetId) {
+            delete room.wolfKillVotes[socket.id];
+        } else {
+            if (targetId === socket.id) return;
+            const target = room.players.find(p => p.id === targetId);
+            if (!target || !target.alive) return;
+            if (wolfRoles.includes(target.role)) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
+            room.wolfKillVotes[socket.id] = targetId;
         }
 
         io.to(roomId).emit("room_update", room);
