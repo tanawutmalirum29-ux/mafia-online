@@ -1666,6 +1666,11 @@ body.vote-open{
     display:none;
 }
 
+.msgSystem,
+.msgSystem .msgName{
+    color:var(--safe);
+}
+
 </style>
 
 </head>
@@ -2924,6 +2929,11 @@ function renderChatMessage(msg) {
     // ✅ FIX: private ต้อง override ทุกอย่าง
     if (msg.type === "private") {
         className = "msg msgPrivate";
+    }
+
+    // ข้อความจากเกม (isSystem) ให้เป็นสีเขียวเสมอ ไม่ว่าจะอยู่แชทไหน
+    if (msg.isSystem) {
+        className += " msgSystem";
     }
 
     div.className = className;
