@@ -1250,68 +1250,18 @@ body{
 
 #popupRolesInGame{}
 
-/* ===== VOTE MODE ===== */
-
-/* Overlay พื้นหลังมืด */
-#voteOverlay{
-    position:fixed;
-    inset:0;
-    z-index:998;
-    background:rgba(6,9,18,.75);
-    backdrop-filter:blur(4px);
-    -webkit-backdrop-filter:blur(4px);
-    animation:fadeIn .25s ease;
-}
-
-#voteOverlay.hidden{
-    display:none;
-}
+/* ===== VOTE MODE / WOLF KILL MODE =====
+   แสดงในกริดผู้เล่นเดิม (#players) แทนที่จะเป็นป๊อปอัปลอยแยกต่างหาก
+   เหลือไว้แค่ keyframes ที่ใช้ร่วมกับที่อื่นในไฟล์ */
 
 @keyframes fadeIn{
     from{ opacity:0; }
     to{ opacity:1; }
 }
 
-/* popup กลางหน้าจอ */
-#voteSection{
-    position:fixed;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    z-index:999;
-    width:min(480px, calc(100vw - 32px));
-    max-height:min(600px, calc(100vh - 48px));
-    display:flex;
-    flex-direction:column;
-    background:#12172f;
-    border:1px solid rgba(255,255,255,.1);
-    border-radius:var(--r-lg);
-    box-shadow:0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(124,92,255,.15);
-    overflow:hidden;
-    animation:popIn .25s cubic-bezier(.34,1.56,.64,1);
-}
-
 @keyframes popIn{
     from{ opacity:0; transform:translate(-50%,-46%) scale(.94); }
     to{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-}
-
-#voteSection.hidden{
-    display:none;
-}
-
-/* ส่วนหัว popup */
-#voteHeader{
-    padding:16px 18px 14px;
-    border-bottom:1px solid var(--line);
-    flex-shrink:0;
-}
-
-/* ส่วน scroll ได้ */
-#voteBody{
-    overflow-y:auto;
-    padding:14px 18px 20px;
-    flex:1;
 }
 
 body.vote-open{
@@ -1346,69 +1296,37 @@ body.vote-open{
     margin-top:2px;
 }
 
-#votePlayers{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:8px;
+/* ===== โหมดโหวต/โหมดหมาป่าเลือกฆ่า แสดงบนการ์ดผู้เล่นในกริดเดิม (#players) =====
+   เมื่อโหมดใดโหมดหนึ่งเปิดอยู่ การ์ดจะขยายสูงขึ้น (ไม่ล็อก aspect-ratio สี่เหลี่ยมจัตุรัส)
+   เพื่อมีที่แสดง badge จำนวนโหวต/เป้าหมายที่เลือกไว้ */
+
+#players.mode-active{
+    grid-template-columns:repeat(auto-fill, minmax(96px,1fr));
 }
 
-.vote-player{
-    aspect-ratio:1/1;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    background:#0e1320;
-    border:1px solid var(--line);
-    padding:10px 6px;
-    border-radius:var(--r-md);
-    cursor:pointer;
-    transition:border-color .2s, transform .15s;
-    overflow:hidden;
+#players.mode-active .player{
+    aspect-ratio:auto;
+    min-height:88px;
+    padding:10px 6px 8px;
+    justify-content:flex-start;
 }
 
-.vote-player:active{
-    transform:scale(.96);
-}
-
-.vote-player.voted-selected{
+.player.my-target{
     border-color:var(--safe);
     box-shadow:0 0 0 1px var(--safe), 0 0 16px rgba(34,197,94,.2);
     background:rgba(34,197,94,.06);
 }
 
-.vote-player.is-me{
-    border-color:rgba(124,92,255,.35);
-    background:rgba(124,92,255,.06);
-    cursor:default;
+.player.my-kill-target{
+    border-color:var(--wolf);
+    box-shadow:0 0 0 1px var(--wolf), 0 0 16px rgba(239,68,68,.25);
+    background:rgba(239,68,68,.07);
 }
 
-.vote-player.dead{
-    opacity:.35;
-    filter:grayscale(80%);
-    cursor:default;
-}
-
-.vote-pname{
-    font-weight:700;
-    font-size:13px;
-    color:#fff;
-    word-break:break-word;
-    line-height:1.3;
-}
-
-.vote-me-tag{
-    display:block;
-    font-size:10px;
-    margin-top:3px;
-    padding:1px 6px;
-    border-radius:999px;
-    background:rgba(124,92,255,.2);
-    color:var(--moon);
-    border:1px solid rgba(124,92,255,.3);
-    font-weight:600;
-    font-family:"JetBrains Mono",monospace;
+.player.kill-restricted{
+    cursor:not-allowed;
+    opacity:.55;
+    border-style:dashed;
 }
 
 .vote-count-badge{
@@ -1424,6 +1342,12 @@ body.vote-open{
     font-weight:700;
 }
 
+.vote-count-badge.reached{
+    background:#ef4444;
+    color:#fff;
+    border-color:#ef4444;
+}
+
 .vote-voter-list{
     margin-top:4px;
     font-size:10px;
@@ -1431,104 +1355,15 @@ body.vote-open{
     line-height:1.3;
 }
 
-body.vote-open{
-    overflow:hidden;
+#modeBannerMyStatus{
+    text-align:left;
 }
 
-#voteMyStatus{
-    text-align:center;
-    font-size:13px;
-    color:var(--safe);
-    font-weight:600;
-    margin-bottom:10px;
-    min-height:18px;
-}
-
-/* ===== WOLF KILL MODE ===== */
-/* ใช้โครงเดียวกับโหมดโหวต แต่โทนสีแดงและขึ้นเฉพาะทีมหมาป่า */
-
-#killOverlay{
-    position:fixed;
-    inset:0;
-    z-index:998;
-    background:rgba(6,9,18,.75);
-    backdrop-filter:blur(4px);
-    -webkit-backdrop-filter:blur(4px);
-    animation:fadeIn .25s ease;
-}
-
-#killOverlay.hidden{
-    display:none;
-}
-
-#killSection{
-    position:fixed;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    z-index:999;
-    width:min(480px, calc(100vw - 32px));
-    max-height:min(600px, calc(100vh - 48px));
-    display:flex;
-    flex-direction:column;
-    background:#12172f;
-    border:1px solid rgba(239,68,68,.25);
-    border-radius:var(--r-lg);
-    box-shadow:0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(239,68,68,.15);
-    overflow:hidden;
-    animation:popIn .25s cubic-bezier(.34,1.56,.64,1);
-}
-
-#killSection.hidden{
-    display:none;
-}
-
-#killHeader{
-    padding:16px 18px 14px;
-    border-bottom:1px solid var(--line);
-    flex-shrink:0;
-}
-
-#killBody{
-    overflow-y:auto;
-    padding:14px 18px 20px;
-    flex:1;
-}
+/* ===== WOLF KILL MODE — โทนสีแดง ===== */
 
 .kill-banner{
     background:rgba(239,68,68,.1) !important;
     border-color:rgba(239,68,68,.3) !important;
-}
-
-#killMyStatus{
-    text-align:center;
-    font-size:13px;
-    color:var(--wolf);
-    font-weight:600;
-    margin-bottom:10px;
-    min-height:18px;
-}
-
-#killPlayers{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:8px;
-}
-
-#killPlayers .vote-player.voted-selected{
-    border-color:var(--wolf);
-    box-shadow:0 0 0 1px var(--wolf), 0 0 16px rgba(239,68,68,.25);
-    background:rgba(239,68,68,.07);
-}
-
-#killPlayers .vote-player.same-team{
-    cursor:not-allowed;
-    opacity:.55;
-    border-style:dashed;
-}
-
-#killPlayers .vote-player.same-team:active{
-    transform:none;
 }
 
 /* ===== ROLE REVEAL ANIMATION ===== */
@@ -1893,56 +1728,20 @@ body.vote-open{
     <h3>
         ผู้เล่นในห้อง
     </h3>
-    <p class="sub">แตะผู้เล่นเพื่อเลือกเป้าหมาย</p>
+    <p class="sub" id="playersSub">แตะผู้เล่นเพื่อเลือกเป้าหมาย</p>
+
+    <!-- MODE BANNER: แสดงเมื่อโหมดโหวต/โหมดหมาป่าเลือกฆ่าเปิดอยู่ — อยู่เหนือกริดผู้เล่นเดิม ไม่ใช่ป๊อปอัปแยก -->
+    <div id="modeBanner" class="vote-banner hidden">
+        <div class="vote-banner-icon" id="modeBannerIcon">🗳️</div>
+        <div>
+            <div class="vote-banner-text" id="modeBannerText">โหมดโหวต — เลือกคนที่จะโหวต</div>
+            <div class="vote-banner-sub" id="modeBannerSub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
+            <div class="vote-banner-sub" id="modeBannerThreshold"></div>
+            <div class="vote-banner-sub" id="modeBannerMyStatus" style="margin-top:6px;font-weight:600;"></div>
+        </div>
+    </div>
 
     <div id="players"></div>
-
-</div>
-
-<!-- VOTE OVERLAY -->
-<div id="voteOverlay" class="hidden"></div>
-
-<!-- VOTE SECTION POPUP -->
-<div id="voteSection" class="hidden">
-
-    <div id="voteHeader">
-        <div class="vote-banner" style="margin-bottom:0;">
-            <div class="vote-banner-icon">🗳️</div>
-            <div>
-                <div class="vote-banner-text">โหมดโหวต — เลือกคนที่จะโหวต</div>
-                <div class="vote-banner-sub">ทุกคนจะเห็นว่าคุณโหวตใคร</div>
-                <div class="vote-banner-sub" id="voteThresholdText"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="voteBody">
-        <div id="voteMyStatus"></div>
-        <div id="votePlayers"></div>
-    </div>
-
-</div>
-
-<!-- WOLF KILL OVERLAY -->
-<div id="killOverlay" class="hidden"></div>
-
-<!-- WOLF KILL SECTION POPUP (เห็นเฉพาะทีมหมาป่า) -->
-<div id="killSection" class="hidden">
-
-    <div id="killHeader">
-        <div class="vote-banner kill-banner" style="margin-bottom:0;">
-            <div class="vote-banner-icon">🐺</div>
-            <div>
-                <div class="vote-banner-text" style="color:var(--wolf);">โหมดหมาป่าเลือกฆ่า — เลือกเหยื่อ</div>
-                <div class="vote-banner-sub">หมาป่าด้วยกันจะเห็นว่าใครเลือกใคร</div>
-            </div>
-        </div>
-    </div>
-
-    <div id="killBody">
-        <div id="killMyStatus"></div>
-        <div id="killPlayers"></div>
-    </div>
 
 </div>
 
@@ -2641,13 +2440,49 @@ function renderPlayerGrid(roomData) {
 
     if (others.length === 0) {
         players.innerHTML = `<div class="empty-note">รอผู้เล่นคนอื่นเข้าร่วมห้อง...</div>`;
-        return;
+        players.classList.remove("mode-active");
+        updateModeBanner("normal", {});
+        return "normal";
     }
 
     // ถ้ามี empty-note ค้างอยู่ (ตอนยังไม่มีคนอื่น) ให้เคลียร์ก่อน sync ของจริง
     if (players.querySelector(".empty-note")) {
         players.innerHTML = "";
     }
+
+    // ===== กำหนดโหมดปัจจุบันของกริด =====
+    // โหมดโหวต/โหมดหมาป่าเลือกฆ่า แสดงผล "ภายในกริดผู้เล่นเดิม" นี้เลย แทนที่จะแยกเป็นป๊อปอัป
+    // ลำดับความสำคัญ: โหมดโหวต > โหมดหมาป่าเลือกฆ่า (เฉพาะคนที่เป็นทีมหมาป่า) > โหมดปกติ (เลือกเป้าหมายความสามารถกลางคืน)
+    const voteMode = !!roomData.voteMode;
+    const killModeActive = !!(roomData.wolfKillMode && amIWolf);
+    const mode = voteMode ? "vote" : (killModeActive ? "kill" : "normal");
+
+    players.classList.toggle("mode-active", mode !== "normal");
+
+    // ข้อมูลโหวต (ใช้เมื่อ mode === "vote")
+    const votes = roomData.votes || {};
+    const myVoteTarget = votes[me];
+    const voteTally = {};
+    Object.values(votes).forEach(tid => { voteTally[tid] = (voteTally[tid] || 0) + 1; });
+    const voteTargetName = {};
+    Object.entries(votes).forEach(([vid, tid]) => {
+        const t = roomData.players.find(p => p.id === tid);
+        if (t) voteTargetName[vid] = t.name;
+    });
+    const aliveVotersCount = others.filter(p => p.alive).length;
+    const voteThreshold = Math.ceil(aliveVotersCount / 2);
+
+    // ข้อมูลหมาป่าเลือกฆ่า (ใช้เมื่อ mode === "kill")
+    const killVotes = roomData.wolfKillVotes || {};
+    const myKillTarget = killVotes[me];
+    const killTargetName = {};
+    Object.entries(killVotes).forEach(([vid, tid]) => {
+        const t = roomData.players.find(p => p.id === tid);
+        if (t) killTargetName[vid] = t.name;
+    });
+
+    // อัปเดตแบนเนอร์โหมด (เหนือกริด) + สถานะของตัวเอง
+    updateModeBanner(mode, { aliveVotersCount, voteThreshold, myVoteTarget, myKillTarget, roomData });
 
     // เก็บกล่องผู้เล่นที่มีอยู่แล้วไว้ใช้ซ้ำ แทนการรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนกดเลือกเป้าหมาย
     // (กันรูป/การ์ดผู้เล่นที่ "ไม่ได้เปลี่ยน" กระตุกซ้ำ)
@@ -2662,7 +2497,10 @@ function renderPlayerGrid(roomData) {
 
         const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
         const isMyHuntTarget = (myRole === "นักล่าหัว") && myHuntTargetId && (p.id === myHuntTargetId) && p.alive;
-        const isSelected = selected === p.id;
+        const isSelected = mode === "normal" && selected === p.id;
+        const isMyVote = mode === "vote" && myVoteTarget === p.id;
+        const isMyKill = mode === "kill" && myKillTarget === p.id;
+        const isKillRestricted = mode === "kill" && (p.id === me || isWolfMate);
 
         let div = existingNodes[p.id];
         if (!div) {
@@ -2670,17 +2508,53 @@ function renderPlayerGrid(roomData) {
             div.dataset.pid = p.id;
         }
 
-        div.className = "player " + (!p.alive ? "dead" : "") + (isSelected ? " selected" : "") + (isMyHuntTarget ? " hunt-target" : "") + (p.disconnected ? " reconnecting" : "") + (p.offline ? " offline" : "");
+        div.className = "player "
+            + (!p.alive ? "dead" : "")
+            + (isSelected ? " selected" : "")
+            + (isMyVote ? " my-target" : "")
+            + (isMyKill ? " my-kill-target" : "")
+            + (isKillRestricted ? " kill-restricted" : "")
+            + (isMyHuntTarget ? " hunt-target" : "")
+            + (p.disconnected ? " reconnecting" : "")
+            + (p.offline ? " offline" : "");
 
         div.onclick = () => {
             if (!myAlive) return;
             if (!p.alive) return;
             if (p.disconnected || p.offline) return;
-            if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
+
+            if (mode === "vote") {
+                if (p.id === me) return; // ห้ามโหวตตัวเอง
+                if (myVoteTarget === p.id) { castVote(null); } else { castVote(p.id); }
+            } else if (mode === "kill") {
+                if (p.id === me) return; // ห้ามเลือกตัวเอง
+                if (isWolfMate) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
+                if (myKillTarget === p.id) { castWolfKill(null); } else { castWolfKill(p.id); }
+            } else {
+                if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
+            }
         };
 
         const dotClass = !p.alive ? "dot-dead" : p.offline ? "dot-offline" : p.disconnected ? "dot-reconnecting" : "dot-alive";
         const dotTitle = !p.alive ? "ตายแล้ว" : p.offline ? "ออฟไลน์" : p.disconnected ? "กำลังเชื่อมต่อใหม่..." : "มีชีวิต";
+
+        // ===== ส่วนเสริมตามโหมด: badge จำนวนโหวต/จำนวนถูกเลือกฆ่า + ใครเลือกใคร =====
+        let modeExtraHtml = "";
+        if (mode === "vote") {
+            const receivedCount = voteTally[p.id] || 0;
+            const reached = voteThreshold > 0 && receivedCount >= voteThreshold;
+            const votedFor = voteTargetName[p.id] || null;
+            modeExtraHtml = `
+                ${receivedCount > 0 ? `<span class="vote-count-badge${reached ? " reached" : ""}">${receivedCount} โหวต${reached ? " ☠️" : ""}</span>` : ""}
+                ${votedFor ? `<div class="vote-voter-list">➜ ${votedFor}</div>` : ""}
+            `;
+        } else if (mode === "kill") {
+            const killedFor = killTargetName[p.id] || null;
+            modeExtraHtml = `
+                ${isWolfMate ? `<div class="vote-voter-list" style="color:var(--wolf);">ห้ามเลือก</div>` : ""}
+                ${killedFor ? `<div class="vote-voter-list">➜ ${killedFor}</div>` : ""}
+            `;
+        }
 
         const newInnerHTML = `
             <div class="pname" style="${p.id === me ? "color:#facc15;font-weight:700;" : ""}">
@@ -2700,6 +2574,7 @@ function renderPlayerGrid(roomData) {
                     : "";
                 return roleHtml + silencedHtml;
             })()}
+            ${modeExtraHtml}
         `;
         // อัปเดตเนื้อหาเฉพาะตอนที่เปลี่ยนจริงๆ เพื่อไม่ให้รูปไอคอนต้องสร้าง/โหลดใหม่ทุกครั้ง
         if (div.innerHTML !== newInnerHTML) {
@@ -2718,6 +2593,67 @@ function renderPlayerGrid(roomData) {
             existingNodes[pid].remove();
         }
     });
+
+    return mode;
+}
+
+// อัปเดตแบนเนอร์โหมด (เหนือกริดผู้เล่น) — แสดงว่ากำลังอยู่โหมดอะไร ต้องทำอะไร และสถานะของตัวเอง
+// แทนที่ป๊อปอัปแยกเดิม โดยอยู่ในหน้าเดียวกับกริดผู้เล่นเลย
+function updateModeBanner(mode, ctx) {
+    const banner = document.getElementById("modeBanner");
+    const sub = document.getElementById("playersSub");
+    if (!banner) return;
+
+    if (mode === "normal") {
+        banner.classList.add("hidden");
+        if (sub) sub.textContent = "แตะผู้เล่นเพื่อเลือกเป้าหมาย";
+        return;
+    }
+
+    banner.classList.remove("hidden");
+    const icon = document.getElementById("modeBannerIcon");
+    const text = document.getElementById("modeBannerText");
+    const subText = document.getElementById("modeBannerSub");
+    const thresholdText = document.getElementById("modeBannerThreshold");
+    const myStatusText = document.getElementById("modeBannerMyStatus");
+
+    if (mode === "vote") {
+        banner.classList.remove("kill-banner");
+        if (sub) sub.textContent = "โหมดโหวต — แตะชื่อผู้เล่นเพื่อโหวต";
+        icon.textContent = "🗳️";
+        text.textContent = "โหมดโหวต — เลือกคนที่จะโหวต";
+        text.style.color = "var(--safe)";
+        subText.textContent = "ทุกคนจะเห็นว่าคุณโหวตใคร";
+        thresholdText.textContent = ctx.aliveVotersCount > 0
+            ? `ต้องการ ${ctx.voteThreshold} โหวต (จากผู้มีชีวิต ${ctx.aliveVotersCount} คน) เพื่อประหาร`
+            : "";
+
+        if (!myAlive) {
+            myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+        } else if (ctx.myVoteTarget) {
+            const vt = ctx.roomData.players.find(p => p.id === ctx.myVoteTarget);
+            myStatusText.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+        } else {
+            myStatusText.textContent = "แตะชื่อเพื่อโหวต";
+        }
+    } else if (mode === "kill") {
+        banner.classList.add("kill-banner");
+        if (sub) sub.textContent = "โหมดหมาป่าเลือกฆ่า — แตะชื่อผู้เล่นเพื่อเลือกเหยื่อ";
+        icon.textContent = "🐺";
+        text.textContent = "โหมดหมาป่าเลือกฆ่า — เลือกเหยื่อ";
+        text.style.color = "var(--wolf)";
+        subText.textContent = "หมาป่าด้วยกันจะเห็นว่าใครเลือกใคร";
+        thresholdText.textContent = "";
+
+        if (!myAlive) {
+            myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+        } else if (ctx.myKillTarget) {
+            const kt = ctx.roomData.players.find(p => p.id === ctx.myKillTarget);
+            myStatusText.innerHTML = `🩸 คุณเลือก: <b>${kt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+        } else {
+            myStatusText.textContent = "แตะชื่อเพื่อเลือกเหยื่อ";
+        }
+    }
 }
 
 // ROOM UPDATE
@@ -2800,233 +2736,17 @@ socket.on("room_update", (roomData) => {
         }
     }
 
-    // render กริดผู้เล่น
-    renderPlayerGrid(roomData);
+    // render กริดผู้เล่น — รวมโหมดโหวต/โหมดหมาป่าเลือกฆ่าไว้ในกริดเดียวกันนี้เลย (renderPlayerGrid คืนค่าโหมดปัจจุบันกลับมา)
+    const mode = renderPlayerGrid(roomData);
 
-    // ===== VOTE MODE =====
-    const voteSection = document.getElementById("voteSection");
-    const voteOverlay = document.getElementById("voteOverlay");
-    const votes = roomData.votes || {};
-    const myVoteTarget = votes[me];
-
-    if (roomData.voteMode) {
-        voteSection.classList.remove("hidden");
-        voteOverlay.classList.remove("hidden");
-
-        // จำนวนโหวตที่ต้องใช้เพื่อประหาร = ผู้เล่นที่มีชีวิต/2 ปัดขึ้น
-        const aliveVotersCount = roomData.players.filter(p => !p.isHost && p.alive).length;
-        const voteThreshold = Math.ceil(aliveVotersCount / 2);
-        const voteThresholdText = document.getElementById("voteThresholdText");
-        if (voteThresholdText) {
-            voteThresholdText.textContent = aliveVotersCount > 0
-                ? `ต้องการ ${voteThreshold} โหวต (จากผู้มีชีวิต ${aliveVotersCount} คน) เพื่อประหาร`
-                : "";
-        }
-
-        // สถานะโหวตของตัวเอง
-        const voteMyStatus = document.getElementById("voteMyStatus");
-        if (!myAlive) {
-            voteMyStatus.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
-        } else if (myVoteTarget) {
-            const vt = roomData.players.find(p => p.id === myVoteTarget);
-            voteMyStatus.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
-        } else {
-            voteMyStatus.innerHTML = `แตะชื่อเพื่อโหวต`;
-        }
-
-        // นับโหวต (สำหรับแสดง badge จำนวนโหวตบนเป้าหมาย)
-        const tally = {};
-        Object.entries(votes).forEach(([vid, tid]) => {
-            tally[tid] = (tally[tid] || 0) + 1;
-        });
-
-        // map voterId → targetName
-        const voteTargetName = {};
-        Object.entries(votes).forEach(([vid, tid]) => {
-            const target = roomData.players.find(p => p.id === tid);
-            if (target) voteTargetName[vid] = target.name;
-        });
-
-        const vpDiv = document.getElementById("votePlayers");
-
-        const alivePlayers = roomData.players.filter(p => !p.isHost);
-
-        // เก็บกล่องโหวตที่มีอยู่แล้วไว้ใช้ซ้ำ แทนรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนโหวต
-        const existingVoteNodes = {};
-        vpDiv.querySelectorAll(".vote-player[data-pid]").forEach((node) => {
-            existingVoteNodes[node.dataset.pid] = node;
-        });
-        const seenVoteIds = new Set();
-
-        alivePlayers.forEach((p, idx) => {
-
-            seenVoteIds.add(p.id);
-
-            const isMe = p.id === me;
-            const isMyVote = myVoteTarget === p.id;
-            // จำนวนโหวตที่ p ได้รับ (ใช้แสดงบน card ของ p ในฐานะเป้าหมาย)
-            const receivedCount = tally[p.id] || 0;
-            // ชื่อที่ p โหวตไป
-            const votedForName = voteTargetName[p.id] || null;
-
-            let div = existingVoteNodes[p.id];
-            if (!div) {
-                div = document.createElement("div");
-                div.dataset.pid = p.id;
-            }
-
-            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyVote ? " voted-selected" : "") + (isMe ? " is-me" : "");
-
-            div.onclick = () => {
-                if (isMe) return;       // ห้ามโหวตตัวเอง
-                if (!myAlive) return;
-                if (!p.alive) return;
-                if (isMyVote) {
-                    castVote(null);
-                } else {
-                    castVote(p.id);
-                }
-            };
-
-            const newVoteHTML = `
-                <div class="vote-pname" style="${isMe ? "color:#facc15;font-weight:700;" : ""}">
-                    ${p.name}
-                    ${p.alive ? "" : " 💀"}
-                    ${isMe ? `<span class="vote-me-tag">ฉัน</span>` : ""}
-                    ${receivedCount > 0 ? `<span class="vote-count-badge" style="${voteThreshold > 0 && receivedCount >= voteThreshold ? "background:#ef4444;" : ""}">${receivedCount} โหวต${voteThreshold > 0 && receivedCount >= voteThreshold ? " ☠️" : ""}</span>` : ""}
-                </div>
-                ${votedForName ? `<div class="vote-voter-list">โหวต: ${votedForName}</div>` : ""}
-            `;
-            if (div.innerHTML !== newVoteHTML) {
-                div.innerHTML = newVoteHTML;
-            }
-
-            if (vpDiv.children[idx] !== div) {
-                vpDiv.insertBefore(div, vpDiv.children[idx] || null);
-            }
-        });
-
-        // ลบกล่องของผู้เล่นที่ไม่อยู่ในห้องแล้ว
-        Object.keys(existingVoteNodes).forEach((pid) => {
-            if (!seenVoteIds.has(pid)) {
-                existingVoteNodes[pid].remove();
-            }
-        });
-
-    } else {
-        voteSection.classList.add("hidden");
-        voteOverlay.classList.add("hidden");
-    }
-
-    // ===== WOLF KILL MODE (เห็นเฉพาะทีมหมาป่า) =====
-    const killSection = document.getElementById("killSection");
-    const killOverlay = document.getElementById("killOverlay");
-    const killVotes = roomData.wolfKillVotes || {};
-    const myKillTarget = killVotes[me];
-    const amIWolfForKill = allWolfRoles.includes(myRole);
-
-    if (roomData.wolfKillMode && amIWolfForKill) {
-        killSection.classList.remove("hidden");
-        killOverlay.classList.remove("hidden");
-
-        // สถานะการเลือกของตัวเอง
-        const killMyStatus = document.getElementById("killMyStatus");
-        if (!myAlive) {
-            killMyStatus.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
-        } else if (myKillTarget) {
-            const kt = roomData.players.find(p => p.id === myKillTarget);
-            killMyStatus.innerHTML = `🩸 คุณเลือก: <b>${kt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
-        } else {
-            killMyStatus.innerHTML = `แตะชื่อเพื่อเลือกเหยื่อ`;
-        }
-
-        // map ผู้เลือก → ชื่อเป้าหมายที่เลือก (ให้หมาป่าด้วยกันเห็นกัน)
-        const killTargetName = {};
-        Object.entries(killVotes).forEach(([vid, tid]) => {
-            const target = roomData.players.find(p => p.id === tid);
-            if (target) killTargetName[vid] = target.name;
-        });
-
-        const kpDiv = document.getElementById("killPlayers");
-        const alivePlayersForKill = roomData.players.filter(p => !p.isHost);
-
-        // เก็บกล่องที่มีอยู่แล้วไว้ใช้ซ้ำ แทนรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนเลือก
-        const existingKillNodes = {};
-        kpDiv.querySelectorAll(".vote-player[data-pid]").forEach((node) => {
-            existingKillNodes[node.dataset.pid] = node;
-        });
-        const seenKillIds = new Set();
-
-        alivePlayersForKill.forEach((p, idx) => {
-
-            seenKillIds.add(p.id);
-
-            const isMe = p.id === me;
-            const isMyKillVote = myKillTarget === p.id;
-            const isWolfMateKill = p.id !== me && allWolfRoles.includes(p.role);
-            const votedForName = killTargetName[p.id] || null;
-
-            let div = existingKillNodes[p.id];
-            if (!div) {
-                div = document.createElement("div");
-                div.dataset.pid = p.id;
-            }
-
-            div.className = "vote-player" + (!p.alive ? " dead" : "") + (isMyKillVote ? " voted-selected" : "") + (isMe ? " is-me" : "") + (isWolfMateKill ? " same-team" : "");
-
-            div.onclick = () => {
-                if (isMe) return;       // ห้ามเลือกตัวเอง
-                if (isWolfMateKill) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
-                if (!myAlive) return;
-                if (!p.alive) return;
-                if (isMyKillVote) {
-                    castWolfKill(null);
-                } else {
-                    castWolfKill(p.id);
-                }
-            };
-
-            const newKillHTML = `
-                <div class="vote-pname" style="${isMe ? "color:#facc15;font-weight:700;" : ""}">
-                    ${p.name}
-                    ${p.alive ? "" : " 💀"}
-                    ${isMe ? `<span class="vote-me-tag">ฉัน</span>` : ""}
-                    ${isWolfMateKill ? `<span style="display:block;margin-top:3px;font-size:10px;color:var(--wolf);">🐺 ${p.role} · ห้ามเลือก</span>` : ""}
-                </div>
-                ${votedForName ? `<div class="vote-voter-list">เลือก: ${votedForName}</div>` : ""}
-            `;
-            if (div.innerHTML !== newKillHTML) {
-                div.innerHTML = newKillHTML;
-            }
-
-            if (kpDiv.children[idx] !== div) {
-                kpDiv.insertBefore(div, kpDiv.children[idx] || null);
-            }
-        });
-
-        // ลบกล่องของผู้เล่นที่ไม่อยู่ในห้องแล้ว
-        Object.keys(existingKillNodes).forEach((pid) => {
-            if (!seenKillIds.has(pid)) {
-                existingKillNodes[pid].remove();
-            }
-        });
-
-    } else {
-        killSection.classList.add("hidden");
-        killOverlay.classList.add("hidden");
-    }
-
-    // เปิด/ปิด overlay-lock ของหน้าจอ ถ้ามีป๊อปอัปใดป๊อปอัปหนึ่งกำลังแสดงอยู่
-    if (roomData.voteMode || (roomData.wolfKillMode && amIWolfForKill)) {
-        document.body.classList.add("vote-open");
-    } else {
-        document.body.classList.remove("vote-open");
-    }
-
-    // แสดงสถานะการเลือก (select_target ปกติ)
+    // แสดงสถานะการเลือก (select_target ปกติ) — แสดงเฉพาะตอนอยู่โหมดปกติเท่านั้น
+    // เพราะตอนอยู่โหมดโหวต/โหมดหมาป่าเลือกฆ่า สถานะของตัวเองจะถูกแสดงในแบนเนอร์เหนือกริดแทนแล้ว
     const info = document.getElementById("selectInfo");
+    const selected = roomData.selectedTargets?.[me];
 
-    if (!myAlive) {
+    if (mode !== "normal") {
+        info.innerHTML = "";
+    } else if (!myAlive) {
         info.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว — ไม่สามารถโหวตได้</span>`;
     } else if (selected) {
         const target = roomData.players.find(p => p.id === selected);
@@ -3112,12 +2832,10 @@ function resetToJoinScreen(message) {
     document.getElementById("popupRolesInGame").innerHTML = "";
     document.getElementById("selectInfo").innerHTML = "";
     document.getElementById("players").innerHTML = "";
+    document.getElementById("players").classList.remove("mode-active");
     document.getElementById("chatBoxGlobal").innerHTML = "";
     document.getElementById("chatBoxWolf").innerHTML = "";
-    document.getElementById("voteSection").classList.add("hidden");
-    document.getElementById("voteOverlay").classList.add("hidden");
-    document.getElementById("killSection").classList.add("hidden");
-    document.getElementById("killOverlay").classList.add("hidden");
+    document.getElementById("modeBanner").classList.add("hidden");
     document.body.classList.remove("vote-open");
     document.getElementById("room").value = "";
     closeRolePopup();
@@ -3297,12 +3015,10 @@ socket.on("kicked", () => {
         document.getElementById("popupRolesInGame").innerHTML = "";
         document.getElementById("selectInfo").innerHTML = "";
         document.getElementById("players").innerHTML = "";
+        document.getElementById("players").classList.remove("mode-active");
         document.getElementById("chatBoxGlobal").innerHTML = "";
         document.getElementById("chatBoxWolf").innerHTML = "";
-        document.getElementById("voteSection").classList.add("hidden");
-        document.getElementById("voteOverlay").classList.add("hidden");
-        document.getElementById("killSection").classList.add("hidden");
-        document.getElementById("killOverlay").classList.add("hidden");
+        document.getElementById("modeBanner").classList.add("hidden");
         document.body.classList.remove("vote-open");
         document.getElementById("room").value = "";
         closeRolePopup();
