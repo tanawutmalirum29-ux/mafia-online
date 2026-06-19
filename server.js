@@ -1131,8 +1131,20 @@ room.justStarted = false;
         const silenceRoles = ["ยายแก่"];
         const specialRoles = [...protectRoles, ...silenceRoles];
 
+        // หา selector (หมอ/บอดี้การ์ด) ที่กำลังปกป้อง player คนนี้อยู่ ใช้ตอนแจ้งผลส่วนตัว
+        function findProtectorsOf(targetId) {
+            if (!room.selectedTargets) return [];
+            return Object.keys(room.selectedTargets)
+                .filter(selectorId => room.selectedTargets[selectorId] === targetId)
+                .map(selectorId => room.players.find(p => p.id === selectorId))
+                .filter(selector => selector && protectRoles.includes(selector.role));
+        }
+
         // ผลกลางคืน: คนที่โดนเล็งฆ่าแต่ไม่ได้รับการปกป้อง → ตาย
+        // (killed=true ตั้งได้จากการโหวตฆ่าของหมาป่าเท่านั้น จึงถือว่าผู้ฆ่าคือ "เหล่ามนุษย์หมาป่า" เสมอ)
         const nightMessages = [];
+        const wolfChatMessages = [];
+        const privateProtectMessages = []; // { playerId, text }
         const allCascadeDeaths = [];
         room.players.forEach(p => {
             if (p.killed) {
@@ -1141,13 +1153,20 @@ room.justStarted = false;
                     return;
                 }
                 if (p.protected) {
-                    // รอด
-                    nightMessages.push({ name: "เกม", text: `${p.name} โดนเล็งฆ่าแต่รอดเพราะถูกปกป้อง!`, type: "global", isSystem: true });
+                    // รอด — แจ้งเฉพาะผู้ปกป้องว่าช่วยใครไว้ และแจ้งหมาป่าในแชทรวมหมาป่าว่าฆ่าไม่สำเร็จ
+                    const protectors = findProtectorsOf(p.id);
+                    protectors.forEach(protector => {
+                        privateProtectMessages.push({
+                            playerId: protector.id,
+                            text: `การป้องกันของคุณได้ช่วย ${p.name} ไว้`
+                        });
+                    });
+                    wolfChatMessages.push({ name: "เกม", text: `ไม่สามารถฆ่า ${p.name} ได้`, type: "wolf", isSystem: true });
                 } else {
                     // ตาย
                     p.alive = false;
                     allCascadeDeaths.push(...cleanupAfterDeath(room, p));
-                    nightMessages.push({ name: "เกม", text: `${p.name} ถูกฆ่าในคืนนี้`, type: "global", isSystem: true });
+                    nightMessages.push({ name: "เกม", text: `เหล่ามนุษย์หมาป่าได้ฆ่า ${p.name}`, type: "global", isSystem: true });
                 }
             }
         });
@@ -1213,6 +1232,29 @@ room.justStarted = false;
                 io.to(roomId).emit("chat_message", msg);
             });
         }
+
+        // แจ้งเฉพาะหมาป่าในแชทรวมหมาป่าว่าฆ่าใครไม่สำเร็จ (ถูกปกป้องไว้)
+        if (wolfChatMessages.length > 0) {
+            room.wolfChatHistory = room.wolfChatHistory || [];
+            wolfChatMessages.forEach(msg => {
+                room.wolfChatHistory.push(msg);
+                room.players.forEach(p => {
+                    if (wolfRoles.includes(p.role) || p.id === room.host) {
+                        io.to(p.id).emit("chat_message", msg);
+                    }
+                });
+            });
+        }
+
+        // แจ้งเฉพาะผู้ปกป้อง (หมอ/บอดี้การ์ด) ว่าการป้องกันของตนช่วยใครไว้บ้าง (ส่วนตัว)
+        privateProtectMessages.forEach(({ playerId, text }) => {
+            io.to(playerId).emit("chat_message", {
+                name: "เกม",
+                text,
+                type: "private",
+                isSystem: true
+            });
+        });
 
         // ประกาศคนที่ตายตามลูกหมาป่าไป (ถ้ามี) ต่อจากสรุปผลคืนหลัก
         announceCascadeDeaths(room, roomId, allCascadeDeaths);
