@@ -389,10 +389,10 @@ button:active{
     position:relative;
     overflow:hidden;
     background:#0e1320;
-    border:1px solid var(--line);
+    border:1px solid transparent;
     padding:6px 4px;
     border-radius:var(--r-md);
-    transition:border-color .2s, transform .15s;
+    transition:border-color .2s, box-shadow .2s, transform .15s;
     cursor:pointer;
     aspect-ratio:1/1;
     display:flex;
@@ -400,30 +400,6 @@ button:active{
     align-items:center;
     justify-content:center;
     text-align:center;
-}
-
-.player::after{
-    content:"";
-    position:absolute;
-    inset:0;
-    background:linear-gradient(
-        90deg,
-        transparent,
-        rgba(255,255,255,.05),
-        transparent
-    );
-    transform:translateX(-100%);
-    transition:.6s;
-    pointer-events:none;
-}
-
-.player:hover::after{
-    transform:translateX(100%);
-}
-
-.player:hover{
-    border-color:rgba(124,92,255,.35);
-    transform:translateY(-1px);
 }
 
 .player.selected{
