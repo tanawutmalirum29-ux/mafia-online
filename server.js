@@ -356,7 +356,29 @@ function genId() {
 
 // ลบ "เล็งเป้าหมาย" ที่ค้างอยู่บนผู้เล่นที่ตายแล้ว (ไม่ว่าจะตายจาก toggle alive
 // ในแผงโฮสต์ หรือถูกประหารอัตโนมัติจากการปิดโหมดโหวต) — ใช้ร่วมกันเพื่อกันโค้ดซ้ำ
+//
+// กติกาลูกหมาป่า: ถ้าลูกหมาป่าเคยเลือกเป้าหมายไว้ (คลิ๊กลากคนไว้) แล้วตัวลูกหมาป่าเองตาย
+// (ไม่ว่าจะตายจากเหตุผลอะไรก็ตาม — ถูกติ๊กตายจากโฮสต์, โดนโหวตประหาร, หรือโดนฆ่าในคืน)
+// คนที่ถูกลากไว้จะตายตามไปด้วยทันที
+//
+// คืนค่าเป็น array ของ { victim, by } สำหรับคนที่ตายตามไปด้วย (cascade) เพื่อให้ผู้เรียกใช้
+// ไปประกาศในแชทต่อจากข้อความหลักได้ถูกลำดับ (ไม่ใช่ยิงแชทเองตรงนี้ จะได้ไม่แทรกคิวก่อนข้อความหลัก)
 function cleanupAfterDeath(room, player) {
+    const cascadeDeaths = [];
+
+    if (player.role === "ลูกหมาป่า") {
+        const draggedTargetId = room.selectedTargets && room.selectedTargets[player.id];
+        if (draggedTargetId) {
+            const draggedTarget = room.players.find(p => p.id === draggedTargetId);
+            if (draggedTarget && draggedTarget.alive && draggedTarget.id !== player.id) {
+                draggedTarget.alive = false;
+                cascadeDeaths.push({ victim: draggedTarget, by: player });
+                // เคลียร์ผลพวงของคนที่ถูกลากตายตามไปด้วย (เผื่อมีต่ออีกทอด)
+                cascadeDeaths.push(...cleanupAfterDeath(room, draggedTarget));
+            }
+        }
+    }
+
     if (room.selectedTargets) {
         Object.keys(room.selectedTargets).forEach((selectorId) => {
             if (room.selectedTargets[selectorId] === player.id) {
@@ -380,6 +402,25 @@ function cleanupAfterDeath(room, player) {
             delete room.selectedTargets[player.id];
         }
     }
+
+    return cascadeDeaths;
+}
+
+// สร้างข้อความแชทรวมประกาศคนที่ตายตามลูกหมาป่าไป แล้ว push + emit ให้ห้อง
+// เรียกหลังประกาศข้อความหลัก (ผลโหวต/ผลคืน/ฯลฯ) เสมอ เพื่อให้ลำดับแชทอ่านแล้วเข้าใจง่าย
+function announceCascadeDeaths(room, roomId, cascadeDeaths) {
+    if (!cascadeDeaths || cascadeDeaths.length === 0) return;
+    room.globalChatHistory = room.globalChatHistory || [];
+    cascadeDeaths.forEach(({ victim, by }) => {
+        const dragMsg = {
+            name: "เกม",
+            text: `🐾 ${by.name} (ลูกหมาป่า) ตาย ลาก ${victim.name} ตายตามไปด้วย!`,
+            type: "global",
+            isSystem: true
+        };
+        room.globalChatHistory.push(dragMsg);
+        io.to(roomId).emit("chat_message", dragMsg);
+    });
 }
 
 // จำนวนโหวตที่ต้องใช้เพื่อประหาร = จำนวนผู้เล่นที่มีชีวิต (ไม่รวมโฮสต์) หารสอง
@@ -435,6 +476,7 @@ io.on("connection", (socket) => {
         const hostToken = genId() + genId();
 
         rooms[id] = {
+    id: id,
     host: socket.id,
     config: {},
     started: false,
@@ -906,7 +948,8 @@ room.justStarted = false;
     // เมื่อติ๊ก alive = false ให้ลบ selectedTargets ทุกรายการที่เล็งคนนี้อยู่ออก
     // (ป้องกันสถานะ "เลือกไว้" ค้างอยู่บนผู้เล่นที่ตายแล้ว)
     if (key === "alive" && value === false) {
-        cleanupAfterDeath(room, player);
+        const cascadeDeaths = cleanupAfterDeath(room, player);
+        announceCascadeDeaths(room, roomId, cascadeDeaths);
     }
 
     io.to(roomId).emit("room_update", room);
@@ -932,6 +975,7 @@ room.justStarted = false;
             });
 
             let executed = null;
+            let cascadeDeaths = [];
 
             if (threshold > 0 && Object.keys(tally).length > 0) {
                 // หาคะแนนสูงสุดที่ถึงเกณฑ์
@@ -948,7 +992,6 @@ room.justStarted = false;
                         const target = room.players.find(p => p.id === topCandidates[0]);
                         if (target && target.alive) {
                             target.alive = false;
-                            cleanupAfterDeath(room, target);
                             executed = target;
                         }
                     }
@@ -969,6 +1012,13 @@ room.justStarted = false;
             room.globalChatHistory = room.globalChatHistory || [];
             room.globalChatHistory.push(resultMsg);
             io.to(roomId).emit("chat_message", resultMsg);
+
+            // เคลียร์ selectedTargets ค้าง + ลากตายตาม (ถ้าคนที่ถูกประหารเป็นลูกหมาป่า)
+            // ทำหลังประกาศผลโหวตหลัก เพื่อให้ลำดับแชทอ่านแล้วเข้าใจง่าย: ผลโหวตก่อน แล้วค่อยตามด้วยผลพวง
+            if (executed) {
+                cascadeDeaths = cleanupAfterDeath(room, executed);
+                announceCascadeDeaths(room, roomId, cascadeDeaths);
+            }
 
             room.votes = {};
         }
@@ -1083,15 +1133,20 @@ room.justStarted = false;
 
         // ผลกลางคืน: คนที่โดนเล็งฆ่าแต่ไม่ได้รับการปกป้อง → ตาย
         const nightMessages = [];
+        const allCascadeDeaths = [];
         room.players.forEach(p => {
             if (p.killed) {
+                if (!p.alive) {
+                    // ตายไปแล้วก่อนหน้านี้ในลูปเดียวกัน (เช่น โดนลูกหมาป่าลากตายตามไปแล้ว) — ข้าม ไม่ประมวลผลซ้ำ
+                    return;
+                }
                 if (p.protected) {
                     // รอด
                     nightMessages.push({ name: "เกม", text: `${p.name} โดนเล็งฆ่าแต่รอดเพราะถูกปกป้อง!`, type: "global", isSystem: true });
                 } else {
                     // ตาย
                     p.alive = false;
-                    cleanupAfterDeath(room, p);
+                    allCascadeDeaths.push(...cleanupAfterDeath(room, p));
                     nightMessages.push({ name: "เกม", text: `${p.name} ถูกฆ่าในคืนนี้`, type: "global", isSystem: true });
                 }
             }
@@ -1158,6 +1213,9 @@ room.justStarted = false;
                 io.to(roomId).emit("chat_message", msg);
             });
         }
+
+        // ประกาศคนที่ตายตามลูกหมาป่าไป (ถ้ามี) ต่อจากสรุปผลคืนหลัก
+        announceCascadeDeaths(room, roomId, allCascadeDeaths);
 
         io.to(roomId).emit("room_update", room);
     });
