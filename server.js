@@ -440,6 +440,9 @@ io.on("connection", (socket) => {
     started: false,
     selectedTargets: {},
     wolfChatHistory: [],
+    nightCount: 0,
+    dayCount: 0,
+    isNight: false,
     players: [
                 {
                     id: socket.id,
@@ -1068,7 +1071,7 @@ room.justStarted = false;
     // • คน killed=true + protected=true → รอด
     // • ล้าง killed/protected ทุกคน
     // • ล้าง selectedTargets ของหมอ/บอดี้การ์ด/ยายแก่ พร้อมถอด flag ที่ค้างอยู่
-    // • silenced คงไว้ถึงรอบหน้า (ถ้ายายแก่ไม่เลือกซ้ำจะถูกถอดเองใน select_target)
+    // • silenced ถูกล้างตอน start_night แทน (ไม่ใช่ตรงนี้แล้ว)
     socket.on("resolve_night", (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -1104,20 +1107,34 @@ room.justStarted = false;
                 const target = room.players.find(p => p.id === targetId);
                 if (target) {
                     if (protectRoles.includes(selector.role)) target.protected = false;
-                    if (silenceRoles.includes(selector.role)) target.silenced = false;
+                    // silenced: ไม่ล้างตรงนี้แล้ว — จะล้างตอนกด "เริ่มช่วงกลางคืน" แทน
                 }
                 delete room.selectedTargets[selectorId];
             });
         }
 
-        // ล้าง killed/protected ทุกคน (silenced คงไว้ถึงรอบหน้า)
+        // ล้าง killed/protected ทุกคน (silenced คงไว้จนกว่าจะกด start_night)
         room.players.forEach(p => {
             p.killed = false;
             p.protected = false;
         });
 
-        // ส่งข้อความผลกลางคืนเข้าแชท
+        // อัปเดต dayCount และเปิดแชทรวม
+        room.dayCount = (room.dayCount || 0) + 1;
+        room.isNight = false;
+
+        // ส่งข้อความประกาศเริ่มการประชุมในแชทรวม
+        const dayAnnounceMsg = {
+            name: "เกม",
+            text: `☀️ เริ่มการประชุมวันที่ ${room.dayCount}`,
+            type: "global",
+            isSystem: true
+        };
         room.globalChatHistory = room.globalChatHistory || [];
+        room.globalChatHistory.push(dayAnnounceMsg);
+        io.to(roomId).emit("chat_message", dayAnnounceMsg);
+
+        // ส่งข้อความผลกลางคืนเข้าแชท
         if (nightMessages.length === 0) {
             const msg = { name: "เกม", text: "คืนนี้ผ่านไปอย่างสงบ ไม่มีใครเสียชีวิต", type: "global", isSystem: true };
             room.globalChatHistory.push(msg);
@@ -1128,6 +1145,37 @@ room.justStarted = false;
                 io.to(roomId).emit("chat_message", msg);
             });
         }
+
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // START NIGHT — เริ่มช่วงกลางคืน
+    socket.on("start_night", (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (socket.id !== room.host) return;
+
+        // ล้าง silenced ทุกคน (ย้ายมาล้างตอนเริ่มคืนแทนตอนสรุปผล)
+        room.players.forEach(p => { p.silenced = false; });
+
+        room.nightCount = (room.nightCount || 0) + 1;
+        room.isNight = true;
+
+        // ส่งข้อความในแชทหมาป่าว่าเริ่มคืนที่เท่าไหร่
+        const nightMsg = {
+            name: "เกม",
+            text: `🌙 เริ่มคืนที่ ${room.nightCount}`,
+            type: "wolf",
+            isSystem: true
+        };
+        room.wolfChatHistory = room.wolfChatHistory || [];
+        room.wolfChatHistory.push(nightMsg);
+
+        room.players.forEach(p => {
+            if (wolfRoles.includes(p.role) || p.id === room.host) {
+                io.to(p.id).emit("chat_message", nightMsg);
+            }
+        });
 
         io.to(roomId).emit("room_update", room);
     });
@@ -1240,6 +1288,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
         }
 
         // GLOBAL CHAT
+        if (room.isNight) return; // ช่วงกลางคืน: ห้ามส่งแชทรวม
         const globalMsg = {
             name: player.name,
             text: msg,
