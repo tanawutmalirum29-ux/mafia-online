@@ -415,6 +415,12 @@ select{
     box-shadow:0 4px 18px rgba(245,158,11,.28);
 }
 
+.btn-night{
+    background:linear-gradient(135deg,#3b2f7f,#1e1650);
+    box-shadow:0 4px 18px rgba(60,40,160,.35);
+    border:1px solid rgba(124,92,255,.4);
+}
+
 .btn-close-room{
     margin-top:16px;
     padding:8px 16px;
@@ -1356,6 +1362,10 @@ html.modal-open body{
                 <button class="btn btn-resolve btn-block" id="resolveBtn" onclick="resolveNight()" style="margin-top:14px;">
                     🌅 สรุปผลรอบนี้
                 </button>
+
+                <button class="btn btn-night btn-block" id="startNightBtn" onclick="startNight()" style="margin-top:8px;">
+                    🌙 เริ่มช่วงกลางคืน
+                </button>
             </div>
 
         </div>
@@ -1682,6 +1692,12 @@ socket.on("room_closed", (data) => {
 function resolveNight() {
     if (!roomId) return;
     socket.emit("resolve_night", roomId);
+}
+
+// ปุ่ม "เริ่มช่วงกลางคืน" — ล้าง silenced, แจ้งเริ่มคืน, ปิดแชทรวม
+function startNight() {
+    if (!roomId) return;
+    socket.emit("start_night", roomId);
 }
 
 // ปุ่ม "ปิดห้อง" — ให้โฮสต์ปิดห้องเองได้ตรงๆ แทนที่จะต้องพึ่งการตรวจจับการหลุดของเน็ต

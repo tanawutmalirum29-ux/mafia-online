@@ -815,6 +815,24 @@ button:active{
     display:flex;
 }
 
+.night-notice{
+    display:none;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    border-radius:10px;
+    background:rgba(60,40,160,.18);
+    border:1px solid rgba(124,92,255,.35);
+    color:#a78bfa;
+    font-size:13px;
+    font-weight:600;
+    width:100%;
+}
+
+.night-notice.visible{
+    display:flex;
+}
+
 .chatRow input:disabled,
 .chatRow button:disabled{
     opacity:.35;
@@ -1955,6 +1973,10 @@ body.vote-open{
             🤐 คุณถูกใบ้ในรอบนี้ — พิมพ์ข้อความไม่ได้
         </div>
 
+        <div id="nightNotice" class="night-notice">
+            🌙 ช่วงกลางคืน — แชทรวมส่งไม่ได้ แต่พิมพ์ค้างไว้ได้
+        </div>
+
         <div class="chatInputRow" id="chatInputRow">
             <input
                 id="chatInput"
@@ -2053,6 +2075,7 @@ let joined = false;
 let myRole = "";
 let mySilenced = false;
 let myAlive = true;
+let isNight = false;
 let currentChatTab = "global";
 let myHuntTargetId = null; // ID ของเป้าหมายนักล่าหัว
 let suggestedRoomData = null; // ห้องล่าสุดที่เปิดอยู่ (จาก server)
@@ -2153,6 +2176,20 @@ function switchChatTab(tab) {
     // scroll to bottom
     const box = document.getElementById(tab === "global" ? "chatBoxGlobal" : "chatBoxWolf");
     box.scrollTop = box.scrollHeight;
+
+    // อัปเดต night notice ตามแท็บที่เลือก
+    const nightNotice = document.getElementById("nightNotice");
+    if (nightNotice) {
+        if (isNight && tab === "global") nightNotice.classList.add("visible");
+        else nightNotice.classList.remove("visible");
+    }
+    // อัปเดต placeholder
+    const chatInputEl = document.getElementById("chatInput");
+    if (chatInputEl && !mySilenced) {
+        chatInputEl.placeholder = (isNight && tab === "global")
+            ? "พิมพ์ข้อความ... (ส่งไม่ได้ช่วงกลางคืน)"
+            : "พิมพ์ข้อความ...";
+    }
 
 }
 
@@ -2725,8 +2762,12 @@ socket.on("room_update", (roomData) => {
         mySilenced = !!myPlayer.silenced;
     }
 
-    // อัปเดต UI โดนใบ้
+    // อัปเดตสถานะกลางคืน
+    isNight = !!roomData.isNight;
+
+    // อัปเดต UI โดนใบ้ + กลางคืน
     const silencedNotice = document.getElementById("silencedNotice");
+    const nightNotice = document.getElementById("nightNotice");
     const chatInputEl = document.getElementById("chatInput");
     const chatSendBtn = document.querySelector(".sendBtn");
     if (silencedNotice) {
@@ -2736,8 +2777,19 @@ socket.on("room_update", (roomData) => {
             if (chatSendBtn) chatSendBtn.disabled = true;
         } else {
             silencedNotice.classList.remove("visible");
-            if (chatInputEl) { chatInputEl.disabled = false; chatInputEl.placeholder = "พิมพ์ข้อความ..."; }
+            if (chatInputEl) {
+                chatInputEl.disabled = false;
+                chatInputEl.placeholder = isNight ? "พิมพ์ข้อความ... (ส่งไม่ได้ช่วงกลางคืน)" : "พิมพ์ข้อความ...";
+            }
             if (chatSendBtn) chatSendBtn.disabled = false;
+        }
+    }
+    // แสดง/ซ่อน notice กลางคืน
+    if (nightNotice) {
+        if (isNight && currentChatTab === "global") {
+            nightNotice.classList.add("visible");
+        } else {
+            nightNotice.classList.remove("visible");
         }
     }
 
@@ -3080,6 +3132,9 @@ function sendChat() {
 
     // ถ้าโดนใบ้ ห้ามส่งแชท
     if (mySilenced) return;
+
+    // ช่วงกลางคืน: แชทรวมส่งไม่ได้ (แต่พิมพ์ไว้ได้)
+    if (isNight && currentChatTab === "global") return;
 
     const input =
         document.getElementById(
