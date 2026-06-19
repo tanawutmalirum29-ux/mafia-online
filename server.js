@@ -1303,6 +1303,9 @@ socket.on("select_target", ({ roomId, targetId }) => {
         const targetPlayer = room.players.find(p => p.id === targetId);
         if (!targetPlayer || !targetPlayer.alive) return;
 
+        // ลูกหมาป่าห้ามเลือกหมาป่าด้วยกันเป็นเป้าหมาย กันไม่ให้ลากหมาด้วยกันตายตาม
+        if (selector && selector.role === "ลูกหมาป่า" && wolfRoles.includes(targetPlayer.role)) return;
+
         // ถ้าเป็น หมอ/บอดี้การ์ด: ถอด protected จาก target เดิม แล้วติ๊ก protected ให้ target ใหม่
         if (isProtector) {
             const prevTargetId = room.selectedTargets[socket.id];
