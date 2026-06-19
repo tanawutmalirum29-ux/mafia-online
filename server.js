@@ -1134,6 +1134,19 @@ room.justStarted = false;
         room.globalChatHistory.push(dayAnnounceMsg);
         io.to(roomId).emit("chat_message", dayAnnounceMsg);
 
+        // ประกาศชื่อผู้เล่นที่โดนใบ้ในรอบนี้ (silenced ยังค้างอยู่จนกว่าจะกด start_night)
+        const silencedPlayers = room.players.filter(p => !p.isHost && p.silenced);
+        silencedPlayers.forEach(p => {
+            const silenceMsg = {
+                name: "เกม",
+                text: `🤐 ${p.name} ถูกใบ้ ทำให้เขาไม่สามารถพูดได้ในการประชุมนี้`,
+                type: "global",
+                isSystem: true
+            };
+            room.globalChatHistory.push(silenceMsg);
+            io.to(roomId).emit("chat_message", silenceMsg);
+        });
+
         // ส่งข้อความผลกลางคืนเข้าแชท
         if (nightMessages.length === 0) {
             const msg = { name: "เกม", text: "คืนนี้ผ่านไปอย่างสงบ ไม่มีใครเสียชีวิต", type: "global", isSystem: true };
@@ -1155,8 +1168,21 @@ room.justStarted = false;
         if (!room) return;
         if (socket.id !== room.host) return;
 
-        // ล้าง silenced ทุกคน (ย้ายมาล้างตอนเริ่มคืนแทนตอนสรุปผล)
+        // ล้าง silenced ทุกคน และประกาศในแชทรวมว่าใบ้หมดแล้ว
+        const wasSilenced = room.players.filter(p => !p.isHost && p.silenced);
         room.players.forEach(p => { p.silenced = false; });
+
+        if (wasSilenced.length > 0) {
+            room.globalChatHistory = room.globalChatHistory || [];
+            const liftMsg = {
+                name: "เกม",
+                text: `🔊 คำสาปใบ้ได้สิ้นสุดลงแล้ว — ${wasSilenced.map(p => p.name).join(", ")} กลับมาพูดได้ตามปกติ`,
+                type: "global",
+                isSystem: true
+            };
+            room.globalChatHistory.push(liftMsg);
+            io.to(roomId).emit("chat_message", liftMsg);
+        }
 
         room.nightCount = (room.nightCount || 0) + 1;
         room.isNight = true;
@@ -1289,6 +1315,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
         // GLOBAL CHAT
         if (room.isNight) return; // ช่วงกลางคืน: ห้ามส่งแชทรวม
+        if (player.silenced) return; // โดนใบ้: ห้ามส่งแชทรวมจนกว่าจะกด "เริ่มช่วงกลางคืน"
         const globalMsg = {
             name: player.name,
             text: msg,
