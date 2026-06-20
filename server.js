@@ -961,6 +961,9 @@ room.justStarted = false;
         if (!room) return;
         if (socket.id !== room.host) return;
 
+        // โหวตประหาร เปิดได้เฉพาะตอนกลางวัน (ปิดโหมดที่เปิดค้างไว้ได้เสมอ ไม่ว่าช่วงไหน)
+        if (!room.voteMode && room.isNight) return;
+
         room.voteMode = !room.voteMode;
 
         if (!room.voteMode) {
@@ -1054,6 +1057,9 @@ room.justStarted = false;
         const room = rooms[roomId];
         if (!room) return;
         if (socket.id !== room.host) return;
+
+        // หมาป่าเลือกฆ่า เปิดได้เฉพาะตอนกลางคืน (ปิดโหมดที่เปิดค้างไว้ได้เสมอ ไม่ว่าช่วงไหน)
+        if (!room.wolfKillMode && !room.isNight) return;
 
         room.wolfKillMode = !room.wolfKillMode;
 
