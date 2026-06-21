@@ -1433,6 +1433,7 @@ socket.on("select_target", ({ roomId, targetId }) => {
 // • มี 1 โล่ต่อเกม (guardianShieldAvailable) — เสียก็ต่อเมื่อคนที่ถูกวางโล่ไว้ถูกโหวตประหารจริงๆ เท่านั้น
 //   (ถ้าวางโล่ไว้แต่คนนั้นไม่โดนประหาร ไม่เสียโล่ — ใช้ใหม่ได้เรื่อยๆ จนกว่าจะ "เซฟ" คนได้จริง)
 // • กดโล่คนเดิมซ้ำ = ยกเลิกการเลือก, กดคนใหม่ = ย้ายโล่ไปคนนั้นแทน
+// • วางโล่ป้องกันตัวเองได้ด้วย
 socket.on("select_shield", ({ roomId, targetId }) => {
 
     const room = rooms[roomId];
@@ -1454,10 +1455,12 @@ socket.on("select_shield", ({ roomId, targetId }) => {
         return;
     }
 
-    if (targetId === socket.id) return; // ห้ามวางโล่ตัวเอง
-
-    const targetPlayer = room.players.find(p => p.id === targetId);
-    if (!targetPlayer || !targetPlayer.alive) return;
+    if (targetId === socket.id) {
+        // วางโล่ป้องกันตัวเองได้ด้วย — ไม่ต้องเช็คสถานะ alive ซ้ำ (รู้อยู่แล้วว่า selector ยังมีชีวิต)
+    } else {
+        const targetPlayer = room.players.find(p => p.id === targetId);
+        if (!targetPlayer || !targetPlayer.alive) return;
+    }
 
     const prevTargetId = room.shieldTargets[socket.id];
     if (prevTargetId === targetId) {
