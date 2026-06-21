@@ -1102,6 +1102,79 @@ select{
     border:1px solid rgba(239,68,68,.4);
 }
 
+/* ---- mode popup (โหวต / หมาป่าเลือกฆ่า) ---- */
+
+#modePopupPanel{
+    max-width:460px;
+}
+
+.modePopupList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:54vh;
+    overflow-y:auto;
+}
+
+.modePopupRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 12px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--line);
+    border-radius:10px;
+}
+
+.modePopupRow.dead{
+    opacity:.45;
+}
+
+.modePopupRow.shielded{
+    border-color:rgba(56,189,248,.35);
+    background:rgba(56,189,248,.06);
+}
+
+.modePopupName{
+    font-weight:600;
+    font-size:14px;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+}
+
+.modePopupName span.shield-ic{
+    font-size:12px;
+}
+
+.modePopupChoice{
+    font-size:12px;
+    color:var(--ink-dim);
+    text-align:right;
+    flex-shrink:0;
+}
+
+.modePopupChoice b{
+    color:#fff;
+}
+
+.modePopupEmpty{
+    font-size:13px;
+    color:var(--ink-dim);
+    text-align:center;
+    padding:18px 0;
+}
+
+.btn-reopen-popup{
+    width:auto;
+    min-width:160px;
+    background:linear-gradient(135deg,#7c5cff,#4338ca);
+    box-shadow:0 4px 18px rgba(124,92,255,.28);
+}
+
 /* ---- room picker grid ---- */
 
 #roomPickerPanel{
@@ -1355,6 +1428,16 @@ html.modal-open body{
         </div>
     </div>
 
+    <!-- ===== MODE POPUP (โหวต / หมาป่าเลือกฆ่า) — แยกจากกริดผู้เล่นหลัก ===== -->
+    <div class="vote-modal-overlay hidden" id="modePopupOverlay">
+        <div class="vote-modal" id="modePopupPanel">
+            <button class="vote-modal-close" onclick="closeModePopupByUser()">✕</button>
+            <div class="vote-panel-title" id="modePopupTitle">📋 การโหวต</div>
+            <p class="sub" id="modePopupInfo" style="margin:-6px 0 14px;"></p>
+            <div id="modePopupList" class="modePopupList"></div>
+        </div>
+    </div>
+
     <!-- ===== SEAL / ROOM CODE ===== -->
     <div class="seal-wrap">
         <div class="eyebrow">ห้องควบคุมผู้เล่าเรื่อง</div>
@@ -1447,11 +1530,6 @@ html.modal-open body{
                 <h2>ผู้เล่นในห้อง</h2>
                 <p class="sub">แตะปุ่มสถานะเพื่ออัปเดตให้ผู้เล่นเห็นทันที</p>
 
-                <div id="modeBanner" class="vote-panel hidden">
-                    <div class="vote-panel-title" id="modeBannerTitle">📋 การโหวต</div>
-                    <div id="modeBannerInfo" style="font-size:13px;color:var(--ink-dim);"></div>
-                </div>
-
                 <div id="list" class="players-grid"></div>
             </div>
 
@@ -1501,6 +1579,9 @@ html.modal-open body{
     </button>
     <button class="btn btn-killmode" id="killModeBtn" onclick="toggleKillMode()">
         🐺 เปิดโหมดหมาป่าเลือกฆ่า
+    </button>
+    <button class="btn btn-reopen-popup hidden" id="reopenPopupBtn" onclick="showModePopup()">
+        📋 เปิดป๊อปอัปอีกครั้ง
     </button>
 </div>
 
@@ -1845,8 +1926,6 @@ socket.on("room_update", (room) => {
                     ยังไม่เลือก
                 </div>
 
-                <div class="modeInfo" id="mode-${p.id}"></div>
-
                 ${
                     (p.protected || p.killed || p.silenced || p.transformed)
                     ? `
@@ -1859,8 +1938,6 @@ socket.on("room_update", (room) => {
                     `
                     : ""
                 }
-
-                <div class="shieldFlag" id="shield-${p.id}"></div>
 
                 ${
                     roleData?.messages?.length
@@ -1953,7 +2030,9 @@ socket.on("room_update", (room) => {
     });
 
     // ===== VOTE MODE / WOLF KILL MODE =====
-    // แสดงผลในกริดผู้เล่นเดิมเลย (การ์ดแต่ละคน) แทนที่จะเปิดเป็นป๊อปอัปแยก
+    // แสดงผลแยกเป็นป๊อปอัปต่างหาก ไม่ปนกับกริดผู้เล่นหลัก เพื่อให้กริดดูสะอาดเห็นภาพรวมง่าย
+    const wasVoteMode = voteMode;
+    const wasKillMode = killMode;
     voteMode = !!room.voteMode;
     killMode = !!room.wolfKillMode;
 
@@ -1975,97 +2054,165 @@ socket.on("room_update", (room) => {
         killBtn.classList.remove("active");
     }
 
-    // เคลียร์ mode info เดิมของทุกการ์ดก่อน sync ของจริง (กันข้อมูลค้างตอนสลับโหมด/ปิดโหมด)
-    document.querySelectorAll(".modeInfo").forEach(el => { el.innerHTML = ""; });
-    document.querySelectorAll(".shieldFlag").forEach(el => { el.innerHTML = ""; });
-
-    const modeBanner = document.getElementById("modeBanner");
-    const modeBannerTitle = document.getElementById("modeBannerTitle");
-    const modeBannerInfo = document.getElementById("modeBannerInfo");
+    // โหมดเพิ่งถูกเปิด (จากปิด -> เปิด) ให้เด้งป๊อปอัปขึ้นอัตโนมัติ และล้างสถานะ "ปิดเองไว้ก่อนหน้า"
+    const modeJustTurnedOn = (voteMode && !wasVoteMode) || (killMode && !wasKillMode);
+    if (modeJustTurnedOn) {
+        modePopupManuallyClosed = false;
+    }
 
     if (voteMode) {
-        // ===== โหมดโหวต =====
-        modeBanner.classList.remove("hidden");
-        modeBanner.classList.remove("kill-active");
-        modeBannerTitle.textContent = "🗳️ โหมดโหวต — กำลังเปิดอยู่";
+        renderVotePopup(room, nonHostPlayers);
+    } else if (killMode) {
+        renderKillPopup(room, nonHostPlayers);
+    } else {
+        // ไม่มีโหมดไหนเปิดอยู่ -> ปิดป๊อปอัปและซ่อนปุ่มเปิดซ้ำ
+        hideModePopup();
+    }
 
-        const votes = room.votes || {};
+    const reopenBtn = document.getElementById("reopenPopupBtn");
+    if (reopenBtn) {
+        const overlay = document.getElementById("modePopupOverlay");
+        const popupOpen = overlay && !overlay.classList.contains("hidden");
+        const anyModeActive = voteMode || killMode;
+        reopenBtn.classList.toggle("hidden", !anyModeActive || popupOpen);
+    }
 
-        // จำนวนโหวตที่ต้องใช้เพื่อประหาร = ผู้เล่นที่มีชีวิต/2 ปัดขึ้น
-        const aliveVoters = nonHostPlayers.filter(p => p.alive).length;
-        const voteThreshold = Math.ceil(aliveVoters / 2);
-        modeBannerInfo.textContent = aliveVoters > 0
-            ? `ต้องการ ${voteThreshold} โหวต (จากผู้มีชีวิต ${aliveVoters} คน) เพื่อประหาร`
-            : "ยังไม่มีผู้เล่นที่มีชีวิต";
+});
 
-        const tally = {};
-        Object.values(votes).forEach(tid => { tally[tid] = (tally[tid] || 0) + 1; });
+// ===== MODE POPUP HELPERS =====
+let modePopupManuallyClosed = false;
 
-        nonHostPlayers.forEach(p => {
-            const el = document.getElementById(`mode-${p.id}`);
-            if (!el) return;
+function showModePopup() {
+    document.getElementById("modePopupOverlay").classList.remove("hidden");
+    document.documentElement.classList.add("modal-open");
+    modePopupManuallyClosed = false;
+    const reopenBtn = document.getElementById("reopenPopupBtn");
+    if (reopenBtn) reopenBtn.classList.add("hidden");
+}
 
+function hideModePopup() {
+    document.getElementById("modePopupOverlay").classList.add("hidden");
+    document.documentElement.classList.remove("modal-open");
+}
+
+function closeModePopupByUser() {
+    modePopupManuallyClosed = true;
+    hideModePopup();
+    const reopenBtn = document.getElementById("reopenPopupBtn");
+    const anyModeActive = voteMode || killMode;
+    if (reopenBtn) reopenBtn.classList.toggle("hidden", !anyModeActive);
+}
+
+function renderVotePopup(room, nonHostPlayers) {
+    const overlay = document.getElementById("modePopupOverlay");
+    const panel = document.getElementById("modePopupPanel");
+    const title = document.getElementById("modePopupTitle");
+    const info = document.getElementById("modePopupInfo");
+    const list = document.getElementById("modePopupList");
+
+    panel.classList.remove("kill-active");
+    title.textContent = "🗳️ โหมดโหวต — กำลังเปิดอยู่";
+
+    const votes = room.votes || {};
+
+    // จำนวนโหวตที่ต้องใช้เพื่อประหาร = ผู้เล่นที่มีชีวิต/2 ปัดขึ้น
+    const aliveVoters = nonHostPlayers.filter(p => p.alive).length;
+    const voteThreshold = Math.ceil(aliveVoters / 2);
+    info.textContent = aliveVoters > 0
+        ? `ต้องการ ${voteThreshold} โหวต (จากผู้มีชีวิต ${aliveVoters} คน) เพื่อประหาร`
+        : "ยังไม่มีผู้เล่นที่มีชีวิต";
+
+    const tally = {};
+    Object.values(votes).forEach(tid => { tally[tid] = (tally[tid] || 0) + 1; });
+
+    // แสดงว่าใครกำลังถูกหมาป่าพิทักษ์วางโล่ป้องกันไว้ ให้โฮสต์เห็นด้วย
+    const shieldTargets = room.shieldTargets || {};
+    const shieldedIds = new Set(Object.values(shieldTargets));
+
+    if (nonHostPlayers.length === 0) {
+        list.innerHTML = `<div class="modePopupEmpty">ยังไม่มีผู้เล่นในห้องนี้</div>`;
+    } else {
+        list.innerHTML = nonHostPlayers.map(p => {
             const targetId = votes[p.id];
             const target = targetId ? room.players.find(x => x.id === targetId) : null;
             const receivedCount = tally[p.id] || 0;
             const reached = voteThreshold > 0 && receivedCount >= voteThreshold;
+            const isShielded = shieldedIds.has(p.id);
 
-            const parts = [];
-            if (p.alive) {
-                parts.push(`<span class="modeInfoText">🗳️ โหวต: <b>${target ? target.name : "ยังไม่โหวต"}</b></span>`);
-            }
-            if (receivedCount > 0) {
-                parts.push(`<span class="modeBadge${reached ? " reached" : ""}">${receivedCount} โหวต${reached ? " ☠️" : ""}</span>`);
-            }
-            el.innerHTML = parts.join("");
-        });
+            const choiceHtml = p.alive
+                ? `🗳️ โหวต: <b>${target ? target.name : "ยังไม่โหวต"}</b>`
+                : `💀 ตายแล้ว`;
 
-        // แสดงว่าใครกำลังถูกหมาป่าพิทักษ์วางโล่ป้องกันไว้ ให้โฮสต์เห็นด้วย
-        const shieldTargets = room.shieldTargets || {};
-        const shieldedIds = new Set(Object.values(shieldTargets));
-        nonHostPlayers.forEach(p => {
-            const shieldEl = document.getElementById(`shield-${p.id}`);
-            if (!shieldEl) return;
-            shieldEl.innerHTML = shieldedIds.has(p.id)
-                ? `<span class="flag shield">🛡️ กำลังถูกปกป้องจากการประหาร</span>`
+            const badgeHtml = receivedCount > 0
+                ? `<span class="modeBadge${reached ? " reached" : ""}" style="margin-left:8px;">${receivedCount} โหวต${reached ? " ☠️" : ""}</span>`
                 : "";
-        });
 
-    } else if (killMode) {
-        // ===== โหมดหมาป่าเลือกฆ่า =====
-        modeBanner.classList.remove("hidden");
-        modeBanner.classList.add("kill-active");
-        modeBannerTitle.textContent = "🐺 โหมดหมาป่าเลือกฆ่า — กำลังเปิดอยู่";
-        modeBannerInfo.textContent = "หมาป่าแต่ละตัวเลือกเหยื่อ — เห็นเฉพาะทีมหมาป่าด้วยกัน";
+            return `
+                <div class="modePopupRow${!p.alive ? " dead" : ""}${isShielded ? " shielded" : ""}">
+                    <div class="modePopupName">
+                        ${isShielded ? `<span class="shield-ic">🛡️</span>` : ""}
+                        ${p.name}
+                    </div>
+                    <div class="modePopupChoice">${choiceHtml}${badgeHtml}</div>
+                </div>
+            `;
+        }).join("");
+    }
 
-        const killVotes = room.wolfKillVotes || {};
-        const killTally = {};
-        Object.values(killVotes).forEach(tid => { killTally[tid] = (killTally[tid] || 0) + 1; });
+    if (!modePopupManuallyClosed) {
+        overlay.classList.remove("hidden");
+        document.documentElement.classList.add("modal-open");
+    }
+}
 
-        nonHostPlayers.forEach(p => {
-            const el = document.getElementById(`mode-${p.id}`);
-            if (!el) return;
+function renderKillPopup(room, nonHostPlayers) {
+    const overlay = document.getElementById("modePopupOverlay");
+    const panel = document.getElementById("modePopupPanel");
+    const title = document.getElementById("modePopupTitle");
+    const info = document.getElementById("modePopupInfo");
+    const list = document.getElementById("modePopupList");
 
-            const isWolfTeam = (roles?.[p.role] || {}).team === "wolf";
+    panel.classList.add("kill-active");
+    title.textContent = "🐺 โหมดหมาป่าเลือกฆ่า — กำลังเปิดอยู่";
+    info.textContent = "หมาป่าแต่ละตัวเลือกเหยื่อ — เห็นเฉพาะทีมหมาป่าด้วยกัน";
+
+    const killVotes = room.wolfKillVotes || {};
+    const killTally = {};
+    Object.values(killVotes).forEach(tid => { killTally[tid] = (killTally[tid] || 0) + 1; });
+
+    const wolfPlayers = nonHostPlayers.filter(p => (roles?.[p.role] || {}).team === "wolf");
+
+    if (wolfPlayers.length === 0) {
+        list.innerHTML = `<div class="modePopupEmpty">ไม่มีผู้เล่นทีมหมาป่าในห้องนี้</div>`;
+    } else {
+        list.innerHTML = wolfPlayers.map(p => {
             const targetId = killVotes[p.id];
             const target = targetId ? room.players.find(x => x.id === targetId) : null;
             const receivedCount = killTally[p.id] || 0;
 
-            const parts = [];
-            if (isWolfTeam && p.alive) {
-                parts.push(`<span class="modeInfoText">🐺 เลือกฆ่า: <b>${target ? target.name : "ยังไม่เลือก"}</b></span>`);
-            }
-            if (receivedCount > 0) {
-                parts.push(`<span class="modeBadge kill">${receivedCount} ถูกเลือก</span>`);
-            }
-            el.innerHTML = parts.join("");
-        });
+            const choiceHtml = p.alive
+                ? `🐺 เลือกฆ่า: <b>${target ? target.name : "ยังไม่เลือก"}</b>`
+                : `💀 ตายแล้ว`;
 
-    } else {
-        modeBanner.classList.add("hidden");
+            const badgeHtml = receivedCount > 0
+                ? `<span class="modeBadge kill" style="margin-left:8px;">${receivedCount} ถูกเลือก</span>`
+                : "";
+
+            return `
+                <div class="modePopupRow${!p.alive ? " dead" : ""}">
+                    <div class="modePopupName">${p.name}</div>
+                    <div class="modePopupChoice">${choiceHtml}${badgeHtml}</div>
+                </div>
+            `;
+        }).join("");
     }
 
-});
+    if (!modePopupManuallyClosed) {
+        overlay.classList.remove("hidden");
+        document.documentElement.classList.add("modal-open");
+    }
+}
+
 
 // HOST ERROR
 socket.on(
