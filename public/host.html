@@ -715,6 +715,9 @@ select{
 .flag.killed{ background:var(--wolf-soft); color:var(--wolf); border:1px solid rgba(239,68,68,.3); }
 .flag.silenced{ background:rgba(148,163,184,.14); color:#94a3b8; border:1px solid rgba(148,163,184,.3); }
 .flag.transformed{ background:var(--mark-soft); color:var(--mark); border:1px solid rgba(251,191,36,.3); }
+.flag.shield{ background:rgba(56,189,248,.14); color:#38bdf8; border:1px solid rgba(56,189,248,.35); }
+
+.shieldFlag:not(:empty){ margin-top:6px; }
 
 /* ---- player status summary card ---- */
 
@@ -912,11 +915,6 @@ select{
 .msg.host{
     background:var(--moon-soft);
     border-color:rgba(124,92,255,.3);
-}
-
-.msg.system,
-.msg.system .mname{
-    color:var(--safe);
 }
 
 .msg .mname{
@@ -1837,6 +1835,12 @@ socket.on("room_update", (room) => {
                     : ""
                 }
 
+                ${
+                    p.role === "หมาป่าพิทักษ์"
+                    ? `<div class="huntInfo">🛡️ โล่เหลือ: ${p.guardianShieldAvailable ?? 0}</div>`
+                    : ""
+                }
+
                 <div class="selectionInfo" id="sel-${p.id}">
                     ยังไม่เลือก
                 </div>
@@ -1855,6 +1859,8 @@ socket.on("room_update", (room) => {
                     `
                     : ""
                 }
+
+                <div class="shieldFlag" id="shield-${p.id}"></div>
 
                 ${
                     roleData?.messages?.length
@@ -1971,6 +1977,7 @@ socket.on("room_update", (room) => {
 
     // เคลียร์ mode info เดิมของทุกการ์ดก่อน sync ของจริง (กันข้อมูลค้างตอนสลับโหมด/ปิดโหมด)
     document.querySelectorAll(".modeInfo").forEach(el => { el.innerHTML = ""; });
+    document.querySelectorAll(".shieldFlag").forEach(el => { el.innerHTML = ""; });
 
     const modeBanner = document.getElementById("modeBanner");
     const modeBannerTitle = document.getElementById("modeBannerTitle");
@@ -2011,6 +2018,17 @@ socket.on("room_update", (room) => {
                 parts.push(`<span class="modeBadge${reached ? " reached" : ""}">${receivedCount} โหวต${reached ? " ☠️" : ""}</span>`);
             }
             el.innerHTML = parts.join("");
+        });
+
+        // แสดงว่าใครกำลังถูกหมาป่าพิทักษ์วางโล่ป้องกันไว้ ให้โฮสต์เห็นด้วย
+        const shieldTargets = room.shieldTargets || {};
+        const shieldedIds = new Set(Object.values(shieldTargets));
+        nonHostPlayers.forEach(p => {
+            const shieldEl = document.getElementById(`shield-${p.id}`);
+            if (!shieldEl) return;
+            shieldEl.innerHTML = shieldedIds.has(p.id)
+                ? `<span class="flag shield">🛡️ กำลังถูกปกป้องจากการประหาร</span>`
+                : "";
         });
 
     } else if (killMode) {
@@ -2062,24 +2080,15 @@ socket.on(
 // ล็อกลำดับปุ่ม "สรุปผลรอบนี้" / "เริ่มช่วงกลางคืน" ตามสถานะจริงของห้อง
 // กันไม่ให้กด "สรุปผลรอบนี้" ก่อนที่จะเคยกด "เริ่มช่วงกลางคืน" เลย
 // (ซึ่งจะข้ามคืนที่ 1 ไปประกาศ "เริ่มการประชุมวันที่ 1" เลยทันที)
-//
-// และล็อกปุ่ม "เปิดโหมดโหวต" / "เปิดโหมดหมาป่าเลือกฆ่า" ตามช่วงกลางวัน/กลางคืนด้วย
-// โหวตประหาร = เปิดได้เฉพาะตอนกลางวัน (ไม่ใช่คืน)
-// หมาป่าเลือกฆ่า = เปิดได้เฉพาะตอนกลางคืน
 function updateNightFlowButtons(room) {
     const resolveBtn = document.getElementById("resolveBtn");
     const startNightBtn = document.getElementById("startNightBtn");
-    const voteBtn = document.getElementById("voteBtn");
-    const killModeBtn = document.getElementById("killModeBtn");
-
     if (!resolveBtn || !startNightBtn) return;
 
     if (!room.started) {
-        // เกมยังไม่เริ่ม: ปิดทั้งหมด
+        // เกมยังไม่เริ่ม: ปิดทั้งคู่
         resolveBtn.disabled = true;
         startNightBtn.disabled = true;
-        if (voteBtn) voteBtn.disabled = true;
-        if (killModeBtn) killModeBtn.disabled = true;
         return;
     }
 
@@ -2087,20 +2096,10 @@ function updateNightFlowButtons(room) {
         // กำลังอยู่ในคืน: ให้กด "สรุปผลรอบนี้" ได้ แต่กด "เริ่มช่วงกลางคืน" ซ้ำไม่ได้
         resolveBtn.disabled = false;
         startNightBtn.disabled = true;
-
-        // กลางคืน: ห้ามเปิดโหมดโหวต (ปิดปุ่มไว้ เว้นแต่กำลังเปิดโหมดโหวตค้างอยู่ ให้กดปิดได้)
-        if (voteBtn) voteBtn.disabled = !room.voteMode;
-        // กลางคืน: เปิดโหมดหมาป่าเลือกฆ่าได้ตามปกติ
-        if (killModeBtn) killModeBtn.disabled = false;
     } else {
         // อยู่ช่วงประชุม/ยังไม่เคยเริ่มคืน: ต้องกด "เริ่มช่วงกลางคืน" ก่อน ถึงจะสรุปผลได้
         resolveBtn.disabled = true;
         startNightBtn.disabled = false;
-
-        // กลางวัน: เปิดโหมดโหวตได้ตามปกติ
-        if (voteBtn) voteBtn.disabled = false;
-        // กลางวัน: ห้ามเปิดโหมดหมาป่าเลือกฆ่า (ปิดปุ่มไว้ เว้นแต่กำลังเปิดโหมดค้างอยู่ ให้กดปิดได้)
-        if (killModeBtn) killModeBtn.disabled = !room.wolfKillMode;
     }
 }
 
@@ -2403,8 +2402,6 @@ function appendChatMsg(data, silent) {
     else if (data.isHost) cls += "host";
     else if (data.type === "wolf") cls += "wolf";
     else cls += "global";
-
-    if (data.isSystem) cls += " system";
 
     div.className = cls;
 

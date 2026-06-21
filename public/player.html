@@ -1117,6 +1117,61 @@ body{
 
 #barHuntBadge.hidden{ display:none; }
 
+#shieldBtn{
+    position:relative;
+    flex-shrink:0;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:rgba(56,189,248,.16);
+    border:1px solid rgba(56,189,248,.4);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    cursor:pointer;
+    transition:transform .15s, background .2s, box-shadow .15s;
+    padding:0;
+}
+
+#shieldBtn:hover{
+    background:rgba(56,189,248,.28);
+    box-shadow:0 0 16px rgba(56,189,248,.4);
+    transform:scale(1.08);
+}
+
+#shieldBtn:active{ transform:scale(.95); }
+
+#shieldBtn.hidden{ display:none; }
+
+#shieldBtn.active{
+    background:rgba(56,189,248,.4);
+    box-shadow:0 0 16px rgba(56,189,248,.55);
+}
+
+#shieldBtn.depleted{
+    opacity:.4;
+    cursor:not-allowed;
+    box-shadow:none;
+}
+
+#shieldCount{
+    position:absolute;
+    bottom:-3px;
+    right:-3px;
+    min-width:16px;
+    height:16px;
+    padding:0 3px;
+    border-radius:999px;
+    background:#0e1320;
+    border:1px solid rgba(56,189,248,.6);
+    color:#38bdf8;
+    font-size:10px;
+    font-weight:700;
+    line-height:14px;
+    text-align:center;
+}
+
 /* ===== ROLE POPUP ===== */
 
 #rolePopupOverlay{
@@ -1321,6 +1376,18 @@ body.vote-open{
     border-color:var(--wolf);
     box-shadow:0 0 0 1px var(--wolf), 0 0 16px rgba(239,68,68,.25);
     background:rgba(239,68,68,.07);
+}
+
+.player.my-shield-target{
+    border-color:#38bdf8;
+    box-shadow:0 0 0 1px #38bdf8, 0 0 16px rgba(56,189,248,.3);
+    background:rgba(56,189,248,.08);
+}
+
+.shield-placed-badge{
+    display:inline-block;
+    margin-top:5px;
+    font-size:13px;
 }
 
 .player.kill-restricted{
@@ -1805,6 +1872,9 @@ body.vote-open{
         <div id="barRoleSub">แตะหน้ากากเพื่อดูรายละเอียด</div>
     </div>
     <div id="barHuntBadge" class="hidden"></div>
+    <button id="shieldBtn" class="hidden" onclick="toggleShieldMode()" title="วางโล่ป้องกันการประหาร">
+        🛡️<span id="shieldCount">1</span>
+    </button>
 </div>
 
 <!-- ROLE REVEAL ANIMATION OVERLAY -->
@@ -1877,6 +1947,7 @@ let myAlive = true;
 let isNight = false;
 let currentChatTab = "global";
 let myHuntTargetId = null; // ID ของเป้าหมายนักล่าหัว
+let shieldModeActive = false; // กำลังอยู่โหมดเลือกวางโล่ (หมาป่าพิทักษ์) อยู่หรือไม่
 let suggestedRoomData = null; // ห้องล่าสุดที่เปิดอยู่ (จาก server)
 let currentRoomId = null; // ห้องที่ join อยู่ตอนนี้ ใช้ตอนเชื่อมต่อใหม่อัตโนมัติ
 
@@ -2035,6 +2106,21 @@ function castVote(targetId) {
 function castWolfKill(targetId) {
     const roomId = document.getElementById("room").value.trim().toUpperCase();
     socket.emit("cast_wolf_kill", { roomId, targetId });
+}
+
+// หมาป่าพิทักษ์: วาง/ยกเลิกโล่ป้องกันการประหาร — เลือกได้เฉพาะตอนโหมดโหวตเปิดอยู่
+function castShield(targetId) {
+    const roomId = document.getElementById("room").value.trim().toUpperCase();
+    socket.emit("select_shield", { roomId, targetId });
+}
+
+// สลับโหมด "กำลังจะวางโล่" — เมื่อเปิดอยู่ การแตะชื่อผู้เล่นในกริดจะวางโล่แทนที่จะโหวต
+function toggleShieldMode() {
+    const btn = document.getElementById("shieldBtn");
+    if (btn.classList.contains("depleted")) return;
+    shieldModeActive = !shieldModeActive;
+    btn.classList.toggle("active", shieldModeActive);
+    if (lastRoomData) renderPlayerGrid(lastRoomData);
 }
 
 function openRolePopup() {
@@ -2250,6 +2336,18 @@ myHuntTargetId = data.huntTargetId || null;
     // อัปเดต bottom bar
     document.getElementById("barRoleName").textContent = data.displayRole;
     document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
+
+    // ปุ่มโล่ (เฉพาะหมาป่าพิทักษ์) — แสดง/ซ่อนตามบท การอัปเดตจำนวนโล่จริงจะถูกซิงค์อีกทีจาก room_update
+    const shieldBtn = document.getElementById("shieldBtn");
+    if (data.role === "หมาป่าพิทักษ์") {
+        shieldBtn.classList.remove("hidden");
+        document.getElementById("shieldCount").textContent = data.guardianShieldAvailable ?? 1;
+        shieldBtn.classList.toggle("depleted", !(data.guardianShieldAvailable > 0));
+    } else {
+        shieldBtn.classList.add("hidden");
+        shieldModeActive = false;
+        shieldBtn.classList.remove("active");
+    }
 
     // อัปเดต popup — ชื่อบท
     document.getElementById("popupRoleName").textContent = data.displayRole;
@@ -2477,6 +2575,14 @@ function renderPlayerGrid(roomData) {
     const aliveVotersCount = others.filter(p => p.alive).length;
     const voteThreshold = Math.ceil(aliveVotersCount / 2);
 
+    // ข้อมูลโล่หมาป่าพิทักษ์ (ใช้เมื่อ mode === "vote")
+    const shieldTargets = roomData.shieldTargets || {};
+    const myShieldTarget = shieldTargets[me]; // ใช้กับตัวเองตอนเป็นหมาป่าพิทักษ์
+    const myPlayerObj = roomData.players.find(p => p.id === me);
+    const amIGuardianWolf = myPlayerObj && myPlayerObj.role === "หมาป่าพิทักษ์" && (myPlayerObj.guardianShieldAvailable > 0);
+    // playerId ที่กำลังถูกวางโล่อยู่ → ใช้แสดงไอคอนโล่ให้ทุกคนเห็นว่าใครกำลังถูกปกป้อง
+    const shieldedPlayerIds = new Set(Object.values(shieldTargets));
+
     // ข้อมูลหมาป่าเลือกฆ่า (ใช้เมื่อ mode === "kill")
     const killVotes = roomData.wolfKillVotes || {};
     const myKillTarget = killVotes[me];
@@ -2487,7 +2593,7 @@ function renderPlayerGrid(roomData) {
     });
 
     // อัปเดตแบนเนอร์โหมด (เหนือกริด) + สถานะของตัวเอง
-    updateModeBanner(mode, { aliveVotersCount, voteThreshold, myVoteTarget, myKillTarget, roomData });
+    updateModeBanner(mode, { aliveVotersCount, voteThreshold, myVoteTarget, myKillTarget, myShieldTarget, amIGuardianWolf, roomData });
 
     // เก็บกล่องผู้เล่นที่มีอยู่แล้วไว้ใช้ซ้ำ แทนการรื้อสร้างใหม่ทั้งกริดทุกครั้งที่มีคนกดเลือกเป้าหมาย
     // (กันรูป/การ์ดผู้เล่นที่ "ไม่ได้เปลี่ยน" กระตุกซ้ำ)
@@ -2503,9 +2609,11 @@ function renderPlayerGrid(roomData) {
         const isWolfMate = amIWolf && p.id !== me && allWolfRoles.includes(p.role);
         const isMyHuntTarget = (myRole === "นักล่าหัว") && myHuntTargetId && (p.id === myHuntTargetId) && p.alive;
         const isSelected = mode === "normal" && selected === p.id;
-        const isMyVote = mode === "vote" && myVoteTarget === p.id;
+        const isMyVote = mode === "vote" && !shieldModeActive && myVoteTarget === p.id;
         const isMyKill = mode === "kill" && myKillTarget === p.id;
         const isKillRestricted = mode === "kill" && (p.id === me || isWolfMate);
+        const isMyShieldPick = mode === "vote" && shieldModeActive && myShieldTarget === p.id;
+        const isShielded = mode === "vote" && shieldedPlayerIds.has(p.id);
 
         let div = existingNodes[p.id];
         if (!div) {
@@ -2520,6 +2628,7 @@ function renderPlayerGrid(roomData) {
             + (isMyKill ? " my-kill-target" : "")
             + (isKillRestricted ? " kill-restricted" : "")
             + (isMyHuntTarget ? " hunt-target" : "")
+            + (isMyShieldPick ? " my-shield-target" : "")
             + (p.disconnected ? " reconnecting" : "")
             + (p.offline ? " offline" : "");
 
@@ -2528,7 +2637,10 @@ function renderPlayerGrid(roomData) {
             if (!p.alive) return;
             if (p.disconnected || p.offline) return;
 
-            if (mode === "vote") {
+            if (mode === "vote" && shieldModeActive) {
+                if (p.id === me) return; // ห้ามวางโล่ตัวเอง
+                if (myShieldTarget === p.id) { castShield(null); } else { castShield(p.id); }
+            } else if (mode === "vote") {
                 if (p.id === me) return; // ห้ามโหวตตัวเอง
                 if (myVoteTarget === p.id) { castVote(null); } else { castVote(p.id); }
             } else if (mode === "kill") {
@@ -2549,9 +2661,12 @@ function renderPlayerGrid(roomData) {
             const receivedCount = voteTally[p.id] || 0;
             const reached = voteThreshold > 0 && receivedCount >= voteThreshold;
             const votedFor = voteTargetName[p.id] || null;
+            // โล่: แสดงเฉพาะให้หมาป่าพิทักษ์เห็นว่าตัวเองวางโล่ถูกคน (คนอื่นไม่เห็น กันข้อมูลรั่ว)
+            const showShieldIcon = (myRole === "หมาป่าพิทักษ์") && isShielded;
             modeExtraHtml = `
                 ${receivedCount > 0 ? `<span class="vote-count-badge${reached ? " reached" : ""}">${receivedCount} โหวต${reached ? " ☠️" : ""}</span>` : ""}
                 ${votedFor ? `<div class="vote-voter-list">➜ ${votedFor}</div>` : ""}
+                ${showShieldIcon ? `<span class="shield-placed-badge" title="คุณวางโล่ป้องกันคนนี้ไว้">🛡️</span>` : ""}
             `;
         } else if (mode === "kill") {
             const killedFor = killTargetName[p.id] || null;
@@ -2624,22 +2739,40 @@ function updateModeBanner(mode, ctx) {
 
     if (mode === "vote") {
         banner.classList.remove("kill-banner");
-        if (sub) sub.textContent = "โหมดโหวต — แตะชื่อผู้เล่นเพื่อโหวต";
-        icon.textContent = "🗳️";
-        text.textContent = "โหมดโหวต — เลือกคนที่จะโหวต";
-        text.style.color = "var(--safe)";
-        subText.textContent = "ทุกคนจะเห็นว่าคุณโหวตใคร";
-        thresholdText.textContent = ctx.aliveVotersCount > 0
-            ? `ต้องการ ${ctx.voteThreshold} โหวต (จากผู้มีชีวิต ${ctx.aliveVotersCount} คน) เพื่อประหาร`
-            : "";
+        if (sub) sub.textContent = shieldModeActive ? "โหมดวางโล่ — แตะชื่อผู้เล่นเพื่อวางโล่ป้องกัน" : "โหมดโหวต — แตะชื่อผู้เล่นเพื่อโหวต";
 
-        if (!myAlive) {
-            myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
-        } else if (ctx.myVoteTarget) {
-            const vt = ctx.roomData.players.find(p => p.id === ctx.myVoteTarget);
-            myStatusText.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+        if (shieldModeActive) {
+            icon.textContent = "🛡️";
+            text.textContent = "โหมดวางโล่ — เลือกคนที่จะปกป้อง";
+            text.style.color = "#38bdf8";
+            subText.textContent = "ถ้าคนนี้โดนประหาร จะรอดและคุณเสียโล่";
+            thresholdText.textContent = "";
+
+            if (!myAlive) {
+                myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+            } else if (ctx.myShieldTarget) {
+                const st = ctx.roomData.players.find(p => p.id === ctx.myShieldTarget);
+                myStatusText.innerHTML = `🛡️ คุณวางโล่: <b>${st?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+            } else {
+                myStatusText.textContent = "แตะชื่อเพื่อวางโล่ป้องกัน";
+            }
         } else {
-            myStatusText.textContent = "แตะชื่อเพื่อโหวต";
+            icon.textContent = "🗳️";
+            text.textContent = "โหมดโหวต — เลือกคนที่จะโหวต";
+            text.style.color = "var(--safe)";
+            subText.textContent = "ทุกคนจะเห็นว่าคุณโหวตใคร";
+            thresholdText.textContent = ctx.aliveVotersCount > 0
+                ? `ต้องการ ${ctx.voteThreshold} โหวต (จากผู้มีชีวิต ${ctx.aliveVotersCount} คน) เพื่อประหาร`
+                : "";
+
+            if (!myAlive) {
+                myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
+            } else if (ctx.myVoteTarget) {
+                const vt = ctx.roomData.players.find(p => p.id === ctx.myVoteTarget);
+                myStatusText.innerHTML = `✅ คุณโหวต: <b>${vt?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+            } else {
+                myStatusText.textContent = "แตะชื่อเพื่อโหวต";
+            }
         }
     } else if (mode === "kill") {
         banner.classList.add("kill-banner");
@@ -2708,6 +2841,20 @@ socket.on("room_update", (roomData) => {
     if (myPlayer) {
         myAlive = myPlayer.alive;
         mySilenced = !!myPlayer.silenced;
+
+        // ซิงค์จำนวนโล่ที่เหลือของหมาป่าพิทักษ์ (ลดลงเมื่อใช้สำเร็จ)
+        if (myPlayer.role === "หมาป่าพิทักษ์") {
+            const shieldBtn = document.getElementById("shieldBtn");
+            const available = myPlayer.guardianShieldAvailable ?? 0;
+            document.getElementById("shieldCount").textContent = available;
+            shieldBtn.classList.remove("hidden");
+            const depleted = !(available > 0) || !myAlive || !roomData.voteMode;
+            shieldBtn.classList.toggle("depleted", depleted);
+            if (depleted && shieldModeActive) {
+                shieldModeActive = false;
+                shieldBtn.classList.remove("active");
+            }
+        }
     }
 
     // อัปเดตสถานะกลางคืน
@@ -2818,6 +2965,7 @@ function resetToJoinScreen(message) {
     currentRoomId = null;
     myRole = "";
     myHuntTargetId = null;
+    shieldModeActive = false;
 
     // reset UI กลับสู่หน้าเริ่ม
     document.querySelector('.app').classList.remove("game-visible");
@@ -2830,6 +2978,8 @@ function resetToJoinScreen(message) {
     document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
     document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
     document.getElementById("barHuntBadge").classList.add("hidden");
+    document.getElementById("shieldBtn").classList.add("hidden");
+    document.getElementById("shieldBtn").classList.remove("active");
     document.getElementById("popupRoleName").textContent = "—";
     document.getElementById("popupRealRole").classList.add("hidden");
     document.getElementById("popupHuntInfo").classList.add("hidden");
@@ -2991,6 +3141,7 @@ socket.on("kicked", () => {
     currentRoomId = null;
     myRole = "";
     myHuntTargetId = null;
+    shieldModeActive = false;
 
     // แสดง overlay แจ้งถูกเตะ
     const overlay = document.createElement("div");
@@ -3018,6 +3169,8 @@ socket.on("kicked", () => {
         document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
         document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
         document.getElementById("barHuntBadge").classList.add("hidden");
+        document.getElementById("shieldBtn").classList.add("hidden");
+        document.getElementById("shieldBtn").classList.remove("active");
         document.getElementById("popupRoleName").textContent = "—";
         document.getElementById("popupRealRole").classList.add("hidden");
         document.getElementById("popupHuntInfo").classList.add("hidden");
