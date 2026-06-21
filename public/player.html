@@ -2638,7 +2638,6 @@ function renderPlayerGrid(roomData) {
             if (p.disconnected || p.offline) return;
 
             if (mode === "vote" && shieldModeActive) {
-                if (p.id === me) return; // ห้ามวางโล่ตัวเอง
                 if (myShieldTarget === p.id) { castShield(null); } else { castShield(p.id); }
             } else if (mode === "vote") {
                 if (p.id === me) return; // ห้ามโหวตตัวเอง
@@ -2752,9 +2751,10 @@ function updateModeBanner(mode, ctx) {
                 myStatusText.innerHTML = `<span style="color:var(--wolf)">💀 คุณตายแล้ว</span>`;
             } else if (ctx.myShieldTarget) {
                 const st = ctx.roomData.players.find(p => p.id === ctx.myShieldTarget);
-                myStatusText.innerHTML = `🛡️ คุณวางโล่: <b>${st?.name || "?"}</b> — แตะอีกครั้งเพื่อยกเลิก`;
+                const isSelf = ctx.myShieldTarget === socket.id;
+                myStatusText.innerHTML = `🛡️ คุณวางโล่: <b>${isSelf ? "ตัวเอง" : (st?.name || "?")}</b> — แตะอีกครั้งเพื่อยกเลิก`;
             } else {
-                myStatusText.textContent = "แตะชื่อเพื่อวางโล่ป้องกัน";
+                myStatusText.textContent = "แตะชื่อเพื่อวางโล่ป้องกัน (วางใส่ตัวเองก็ได้)";
             }
         } else {
             icon.textContent = "🗳️";
