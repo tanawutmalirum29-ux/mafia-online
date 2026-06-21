@@ -28,7 +28,7 @@ const pendingRemovals = {};
 // เมื่อผู้เล่นเชื่อมต่อใหม่ด้วย socket id ใหม่ (เน็ตหลุด-กลับมา / รีหน้าเว็บ)
 // ต้องไล่แก้ id เดิมที่ฝังอยู่ในโหวต/เป้าหมายต่างๆ ให้กลายเป็น id ใหม่ ไม่ให้ข้อมูลเดิมหาย
 function remapPlayerId(room, oldId, newId) {
-    const idMaps = [room.votes, room.selectedTargets, room.wolfKillVotes];
+    const idMaps = [room.votes, room.selectedTargets, room.wolfKillVotes, room.shieldTargets];
 
     idMaps.forEach((map) => {
         if (!map) return;
@@ -403,6 +403,19 @@ function cleanupAfterDeath(room, player) {
         }
     }
 
+    if (room.shieldTargets) {
+        // ถ้า player ที่ตายคือคนที่ถูกวางโล่ไว้ → ลบการวางโล่ทิ้ง (โล่ไม่เสีย เพราะไม่ได้ป้องกันจากการประหารจริง)
+        Object.keys(room.shieldTargets).forEach((selectorId) => {
+            if (room.shieldTargets[selectorId] === player.id) {
+                delete room.shieldTargets[selectorId];
+            }
+        });
+        // ถ้า player ที่ตายเป็นคนถือโล่ (หมาป่าพิทักษ์) → ลบการวางโล่ของตัวเองทิ้งด้วย
+        if (room.shieldTargets[player.id]) {
+            delete room.shieldTargets[player.id];
+        }
+    }
+
     return cascadeDeaths;
 }
 
@@ -481,6 +494,7 @@ io.on("connection", (socket) => {
     config: {},
     started: false,
     selectedTargets: {},
+    shieldTargets: {},
     wolfChatHistory: [],
     nightCount: 0,
     dayCount: 0,
@@ -676,6 +690,7 @@ io.on("connection", (socket) => {
                 huntTarget: player.huntTarget,
                 huntTargetId: player.huntTargetId || null,
                 roleInfo: roleDescription[player.role] || null,
+                guardianShieldAvailable: player.guardianShieldAvailable || 0,
                 silent: true
             });
 
@@ -860,7 +875,13 @@ realPlayers.forEach((p, i) => {
 
     p.huntTarget = null;
 
+    // หมาป่าพิทักษ์: มีโล่ป้องกันการประหาร 1 อันต่อเกม
+    p.guardianShieldAvailable = (card.role === "หมาป่าพิทักษ์") ? 1 : 0;
+
 });
+
+// เคลียร์การวางโล่ของรอบก่อนหน้า (เผื่อเริ่มเกมใหม่ในห้องเดิม)
+room.shieldTargets = {};
 
 const cannotBeHuntedTeams = ["wolf", "solo"];
 
@@ -912,7 +933,8 @@ realPlayers.forEach((p) => {
         displayRole: p.displayRole,
         huntTarget: p.huntTarget,
         huntTargetId: p.huntTargetId || null,
-        roleInfo: roleDescription[p.role] || null
+        roleInfo: roleDescription[p.role] || null,
+        guardianShieldAvailable: p.guardianShieldAvailable || 0
     }
 );
 
@@ -966,7 +988,11 @@ room.justStarted = false;
 
         room.voteMode = !room.voteMode;
 
-        if (!room.voteMode) {
+        if (room.voteMode) {
+            // เปิดโหมด: เคลียร์ "การวางโล่" ของรอบก่อนหน้า (แต่ไม่แตะจำนวนโล่ที่เหลือ — มี 1 ต่อเกม)
+            // หมาป่าพิทักษ์ต้องวางโล่ใหม่ทุกรอบโหวตที่ต้องการป้องกัน
+            room.shieldTargets = {};
+        } else {
             // ปิดโหมด: นับคะแนนโหวต แล้วประหารคนที่คะแนนถึงเงื่อนไขอัตโนมัติ
             // เงื่อนไข = จำนวนโหวตที่ได้รับ >= จำนวนคนมีชีวิต/2 (ปัดขึ้น)
             const votes = room.votes || {};
@@ -978,6 +1004,7 @@ room.justStarted = false;
             });
 
             let executed = null;
+            let shieldedPlayer = null;
             let cascadeDeaths = [];
 
             if (threshold > 0 && Object.keys(tally).length > 0) {
@@ -991,11 +1018,27 @@ room.justStarted = false;
                     );
 
                     if (topCandidates.length === 1) {
-                        // มีคนเดียวที่ได้สูงสุด → ประหาร
+                        // มีคนเดียวที่ได้สูงสุด → ประหาร (เว้นแต่มีหมาป่าพิทักษ์วางโล่ป้องกันคนนี้ไว้)
                         const target = room.players.find(p => p.id === topCandidates[0]);
                         if (target && target.alive) {
-                            target.alive = false;
-                            executed = target;
+
+                            // หาหมาป่าพิทักษ์ที่วางโล่ป้องกัน target นี้ไว้ (และยังมีโล่เหลือ)
+                            const shieldTargets = room.shieldTargets || {};
+                            const guardianId = Object.keys(shieldTargets).find(
+                                gid => shieldTargets[gid] === target.id
+                            );
+                            const guardian = guardianId
+                                ? room.players.find(p => p.id === guardianId)
+                                : null;
+
+                            if (guardian && guardian.alive && guardian.guardianShieldAvailable > 0) {
+                                // ป้องกันสำเร็จ — เสียโล่ ไม่ประหาร
+                                guardian.guardianShieldAvailable = 0;
+                                shieldedPlayer = target;
+                            } else {
+                                target.alive = false;
+                                executed = target;
+                            }
                         }
                     }
                     // ถ้า topCandidates.length > 1 = เสมอกันที่สูงสุด → ไม่ประหารใคร
@@ -1006,9 +1049,11 @@ room.justStarted = false;
             // ส่งข้อความผลโหวตให้ทุกคนในห้อง
             const resultMsg = {
                 name: "เกม",
-                text: executed
-                    ? `ชาวบ้านตัดสินใจประหาร ${executed.name}`
-                    : "ชาวบ้านตัดสินใจไม่ประหารใคร",
+                text: shieldedPlayer
+                    ? `ผู้เล่น...${shieldedPlayer.name} ถูกปกป้องจากการประหาร และหมาป่าพิทักษ์เสียโล่`
+                    : executed
+                        ? `ชาวบ้านตัดสินใจประหาร ${executed.name}`
+                        : "ชาวบ้านตัดสินใจไม่ประหารใคร",
                 type: "global",
                 isSystem: true
             };
@@ -1024,6 +1069,7 @@ room.justStarted = false;
             }
 
             room.votes = {};
+            room.shieldTargets = {};
         }
 
         io.to(roomId).emit("room_update", room);
@@ -1379,6 +1425,51 @@ socket.on("select_target", ({ roomId, targetId }) => {
 
     io.to(roomId).emit("room_update", room);
 });
+
+// =========================
+// SELECT SHIELD (หมาป่าพิทักษ์ — วางโล่ป้องกันการประหารตอนโหมดโหวต)
+// =========================
+// • ใช้ได้เฉพาะตอน room.voteMode เปิดอยู่เท่านั้น (โล่ป้องกัน "การประหาร" ไม่ใช่การฆ่าตอนกลางคืน)
+// • มี 1 โล่ต่อเกม (guardianShieldAvailable) — เสียก็ต่อเมื่อคนที่ถูกวางโล่ไว้ถูกโหวตประหารจริงๆ เท่านั้น
+//   (ถ้าวางโล่ไว้แต่คนนั้นไม่โดนประหาร ไม่เสียโล่ — ใช้ใหม่ได้เรื่อยๆ จนกว่าจะ "เซฟ" คนได้จริง)
+// • กดโล่คนเดิมซ้ำ = ยกเลิกการเลือก, กดคนใหม่ = ย้ายโล่ไปคนนั้นแทน
+socket.on("select_shield", ({ roomId, targetId }) => {
+
+    const room = rooms[roomId];
+    if (!room) return;
+
+    if (!room.voteMode) return; // วางโล่ได้เฉพาะตอนโหมดโหวตเปิดอยู่
+
+    const selector = room.players.find(p => p.id === socket.id);
+    if (!selector || !selector.alive || selector.isHost) return;
+    if (selector.role !== "หมาป่าพิทักษ์") return;
+    if (!(selector.guardianShieldAvailable > 0)) return; // ไม่มีโล่เหลือแล้ว
+
+    if (!room.shieldTargets) room.shieldTargets = {};
+
+    // ยกเลิกการวางโล่
+    if (!targetId) {
+        delete room.shieldTargets[socket.id];
+        io.to(roomId).emit("room_update", room);
+        return;
+    }
+
+    if (targetId === socket.id) return; // ห้ามวางโล่ตัวเอง
+
+    const targetPlayer = room.players.find(p => p.id === targetId);
+    if (!targetPlayer || !targetPlayer.alive) return;
+
+    const prevTargetId = room.shieldTargets[socket.id];
+    if (prevTargetId === targetId) {
+        // กดคนเดิมซ้ำ = ยกเลิก
+        delete room.shieldTargets[socket.id];
+    } else {
+        room.shieldTargets[socket.id] = targetId;
+    }
+
+    io.to(roomId).emit("room_update", room);
+});
+
     // =========================
     // SEND CHAT
     // =========================
@@ -1512,6 +1603,14 @@ socket.on("select_target", ({ roomId, targetId }) => {
                 if (room.selectedTargets[sid] === playerId) delete room.selectedTargets[sid];
             });
             delete room.selectedTargets[playerId];
+        }
+
+        // ลบออกจาก shieldTargets (หมาป่าพิทักษ์)
+        if (room.shieldTargets) {
+            Object.keys(room.shieldTargets).forEach(sid => {
+                if (room.shieldTargets[sid] === playerId) delete room.shieldTargets[sid];
+            });
+            delete room.shieldTargets[playerId];
         }
 
         // ถอด protected ถ้า player นี้เป็น หมอ/บอดี้การ์ด
