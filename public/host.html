@@ -2083,12 +2083,16 @@ socket.on(
 function updateNightFlowButtons(room) {
     const resolveBtn = document.getElementById("resolveBtn");
     const startNightBtn = document.getElementById("startNightBtn");
+    const voteBtn = document.getElementById("voteBtn");
+    const killModeBtn = document.getElementById("killModeBtn");
     if (!resolveBtn || !startNightBtn) return;
 
     if (!room.started) {
-        // เกมยังไม่เริ่ม: ปิดทั้งคู่
+        // เกมยังไม่เริ่ม: ปิดทั้งหมด (รวมปุ่มโหวต/หมาป่าฆ่า — ยังไม่มีคืน 1 หรือประชุม 1 ให้กด)
         resolveBtn.disabled = true;
         startNightBtn.disabled = true;
+        if (voteBtn) voteBtn.disabled = true;
+        if (killModeBtn) killModeBtn.disabled = true;
         return;
     }
 
@@ -2100,6 +2104,16 @@ function updateNightFlowButtons(room) {
         // อยู่ช่วงประชุม/ยังไม่เคยเริ่มคืน: ต้องกด "เริ่มช่วงกลางคืน" ก่อน ถึงจะสรุปผลได้
         resolveBtn.disabled = true;
         startNightBtn.disabled = false;
+    }
+
+    // ปุ่มโหวตประหาร: กดได้เฉพาะตอนกลางวัน (หรือกดปิดโหมดที่เปิดค้างไว้ได้เสมอไม่ว่าช่วงไหน)
+    if (voteBtn) {
+        voteBtn.disabled = room.isNight && !room.voteMode;
+    }
+
+    // ปุ่มหมาป่าเลือกฆ่า: กดได้เฉพาะตอนกลางคืน (หรือกดปิดโหมดที่เปิดค้างไว้ได้เสมอไม่ว่าช่วงไหน)
+    if (killModeBtn) {
+        killModeBtn.disabled = !room.isNight && !room.wolfKillMode;
     }
 }
 
