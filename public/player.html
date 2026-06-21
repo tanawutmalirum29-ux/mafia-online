@@ -1800,7 +1800,7 @@ body.vote-open{
     <h3>
         ผู้เล่นในห้อง
     </h3>
-    <p class="sub" id="playersSub">แตะผู้เล่นเพื่อเลือกเป้าหมาย</p>
+    <p class="sub" id="playersSub"></p>
 
     <!-- MODE BANNER: แสดงเมื่อโหมดโหวต/โหมดหมาป่าเลือกฆ่าเปิดอยู่ — อยู่เหนือกริดผู้เล่นเดิม ไม่ใช่ป๊อปอัปแยก -->
     <div id="modeBanner" class="vote-banner hidden">
@@ -2725,7 +2725,7 @@ function updateModeBanner(mode, ctx) {
 
     if (mode === "normal") {
         banner.classList.add("hidden");
-        if (sub) sub.textContent = "แตะผู้เล่นเพื่อเลือกเป้าหมาย";
+        if (sub) sub.textContent = "";
         return;
     }
 
@@ -2738,7 +2738,7 @@ function updateModeBanner(mode, ctx) {
 
     if (mode === "vote") {
         banner.classList.remove("kill-banner");
-        if (sub) sub.textContent = shieldModeActive ? "โหมดวางโล่ — แตะชื่อผู้เล่นเพื่อวางโล่ป้องกัน" : "โหมดโหวต — แตะชื่อผู้เล่นเพื่อโหวต";
+        if (sub) sub.textContent = "";
 
         if (shieldModeActive) {
             icon.textContent = "🛡️";
@@ -2776,7 +2776,7 @@ function updateModeBanner(mode, ctx) {
         }
     } else if (mode === "kill") {
         banner.classList.add("kill-banner");
-        if (sub) sub.textContent = "โหมดหมาป่าเลือกฆ่า — แตะชื่อผู้เล่นเพื่อเลือกเหยื่อ";
+        if (sub) sub.textContent = "";
         icon.textContent = "🐺";
         text.textContent = "โหมดหมาป่าเลือกฆ่า — เลือกเหยื่อ";
         text.style.color = "var(--wolf)";
