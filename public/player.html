@@ -2758,9 +2758,9 @@ function updateModeBanner(mode, ctx) {
             }
         } else {
             icon.textContent = "🗳️";
-            text.textContent = "โหมดโหวต — เลือกคนที่จะโหวต";
+            text.textContent = "ช่วงโหวต";
             text.style.color = "var(--safe)";
-            subText.textContent = "ทุกคนจะเห็นว่าคุณโหวตใคร";
+            subText.textContent = "";
             thresholdText.textContent = ctx.aliveVotersCount > 0
                 ? `ต้องการ ${ctx.voteThreshold} โหวต (จากผู้มีชีวิต ${ctx.aliveVotersCount} คน) เพื่อประหาร`
                 : "";
@@ -2778,9 +2778,9 @@ function updateModeBanner(mode, ctx) {
         banner.classList.add("kill-banner");
         if (sub) sub.textContent = "";
         icon.textContent = "🐺";
-        text.textContent = "โหมดหมาป่าเลือกฆ่า — เลือกเหยื่อ";
+        text.textContent = "ช่วงล่าเหยื่อ";
         text.style.color = "var(--wolf)";
-        subText.textContent = "หมาป่าด้วยกันจะเห็นว่าใครเลือกใคร";
+        subText.textContent = "เลือกผู้เล่นเพื่อฆ่า";
         thresholdText.textContent = "";
 
         if (!myAlive) {
