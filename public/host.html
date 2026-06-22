@@ -1813,6 +1813,9 @@ socket.on("roles_data", (data) => {
 
     Object.keys(roles).forEach((role) => {
 
+        // กรอง key พิเศษที่ server ส่งมา (เช่น __wolfRoles) ออกจาก dropdown
+        if (role.startsWith("__")) return;
+
         const opt = document.createElement("option");
         opt.value = role;
         opt.textContent = role;
@@ -1820,6 +1823,10 @@ socket.on("roles_data", (data) => {
         select.appendChild(opt);
 
     });
+
+    // re-render การ์ดบทบาทที่เลือกไว้ เพราะ roles พร้อมแล้ว (icon จะโหลดได้ถูกต้อง)
+    // กรณีโหลดหน้าใหม่: room_update อาจมาก่อน roles_data ทำให้ renderRoles() ครั้งแรกไม่มี icon
+    renderRoles();
 
 });
 
@@ -2330,11 +2337,12 @@ function renderGameOver(room, nonHostPlayers) {
 
     document.getElementById("gameOverTitle").textContent = `🏁 ${room.gameResult.title}`;
 
-    // server ส่ง winners เป็น array ของ {id, token} — ตรวจด้วย id
-    const winnerIds = new Set((room.gameResult.winners || []).map(w => w.id ?? w));
+    // server ส่ง winners เป็น array ของ {id, token} — ตรวจด้วย token
+    // (id เปลี่ยนทุกครั้งที่ reconnect แต่ token คงที่ตลอด ป้องกันโฮสต์โหลดใหม่แล้วเห็นทุกคนแพ้)
+    const winnerTokens = new Set((room.gameResult.winners || []).map(w => w.token ?? w));
     const list = document.getElementById("gameOverList");
     list.innerHTML = nonHostPlayers.map((p) => {
-        const win = winnerIds.has(p.id);
+        const win = winnerTokens.has(p.token);
         return `
             <div class="gameOverRow ${win ? "win" : "lose"}">
                 <div>
