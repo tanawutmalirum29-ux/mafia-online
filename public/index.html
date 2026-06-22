@@ -290,6 +290,46 @@ body::before{
     margin-bottom:6px;
 }
 
+.tester-role-pick{
+    display:flex;
+    gap:10px;
+    margin-bottom:16px;
+}
+
+.tester-role-btn{
+    flex:1;
+    padding:11px 8px;
+    border-radius:var(--r-sm);
+    border:1px solid var(--line);
+    background:#0d111c;
+    color:var(--ink-dim);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:inherit;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    transition:border-color .2s, background .2s, color .2s;
+}
+
+.tester-role-btn .role-icon{
+    font-size:20px;
+}
+
+.tester-role-btn.selected-host{
+    border-color:rgba(124,92,255,.7);
+    background:rgba(124,92,255,.15);
+    color:#c4b5fd;
+}
+
+.tester-role-btn.selected-player{
+    border-color:rgba(20,184,166,.7);
+    background:rgba(20,184,166,.12);
+    color:#5eead4;
+}
+
 .modal-actions{
     display:flex;
     gap:10px;
@@ -382,6 +422,16 @@ body::before{
             (แต่ละแท็บนับเป็นคนละผู้เล่น)<br>
             กรอกรหัสผ่านเพื่อเข้าใช้งาน
         </p>
+        <div class="tester-role-pick">
+            <button class="tester-role-btn selected-host" id="rolePickHost" onclick="pickTesterRole('host')">
+                <span class="role-icon">🎮</span>
+                โฮสต์
+            </button>
+            <button class="tester-role-btn" id="rolePickPlayer" onclick="pickTesterRole('player')">
+                <span class="role-icon">👤</span>
+                ผู้เล่น
+            </button>
+        </div>
         <input
             type="password"
             id="testerPass"
@@ -409,8 +459,20 @@ function player(){
 // เปิดได้หลายแท็บบนเครื่องเดียวกัน แต่ละแท็บจะนับเป็นผู้เล่นคนละคน (token แยกต่อแท็บ)
 // ป้องกันแบบหลวมๆด้วยรหัสผ่าน กันคนเปิดมาเจอเฉยๆแล้วกดมั่ว ไม่ใช่ระบบความปลอดภัยจริงจัง
 const TESTER_PASSWORD = "251029";
+let testerRole = "host"; // "host" | "player"
+
+function pickTesterRole(role) {
+    testerRole = role;
+    document.getElementById("rolePickHost").className =
+        "tester-role-btn" + (role === "host" ? " selected-host" : "");
+    document.getElementById("rolePickPlayer").className =
+        "tester-role-btn" + (role === "player" ? " selected-player" : "");
+}
 
 function openTesterModal(){
+    testerRole = "host";
+    document.getElementById("rolePickHost").className = "tester-role-btn selected-host";
+    document.getElementById("rolePickPlayer").className = "tester-role-btn";
     document.getElementById("testerPass").value = "";
     document.getElementById("testerError").textContent = "";
     document.getElementById("testerModal").classList.remove("hidden");
@@ -425,7 +487,11 @@ function confirmTester(){
     const val = document.getElementById("testerPass").value.trim();
 
     if (val === TESTER_PASSWORD) {
-        window.location.href = "player.html?tester=1";
+        if (testerRole === "host") {
+            window.location.href = "host.html?tester=1";
+        } else {
+            window.location.href = "player.html?tester=1";
+        }
         return;
     }
 

@@ -1760,17 +1760,20 @@ const socket = io();
 let roomId = "";
 let currentRoom = null;
 
-// ===== จำตัวตนโฮสต์ไว้ในเครื่อง (localStorage) =====
-// ใช้เป็น "token" ประจำเครื่อง/เบราว์เซอร์นี้ เพื่อให้ตอนเน็ตหลุด-กลับมา
-// (หรือเปิดแท็บใหม่ขณะห้องเดิมยังไม่ปิด) เซิร์ฟเวอร์รู้ว่าเป็นโฮสต์คนเดิม
-// ไม่ใช่คนใหม่ -> ห้องไม่ถูกปิดทันทีทุกครั้งที่เน็ตกระตุก
+// ===== จำตัวตนโฮสต์ไว้ในเครื่อง =====
+// ปกติ: ใช้ localStorage — token เดียวกันทุกแท็บบนเครื่อง ทำให้กลับเข้าห้องเดิมได้ตอนเน็ตหลุด
+// tester mode (?tester=1): ใช้ sessionStorage — token แยกต่อแท็บ แต่ละแท็บเป็นคนละโฮสต์
+// และใช้ห้องที่แยกต่างหากด้วย (ww_host_room ก็เก็บใน sessionStorage เช่นกัน)
+const isTesterMode = new URLSearchParams(location.search).get("tester") === "1";
+const hostStorage = isTesterMode ? sessionStorage : localStorage;
+
 function getHostToken() {
-    let t = localStorage.getItem("ww_host_token");
+    let t = hostStorage.getItem("ww_host_token");
     if (!t) {
         t = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
-        localStorage.setItem("ww_host_token", t);
+        hostStorage.setItem("ww_host_token", t);
     }
     return t;
 }
@@ -1832,7 +1835,7 @@ function applyRoomId(id) {
     document.getElementById("room").onclick = () => {
         navigator.clipboard.writeText(roomId);
     };
-    localStorage.setItem("ww_host_room", id);
+    hostStorage.setItem("ww_host_room", id);
 }
 
 // CREATE ROOM (ห้องใหม่)
@@ -1920,7 +1923,7 @@ function hideRoomPicker() {
 // ให้กลับเข้าคุมอัตโนมัติทันทีโดยไม่ต้องเลือกใหม่ ถ้าไม่มี/ห้องเดิมปิดไปแล้ว แต่ยังมี
 // ห้องอื่นเปิดอยู่ (เช่น เปลี่ยนอุปกรณ์ / ล้างเบราว์เซอร์) ให้เลือกจากกริดเอง
 // ถ้าไม่มีห้องเปิดอยู่เลยค่อยสร้างห้องใหม่ให้อัตโนมัติ
-const savedHostRoom = localStorage.getItem("ww_host_room");
+const savedHostRoom = hostStorage.getItem("ww_host_room");
 
 socket.emit("list_open_rooms", (list) => {
 
@@ -1952,7 +1955,7 @@ socket.on("connect", () => {
                     // ห้องถูกปิดไปแล้วจริงๆ (กดปิดห้องระหว่างที่เราหลุดอยู่)
                     alert("ห้องถูกปิดไปแล้ว");
                     roomId = "";
-                    localStorage.removeItem("ww_host_room");
+                    hostStorage.removeItem("ww_host_room");
                 }
                 // ถ้าสำเร็จ: room_update จะตามมาทาง event ปกติ คุมห้องต่อได้เลย
             }
@@ -1971,7 +1974,7 @@ socket.on("disconnect", () => {
 
 // ROOM CLOSED (โฮสต์กดปิดห้องเอง — ห้องไม่ถูกปิดอัตโนมัติจากการหลุดเน็ตอีกต่อไป)
 socket.on("room_closed", (data) => {
-    localStorage.removeItem("ww_host_room");
+    hostStorage.removeItem("ww_host_room");
 
     // แสดง toast แทน alert เพื่อไม่ block browser ก่อน reload
     const toast = document.createElement("div");
