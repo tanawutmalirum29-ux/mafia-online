@@ -3011,7 +3011,10 @@ socket.on("room_update", (roomData) => {
 
     // ===== GAME OVER SUMMARY =====
     if (roomData.gameOver && roomData.gameResult) {
-        showGameOverOverlay(roomData, myPlayer);
+        // fallback: ถ้า socket.id ใหม่หลัง reconnect หา myPlayer ไม่เจอ ให้ลองหาจาก token
+        const myPlayerForResult = myPlayer
+            || (roomData.players || []).find(p => p.token === clientToken);
+        showGameOverOverlay(roomData, myPlayerForResult);
     } else {
         hideGameOverOverlay();
     }
@@ -3026,7 +3029,7 @@ function showGameOverOverlay(roomData, myPlayer) {
 
     const result = roomData.gameResult;
     const winners = new Set(result.winners || []);
-    const won = myPlayer ? winners.has(myPlayer.id) : false;
+    const won = myPlayer ? winners.has(myPlayer.token) : false;
 
     const resultEl = document.getElementById("gameOverResult");
     resultEl.textContent = won ? "ชนะ" : "แพ้";
