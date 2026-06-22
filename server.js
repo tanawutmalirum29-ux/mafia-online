@@ -501,7 +501,7 @@ function endGame(room, roomId, resultTeam) {
         team: resultTeam,
         label: teamLabels[resultTeam] || resultTeam,
         title: `ทีม${teamLabels[resultTeam] || resultTeam}ชนะ`,
-        winners: room.players.filter(p => isWinner(p, resultTeam)).map(p => p.id)
+        winners: room.players.filter(p => isWinner(p, resultTeam)).map(p => p.token)
     };
     room.continueReady = {};
 
