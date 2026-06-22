@@ -2110,6 +2110,19 @@ function renderRoomSuggestion() {
         ? `โฮสต์: ${suggestedRoomData.hostName}${suggestedRoomData.started ? " (เริ่มเกมแล้ว)" : ""}`
         : (suggestedRoomData.started ? "เริ่มเกมแล้ว" : "");
 
+    // ถ้ามีห้องเดียว → ใส่โค้ดให้อัตโนมัติและซ่อนการ์ด (ไม่ต้องแตะ)
+    // ถ้ามีหลายห้อง → แสดงการ์ดให้แตะเลือกเอง
+    const isSingleRoom = !suggestedRoomData.totalRooms || suggestedRoomData.totalRooms === 1;
+    if (isSingleRoom) {
+        useSuggestedRoom();
+        box.classList.add("hidden");
+        return;
+    }
+
+    // หลายห้อง: อัปเดต hint ให้รู้ว่าต้องแตะ
+    const tapEl = box.querySelector(".room-suggestion-tap");
+    if (tapEl) tapEl.textContent = "แตะเพื่อใส่อัตโนมัติ";
+
     box.classList.remove("hidden");
 }
 
@@ -2120,7 +2133,7 @@ function useSuggestedRoom() {
     document.getElementById("name").focus();
 }
 
-// รับห้องที่เปิดอยู่ล่าสุดจากเซิร์ฟเวอร์ (กรณีเล่นกับเพื่อนกลุ่มเดียว มีห้องเดียว)
+// รับห้องที่เปิดอยู่ล่าสุดจากเซิร์ฟเวอร์ (กรณีเล่นกับเพื่อนกลุ่มเดียว มีห้องเดียว → auto-fill)
 socket.on("suggested_room", (data) => {
     suggestedRoomData = data;
     renderRoomSuggestion();
