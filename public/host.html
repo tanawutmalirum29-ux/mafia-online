@@ -1491,6 +1491,65 @@ html.modal-open body{
     color:var(--safe);
 }
 
+.testerConditionList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.testerConditionRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:var(--r-sm);
+    background:rgba(255,255,255,.04);
+    border:1px solid var(--line);
+}
+
+.testerConditionRow .tcLabel{
+    font-size:14px;
+}
+
+.testerConditionRow .tcSub{
+    font-size:12px;
+    color:var(--ink-dim);
+}
+
+.tcToggle{
+    position:relative;
+    width:44px;
+    height:24px;
+    flex-shrink:0;
+    border-radius:999px;
+    background:rgba(239,68,68,.35);
+    border:1px solid rgba(239,68,68,.5);
+    cursor:pointer;
+    transition:background .2s, border-color .2s;
+}
+
+.tcToggle.on{
+    background:rgba(34,197,94,.35);
+    border-color:rgba(34,197,94,.6);
+}
+
+.tcToggle::after{
+    content:"";
+    position:absolute;
+    top:2px;
+    left:2px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#fff;
+    transition:left .2s;
+}
+
+.tcToggle.on::after{
+    left:23px;
+}
+
 </style>
 
 </head>
@@ -1519,6 +1578,16 @@ html.modal-open body{
         </div>
     </div>
 
+    <!-- ===== TESTER MODE (เปิด/ปิดเงื่อนไขจบเกมแยกรายข้อ) ===== -->
+    <div class="vote-modal-overlay hidden" id="testerOverlay">
+        <div class="vote-modal" id="testerPanel">
+            <button class="vote-modal-close" onclick="closeTesterPopup()">✕</button>
+            <div class="vote-panel-title">🧪 โหมดผู้ทดสอบ</div>
+            <p class="sub" style="margin:-6px 0 14px;">ปิดเงื่อนไขจบเกมข้อใดไว้ได้ — เกมจะไม่จบจากเงื่อนไขนั้นแม้เข้าเงื่อนไขจริง</p>
+            <div id="testerConditionList" class="testerConditionList"></div>
+        </div>
+    </div>
+
     <!-- ===== GAME OVER SUMMARY (สรุปผลเกม) ===== -->
     <div class="vote-modal-overlay hidden" id="gameOverOverlay">
         <div class="vote-modal gameover-modal" id="gameOverPanel">
@@ -1541,7 +1610,7 @@ html.modal-open body{
             <span class="seal-code" id="room">••••</span>
         </div>
         <div class="seal-hint">บอกรหัสนี้กับผู้เล่นเพื่อเข้าร่วมห้อง</div>
-        <button class="btn btn-tester" id="testerModeBtn" onclick="toggleTesterMode()">🧪 โหมดผู้ทดสอบ: ปิด</button>
+        <button class="btn btn-tester" id="testerModeBtn" onclick="openTesterPopup()">🧪 โหมดผู้ทดสอบ</button>
         <button class="btn btn-danger btn-close-room" id="closeRoomBtn" onclick="closeRoomManually()">✕ ปิดห้อง</button>
     </div>
 
@@ -2176,19 +2245,60 @@ socket.on("room_update", (room) => {
     // ===== TESTER MODE BUTTON =====
     const testerBtn = document.getElementById("testerModeBtn");
     if (testerBtn) {
-        testerBtn.classList.toggle("active", !!room.testerMode);
-        testerBtn.textContent = room.testerMode ? "🧪 โหมดผู้ทดสอบ: เปิด" : "🧪 โหมดผู้ทดสอบ: ปิด";
+        const tc = room.testerConditions || {};
+        const anyOff = Object.values(tc).some(v => v === false);
+        testerBtn.classList.toggle("active", anyOff);
+        testerBtn.textContent = anyOff ? "🧪 โหมดผู้ทดสอบ: ปิดอยู่บางข้อ" : "🧪 โหมดผู้ทดสอบ";
     }
+    renderTesterConditions(room);
 
     // ===== GAME OVER SUMMARY =====
     renderGameOver(room, nonHostPlayers);
 
 });
 
-// เปิด/ปิดโหมดผู้ทดสอบ — ปิดไม่ให้เกมจบอัตโนมัติ ใช้ตอนทดสอบกับคนน้อย
-function toggleTesterMode() {
+const winConditionDefs = [
+    { key: "fool", label: "คนบ้าชนะ", sub: "เงื่อนไข 1 — ทุกคนโหวตประหารคนบ้า" },
+    { key: "headhunter", label: "นักล่าหัวชนะ", sub: "เงื่อนไข 2 — โหวตประหารเป้าของนักล่าหัว" },
+    { key: "wolf", label: "หมาป่าชนะ", sub: "เงื่อนไข 3 — หมาป่าครบจำนวนเทียบชาวบ้าน" },
+    { key: "murderer", label: "ฆาตกรชนะ", sub: "เงื่อนไข 4 — เหลือฆาตกรคนเดียวรอด" },
+    { key: "villager", label: "ชาวบ้านชนะ", sub: "เงื่อนไขเสริม — หมาป่าตายหมด/ไม่มีฆาตกรคุกคามแล้ว" }
+];
+
+function renderTesterConditions(room) {
+    const list = document.getElementById("testerConditionList");
+    if (!list) return;
+
+    const tc = room.testerConditions || {};
+
+    list.innerHTML = winConditionDefs.map(def => {
+        const on = tc[def.key] !== false;
+        return `
+            <div class="testerConditionRow">
+                <div>
+                    <div class="tcLabel">${def.label}</div>
+                    <div class="tcSub">${def.sub}</div>
+                </div>
+                <div class="tcToggle ${on ? "on" : ""}" onclick="toggleWinCondition('${def.key}')"></div>
+            </div>
+        `;
+    }).join("");
+}
+
+function openTesterPopup() {
+    document.getElementById("testerOverlay").classList.remove("hidden");
+    document.documentElement.classList.add("modal-open");
+}
+
+function closeTesterPopup() {
+    document.getElementById("testerOverlay").classList.add("hidden");
+    document.documentElement.classList.remove("modal-open");
+}
+
+// เปิด/ปิดเงื่อนไขจบเกมเป็นรายข้อ — ปิดไว้แล้วเกมจะไม่จบจากเงื่อนไขนั้น ใช้ตอนทดสอบกับคนน้อย
+function toggleWinCondition(condition) {
     if (!roomId) return;
-    socket.emit("toggle_tester_mode", { roomId });
+    socket.emit("toggle_win_condition", { roomId, condition });
 }
 
 // แสดง/ซ่อนสรุปผลเกม + รายชื่อผู้เล่นว่าใครแพ้ใครชนะ + ความคืบหน้าการกด "ดำเนินการต่อ"
