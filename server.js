@@ -360,14 +360,23 @@ function teamOf(role) {
     return roles[role]?.team ?? null;
 }
 
-function isWinner(player, resultTeam) {
+// นักล่าหัวที่ "เป้าหมายตายแล้ว" และตัวเองยังมีชีวิต ถือว่าผันตัวไปอยู่ฝ่ายชั่วร้าย
+// (ชนะร่วมไปกับหมาป่า หรือ ฆาตกร — แล้วแต่ว่าฝ่ายไหนชนะเกมจริง ๆ)
+function isHeadhunterActivated(player, room) {
+    if (!player || player.role !== "นักล่าหัว" || !player.alive) return false;
+    if (!player.huntTargetId) return false;
+    const target = room.players.find((p) => p.id === player.huntTargetId);
+    return !!target && target.alive === false;
+}
+
+function isWinner(player, resultTeam, room) {
     if (!player || player.isHost) return false;
     const t = teamOf(player.role);
-    if (resultTeam === "wolf")     return t === "wolf";
+    if (resultTeam === "wolf")     return t === "wolf" || isHeadhunterActivated(player, room);
     if (resultTeam === "villager") return t === "villager";
     if (resultTeam === "fool")     return player.role === "คนบ้า";
     if (resultTeam === "headhunter") return player.role === "นักล่าหัว";
-    if (resultTeam === "murderer") return player.role === "ฆาตกร";
+    if (resultTeam === "murderer") return player.role === "ฆาตกร" || isHeadhunterActivated(player, room);
     return false;
 }
 
@@ -388,15 +397,23 @@ function endGame(room, roomId, resultTeam) {
         return false;
     }
 
+    const winners = room.players.filter((p) => isWinner(p, resultTeam, room));
+
+    // ถ้านักล่าหัว "เป้าหมายตายแล้ว" ชนะร่วมไปกับฝ่ายชั่วร้ายที่ชนะเกมจริง (หมาป่า/ฆาตกร)
+    // ให้ขึ้นชื่อนักล่าหัวต่อท้ายชื่อทีมที่ชนะด้วย
+    const joinedByHeadhunter =
+        (resultTeam === "wolf" || resultTeam === "murderer") &&
+        winners.some((p) => p.role === "นักล่าหัว");
+
+    const baseTitle = `ทีม${teamLabels[resultTeam] || resultTeam}ชนะ`;
+
     room.gameOver = true;
     room.gameResult = {
         team: resultTeam,
         label: teamLabels[resultTeam] || resultTeam,
-        title: `ทีม${teamLabels[resultTeam] || resultTeam}ชนะ`,
+        title: joinedByHeadhunter ? `${baseTitle} + นักล่าหัว` : baseTitle,
         // BUG FIX: เก็บทั้ง token และ id เพื่อให้ทั้ง host และ player ตรวจสอบได้
-        winners: room.players
-            .filter((p) => isWinner(p, resultTeam))
-            .map((p) => ({ id: p.id, token: p.token })),
+        winners: winners.map((p) => ({ id: p.id, token: p.token })),
     };
     room.continueReady = {};
 
@@ -425,10 +442,19 @@ function checkGameEndGeneral(room, roomId) {
     const solos     = alive.filter((p) => teamOf(p.role) === "solo");
     const murderer  = alive.find((p) => p.role === "ฆาตกร");
 
-    // เงื่อนไข 4: เหลือฆาตกรคนเดียวรอด
-    if (murderer && alive.length === 1) {
-        endGame(room, roomId, "murderer");
-        return;
+    // นักล่าหัวที่เป้าหมายตายแล้ว (รอลุ้นชนะร่วมกับหมาป่า/ฆาตกร ถ้าฝ่ายนั้นชนะเกมจริง)
+    const activatedHeadhunters = alive.filter((p) => isHeadhunterActivated(p, room));
+
+    // เงื่อนไข 4: เหลือฆาตกรรอด — คนอื่นที่เหลือเป็นได้แค่นักล่าหัวที่ผันตัวมาแล้ว (จะชนะร่วมกัน)
+    if (murderer) {
+        const others = alive.filter((p) => p.id !== murderer.id);
+        const onlyActivatedHeadhuntersLeft = others.every((p) =>
+            activatedHeadhunters.includes(p)
+        );
+        if (onlyActivatedHeadhuntersLeft) {
+            endGame(room, roomId, "murderer");
+            return;
+        }
     }
 
     // เงื่อนไข 3: หมาป่าครบจำนวน
@@ -443,6 +469,8 @@ function checkGameEndGeneral(room, roomId) {
     }
 
     // เงื่อนไขเสริม: หมาป่าตายหมด + ไม่มีฆาตกรคุกคาม
+    // (นักล่าหัวที่ผันตัวแล้วแต่ไม่มีฝ่ายชั่วร้ายให้ชนะร่วม ไม่มีความสามารถฆ่าเพื่อเคลียร์เกมเอง
+    //  ดังนั้นไม่ทำให้ชาวบ้านพลาดการชนะ — ชาวบ้านชนะตามปกติ ส่วนนักล่าหัวแพ้ไปด้วย)
     if (wolves.length === 0 && !murderer) {
         endGame(room, roomId, "villager");
     }
