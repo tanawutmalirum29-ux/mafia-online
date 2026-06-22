@@ -319,7 +319,8 @@ function getLatestOpenRoom() {
     return {
         roomId: id,
         hostName: hostPlayer ? hostPlayer.name : "",
-        started: !!room.started
+        started: !!room.started,
+        totalRooms: ids.length  // จำนวนห้องที่เปิดอยู่ทั้งหมด — client ใช้เช็คว่าควร auto-fill หรือให้เลือกเอง
     };
 }
 
