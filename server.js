@@ -476,16 +476,22 @@ function isWinner(player, resultTeam) {
     return false;
 }
 
+// เงื่อนไขนี้ถูกเปิดใช้งานอยู่หรือไม่ (โหมดผู้ทดสอบสามารถปิดเป็นรายข้อได้)
+function conditionEnabled(room, resultTeam) {
+    if (!room.testerConditions) return true;
+    return room.testerConditions[resultTeam] !== false;
+}
+
 // จบเกม: ตั้งค่าผลลัพธ์ + แจ้งทุกคนผ่าน room_update
-// ถ้าโหมดผู้ทดสอบเปิดอยู่ จะไม่จบเกมจริง (แค่แจ้งเตือนโฮสต์เงียบๆ) เพื่อให้ทดสอบกับคนน้อยได้
-// โดยไม่ให้ห้องเด้งจบเกมก่อนเวลา
+// ถ้าเงื่อนไขข้อนี้ถูกปิดไว้ (โหมดผู้ทดสอบ) จะไม่จบเกมจริง (แค่แจ้งเตือนโฮสต์เงียบๆ)
+// เพื่อให้ทดสอบเงื่อนไขอื่นกับคนน้อยได้ โดยไม่ให้ห้องเด้งจบเกมก่อนเวลา
 function endGame(room, roomId, resultTeam) {
     if (!room || room.gameOver) return false;
 
-    if (room.testerMode) {
+    if (!conditionEnabled(room, resultTeam)) {
         io.to(room.host).emit(
             "host_error",
-            `🧪 [โหมดผู้ทดสอบ] เข้าเงื่อนไขจบเกมแล้ว (ทีม${teamLabels[resultTeam] || resultTeam}ชนะ) แต่ปิดการจบเกมไว้เพื่อทดสอบอยู่`
+            `🧪 [โหมดผู้ทดสอบ] เข้าเงื่อนไขจบเกมแล้ว (ทีม${teamLabels[resultTeam] || resultTeam}ชนะ) แต่ปิดเงื่อนไขนี้ไว้เพื่อทดสอบอยู่`
         );
         return false;
     }
@@ -614,7 +620,7 @@ io.on("connection", (socket) => {
     nightCount: 0,
     dayCount: 0,
     isNight: false,
-    testerMode: false, // โหมดผู้ทดสอบ: เปิดไว้แล้วเกมจะไม่จบอัตโนมัติ ใช้ตอนทดสอบกับคนน้อย
+    testerConditions: { fool: true, headhunter: true, wolf: true, murderer: true, villager: true }, // เปิด/ปิดเงื่อนไขจบเกมแต่ละข้อได้แยกกัน (ไว้ทดสอบ)
     gameOver: false,
     gameResult: null,
     continueReady: {}, // เก็บว่าใครกด "ดำเนินการต่อ" แล้วบ้างหลังเกมจบ
@@ -1770,16 +1776,19 @@ socket.on("select_shield", ({ roomId, targetId }) => {
     });
 
     // =========================
-    // TOGGLE TESTER MODE — โหมดผู้ทดสอบ
+    // TOGGLE WIN CONDITION — โหมดผู้ทดสอบ (เปิด/ปิดเงื่อนไขจบเกมแยกเป็นรายข้อ)
     // =========================
-    // เปิดไว้ระหว่างทดสอบกับผู้เล่นจำนวนน้อย เพื่อไม่ให้เกมเด้งจบอัตโนมัติ
-    // ทันทีที่เข้าเงื่อนไขใดเงื่อนไขหนึ่ง (เพราะคนน้อยมีโอกาสเข้าเงื่อนไขจบเกมเร็วมาก)
-    socket.on("toggle_tester_mode", ({ roomId }) => {
+    // เปิดไว้ระหว่างทดสอบกับผู้เล่นจำนวนน้อย เพื่อไม่ให้เกมเด้งจบอัตโนมัติจากเงื่อนไข
+    // ที่ยังไม่อยากให้ทำงาน (เช่น คนน้อยมีโอกาสเข้าเงื่อนไขหมาป่าครบจำนวนเร็วมาก
+    // แต่ยังอยากทดสอบเงื่อนไขอื่นต่อได้ โดยไม่ให้ห้องจบเกมก่อน)
+    socket.on("toggle_win_condition", ({ roomId, condition }) => {
         const room = rooms[roomId];
         if (!room) return;
         if (socket.id !== room.host) return;
+        if (!["fool", "headhunter", "wolf", "murderer", "villager"].includes(condition)) return;
 
-        room.testerMode = !room.testerMode;
+        room.testerConditions = room.testerConditions || { fool: true, headhunter: true, wolf: true, murderer: true, villager: true };
+        room.testerConditions[condition] = !room.testerConditions[condition];
         io.to(roomId).emit("room_update", room);
     });
 
