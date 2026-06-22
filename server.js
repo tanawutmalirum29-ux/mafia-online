@@ -28,7 +28,7 @@ const pendingRemovals = {};
 // เมื่อผู้เล่นเชื่อมต่อใหม่ด้วย socket id ใหม่ (เน็ตหลุด-กลับมา / รีหน้าเว็บ)
 // ต้องไล่แก้ id เดิมที่ฝังอยู่ในโหวต/เป้าหมายต่างๆ ให้กลายเป็น id ใหม่ ไม่ให้ข้อมูลเดิมหาย
 function remapPlayerId(room, oldId, newId) {
-    const idMaps = [room.votes, room.selectedTargets, room.wolfKillVotes, room.shieldTargets];
+    const idMaps = [room.votes, room.selectedTargets, room.wolfKillVotes, room.shieldTargets, room.continueReady];
 
     idMaps.forEach((map) => {
         if (!map) return;
@@ -446,6 +446,121 @@ function getVoteThreshold(room) {
     };
 }
 
+// =========================
+// เงื่อนไขจบเกม / สรุปผลแพ้-ชนะ
+// =========================
+
+// ทีมของบทบาท (ใช้เช็คเงื่อนไขจบเกม)
+function teamOf(role) {
+    return (roles[role] && roles[role].team) || null;
+}
+
+// ป้ายชื่อทีมผู้ชนะ ใช้ขึ้นไตเติ้ล "ทีม...ชนะ"
+const teamLabels = {
+    wolf: "หมาป่า",
+    villager: "ชาวบ้าน",
+    fool: "คนบ้า",
+    headhunter: "นักล่าหัว",
+    murderer: "ฆาตกร"
+};
+
+// ผู้เล่นคนนี้ถือว่า "ชนะ" ตามผลลัพธ์ (resultTeam) หรือไม่ — ใช้ส่งให้ฝั่ง client โชว์ผล
+function isWinner(player, resultTeam) {
+    if (!player || player.isHost) return false;
+    const t = teamOf(player.role);
+    if (resultTeam === "wolf") return t === "wolf";
+    if (resultTeam === "villager") return t === "villager";
+    if (resultTeam === "fool") return player.role === "คนบ้า";
+    if (resultTeam === "headhunter") return player.role === "นักล่าหัว";
+    if (resultTeam === "murderer") return player.role === "ฆาตกร";
+    return false;
+}
+
+// จบเกม: ตั้งค่าผลลัพธ์ + แจ้งทุกคนผ่าน room_update
+// ถ้าโหมดผู้ทดสอบเปิดอยู่ จะไม่จบเกมจริง (แค่แจ้งเตือนโฮสต์เงียบๆ) เพื่อให้ทดสอบกับคนน้อยได้
+// โดยไม่ให้ห้องเด้งจบเกมก่อนเวลา
+function endGame(room, roomId, resultTeam) {
+    if (!room || room.gameOver) return false;
+
+    if (room.testerMode) {
+        io.to(room.host).emit(
+            "host_error",
+            `🧪 [โหมดผู้ทดสอบ] เข้าเงื่อนไขจบเกมแล้ว (ทีม${teamLabels[resultTeam] || resultTeam}ชนะ) แต่ปิดการจบเกมไว้เพื่อทดสอบอยู่`
+        );
+        return false;
+    }
+
+    room.gameOver = true;
+    room.gameResult = {
+        team: resultTeam,
+        label: teamLabels[resultTeam] || resultTeam,
+        title: `ทีม${teamLabels[resultTeam] || resultTeam}ชนะ`,
+        winners: room.players.filter(p => isWinner(p, resultTeam)).map(p => p.id)
+    };
+    room.continueReady = {};
+
+    const msg = {
+        name: "เกม",
+        text: `🏁 จบเกม — ${room.gameResult.title}`,
+        type: "global",
+        isSystem: true
+    };
+    room.globalChatHistory = room.globalChatHistory || [];
+    room.globalChatHistory.push(msg);
+    io.to(roomId).emit("chat_message", msg);
+
+    io.to(roomId).emit("room_update", room);
+    return true;
+}
+
+// ตรวจเงื่อนไขจบเกมที่อิงจากจำนวนคนที่เหลือ (เรียกทุกครั้งหลังมีคนตาย/ถูกเตะ/เปลี่ยนทีม)
+//
+// เงื่อนไข 3: ทีมหมาป่ามีจำนวน >= ฝั่งที่ไม่ใช่หมาป่า (เสมอกันก็ถือว่าหมาป่าชนะ)
+//             ยกเว้น ถ้า "ฆาตกร" ยังมีชีวิตอยู่ -> ยังไม่จบ จนกว่าจะเหลือทีมเดียวจริงๆ
+// เงื่อนไข 4: เหลือฆาตกรแค่คนเดียวรอดอยู่ในหมู่บ้าน -> ฆาตกรชนะ
+//
+// หมายเหตุ: เพิ่มเงื่อนไขเสริม "หมาป่าตายหมด + ไม่มีฆาตกรคุกคามแล้ว -> ชาวบ้านชนะ" ด้วย
+// เพราะถ้าไม่มีเงื่อนไขนี้ เกมจะไม่มีทางจบแบบปกติเลยถ้าไม่มีใครโดนโหวตเข้าเงื่อนไข 1/2
+// (ไม่ได้อยู่ใน 4 ข้อที่ระบุไว้ตรงๆ — ถ้าไม่ต้องการเงื่อนไขนี้สามารถลบออกได้)
+function checkGameEndGeneral(room, roomId) {
+    if (!room || room.gameOver || !room.started) return;
+
+    const alive = room.players.filter(p => !p.isHost && p.alive);
+    if (alive.length === 0) return;
+
+    const wolves = alive.filter(p => teamOf(p.role) === "wolf");
+    const villagers = alive.filter(p => teamOf(p.role) === "villager");
+    const solos = alive.filter(p => teamOf(p.role) === "solo");
+    const murderer = alive.find(p => p.role === "ฆาตกร");
+
+    // เงื่อนไข 4
+    if (murderer && alive.length === 1) {
+        endGame(room, roomId, "murderer");
+        return;
+    }
+
+    // เงื่อนไข 3
+    if (wolves.length > 0) {
+        const nonWolves = villagers.length + solos.length;
+        if (wolves.length >= nonWolves) {
+            if (!murderer) {
+                endGame(room, roomId, "wolf");
+                return;
+            }
+            // มีฆาตกรอยู่ด้วย -> รอจนกว่าฝั่งอื่นจะตายหมดเหลือทีมเดียวจริงๆ ก่อน
+            if (nonWolves === 0) {
+                endGame(room, roomId, "wolf");
+            }
+            return;
+        }
+    }
+
+    // เงื่อนไขเสริม: หมาป่าตายหมด + ไม่มีฆาตกรคุกคามแล้ว -> ชาวบ้านชนะ
+    if (wolves.length === 0 && !murderer) {
+        endGame(room, roomId, "villager");
+    }
+}
+
 // SHUFFLE
 function shuffle(arr) {
 
@@ -499,6 +614,10 @@ io.on("connection", (socket) => {
     nightCount: 0,
     dayCount: 0,
     isNight: false,
+    testerMode: false, // โหมดผู้ทดสอบ: เปิดไว้แล้วเกมจะไม่จบอัตโนมัติ ใช้ตอนทดสอบกับคนน้อย
+    gameOver: false,
+    gameResult: null,
+    continueReady: {}, // เก็บว่าใครกด "ดำเนินการต่อ" แล้วบ้างหลังเกมจบ
     players: [
                 {
                     id: socket.id,
@@ -739,6 +858,53 @@ io.on("connection", (socket) => {
             rooms[roomId];
 
         if (!room) return;
+        if (socket.id !== room.host) return;
+
+        const realPlayersForCheck = room.players.filter(p => !p.isHost);
+
+        // ถ้าเกมรอบก่อนจบไปแล้ว ต้องรอให้ผู้เล่นทุกคนกด "ดำเนินการต่อ" ครบก่อน
+        // ถึงจะเริ่มเกมใหม่ในห้องเดิมได้ (กันบัค: เดิมกดเริ่มเกมซ้ำได้ทันทีโดยไม่ล้าง
+        // สถานะเก่า ทำให้ข้อมูลเพี้ยน/คนไม่ได้บทใหม่)
+        if (room.gameOver) {
+            const ready = room.continueReady || {};
+            const allReady = realPlayersForCheck.every(p => ready[p.id]);
+            if (!allReady) {
+                io.to(room.host).emit(
+                    "host_error",
+                    "ต้องรอให้ผู้เล่นกด \"ดำเนินการต่อ\" ให้ครบทุกคนก่อน ถึงจะเริ่มเกมใหม่ได้"
+                );
+                return;
+            }
+        }
+
+        // ล้างสถานะรอบเก่าทั้งหมดก่อนแจกบทใหม่ (กันบัคจากการกดเริ่มเกมซ้ำในห้องเดิม
+        // ที่เคยทำให้ข้อมูลโหวต/ตาย/แชทรอบก่อนค้างอยู่ จนคนไม่ได้บทใหม่ที่ถูกต้อง)
+        room.players.forEach((p) => {
+            if (p.isHost) return;
+            p.role = null;
+            p.displayRole = null;
+            p.alive = true;
+            p.protected = false;
+            p.killed = false;
+            p.silenced = false;
+            p.huntTarget = null;
+            p.huntTargetId = null;
+            p.guardianShieldAvailable = 0;
+        });
+        room.votes = {};
+        room.selectedTargets = {};
+        room.shieldTargets = {};
+        room.wolfKillVotes = {};
+        room.wolfChatHistory = [];
+        room.globalChatHistory = [];
+        room.nightCount = 0;
+        room.dayCount = 0;
+        room.isNight = false;
+        room.voteMode = false;
+        room.wolfKillMode = false;
+        room.gameOver = false;
+        room.gameResult = null;
+        room.continueReady = {};
 
         const roleCards = [];
 
@@ -972,6 +1138,7 @@ room.justStarted = false;
     if (key === "alive" && value === false) {
         const cascadeDeaths = cleanupAfterDeath(room, player);
         announceCascadeDeaths(room, roomId, cascadeDeaths);
+        checkGameEndGeneral(room, roomId);
     }
 
     io.to(roomId).emit("room_update", room);
@@ -1063,13 +1230,34 @@ room.justStarted = false;
 
             // เคลียร์ selectedTargets ค้าง + ลากตายตาม (ถ้าคนที่ถูกประหารเป็นลูกหมาป่า)
             // ทำหลังประกาศผลโหวตหลัก เพื่อให้ลำดับแชทอ่านแล้วเข้าใจง่าย: ผลโหวตก่อน แล้วค่อยตามด้วยผลพวง
+            let endedByVote = false;
+
             if (executed) {
                 cascadeDeaths = cleanupAfterDeath(room, executed);
                 announceCascadeDeaths(room, roomId, cascadeDeaths);
+
+                // เงื่อนไขจบเกม 1: ทุกคนโหวตประหารคนบ้า -> คนบ้าชนะ
+                if (executed.role === "คนบ้า") {
+                    endedByVote = endGame(room, roomId, "fool");
+                } else {
+                    // เงื่อนไขจบเกม 2: โหวตประหารเป้าของนักล่าหัว (นักล่าหัวต้องยังไม่ตาย
+                    // และเป้านี้ยังเป็นเป้าอยู่จริง) -> นักล่าหัวชนะ
+                    const headhunter = room.players.find(
+                        p => p.role === "นักล่าหัว" && p.alive && p.huntTargetId === executed.id
+                    );
+                    if (headhunter) {
+                        endedByVote = endGame(room, roomId, "headhunter");
+                    }
+                }
             }
 
             room.votes = {};
             room.shieldTargets = {};
+
+            // เช็คเงื่อนไขจบเกมอื่น (ข้อ 3/4) ต่อ ถ้ายังไม่จบจากผลโหวตด้านบน
+            if (!endedByVote) {
+                checkGameEndGeneral(room, roomId);
+            }
         }
 
         io.to(roomId).emit("room_update", room);
@@ -1310,6 +1498,8 @@ room.justStarted = false;
 
         // ประกาศคนที่ตายตามลูกหมาป่าไป (ถ้ามี) ต่อจากสรุปผลคืนหลัก
         announceCascadeDeaths(room, roomId, allCascadeDeaths);
+
+        checkGameEndGeneral(room, roomId);
 
         io.to(roomId).emit("room_update", room);
     });
@@ -1580,6 +1770,39 @@ socket.on("select_shield", ({ roomId, targetId }) => {
     });
 
     // =========================
+    // TOGGLE TESTER MODE — โหมดผู้ทดสอบ
+    // =========================
+    // เปิดไว้ระหว่างทดสอบกับผู้เล่นจำนวนน้อย เพื่อไม่ให้เกมเด้งจบอัตโนมัติ
+    // ทันทีที่เข้าเงื่อนไขใดเงื่อนไขหนึ่ง (เพราะคนน้อยมีโอกาสเข้าเงื่อนไขจบเกมเร็วมาก)
+    socket.on("toggle_tester_mode", ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (socket.id !== room.host) return;
+
+        room.testerMode = !room.testerMode;
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // =========================
+    // CONFIRM CONTINUE — ผู้เล่นกด "ดำเนินการต่อ" หลังเห็นสรุปผลเกม
+    // =========================
+    // (หรือถูกกดอัตโนมัติใน 5 วิฝั่ง client กันคนเกรียนไม่กด) เพื่อยืนยันว่าพร้อมให้
+    // รีบทบาท/ข้อมูลของรอบนี้แล้ว — โฮสต์จะกด "เริ่มเกม" รอบใหม่ได้ก็ต่อเมื่อทุกคนกดครบ
+    socket.on("confirm_continue", ({ roomId }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        if (!room.gameOver) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.isHost) return;
+
+        room.continueReady = room.continueReady || {};
+        room.continueReady[socket.id] = true;
+
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // =========================
     // KICK PLAYER
     // =========================
     socket.on("kick_player", ({ roomId, playerId }) => {
@@ -1632,6 +1855,7 @@ socket.on("select_shield", ({ roomId, targetId }) => {
         if (room.players.length === 0) {
             delete rooms[roomId];
         } else {
+            checkGameEndGeneral(room, roomId);
             io.to(roomId).emit("room_update", room);
         }
 
@@ -1695,6 +1919,8 @@ socket.on("select_shield", ({ roomId, targetId }) => {
             if (room.wolfChatHistory && room.wolfChatHistory.length > 0) {
                 io.to(player.id).emit("wolf_chat_history", room.wolfChatHistory);
             }
+
+            checkGameEndGeneral(room, roomId);
 
             io.to(roomId).emit("room_update", room);
         }
