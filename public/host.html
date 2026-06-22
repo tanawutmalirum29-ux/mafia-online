@@ -1410,6 +1410,87 @@ html.modal-open body{
     touch-action:none;
 }
 
+/* ===== GAME OVER SUMMARY ===== */
+.gameover-modal{
+    max-width:480px;
+    border-color:rgba(124,92,255,.4);
+}
+
+.gameover-title{
+    font-size:22px;
+    font-weight:700;
+    color:var(--moon);
+    margin-bottom:4px;
+    text-align:center;
+}
+
+.gameOverList{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin:10px 0;
+}
+
+.gameOverRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:var(--r-sm);
+    background:rgba(255,255,255,.04);
+    border:1px solid var(--line);
+}
+
+.gameOverRow.win{
+    border-color:rgba(34,197,94,.4);
+    background:var(--safe-soft);
+}
+
+.gameOverRow.lose{
+    border-color:rgba(239,68,68,.3);
+    background:rgba(239,68,68,.06);
+}
+
+.gameOverRow .goName{
+    font-weight:600;
+}
+
+.gameOverRow .goRole{
+    font-size:12px;
+    color:var(--ink-dim);
+}
+
+.gameOverRow .goTag{
+    font-weight:700;
+    font-size:13px;
+    flex-shrink:0;
+}
+
+.gameOverRow.win .goTag{ color:var(--safe); }
+.gameOverRow.lose .goTag{ color:var(--wolf); }
+
+.gameover-progress{
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-dim);
+    margin-bottom:10px;
+}
+
+.btn-tester{
+    width:100%;
+    margin-top:10px;
+    background:rgba(124,92,255,.12);
+    border:1px solid rgba(124,92,255,.35);
+    color:var(--ink);
+}
+
+.btn-tester.active{
+    background:rgba(34,197,94,.18);
+    border-color:rgba(34,197,94,.5);
+    color:var(--safe);
+}
+
 </style>
 
 </head>
@@ -1438,6 +1519,20 @@ html.modal-open body{
         </div>
     </div>
 
+    <!-- ===== GAME OVER SUMMARY (สรุปผลเกม) ===== -->
+    <div class="vote-modal-overlay hidden" id="gameOverOverlay">
+        <div class="vote-modal gameover-modal" id="gameOverPanel">
+            <div class="gameover-title" id="gameOverTitle">🏁 ทีม...ชนะ</div>
+            <p class="sub" style="margin:-6px 0 14px;">สรุปผลเกมรอบนี้ — ใครชนะ/แพ้ตามทีมของตัวเอง</p>
+            <div id="gameOverList" class="gameOverList"></div>
+            <hr class="divider">
+            <div class="gameover-progress" id="gameOverProgress">รอผู้เล่นกด "ดำเนินการต่อ"... (0/0)</div>
+            <button class="btn btn-block" id="gameOverRestartBtn" onclick="startGame()" disabled>
+                🌙 เริ่มเกม
+            </button>
+        </div>
+    </div>
+
     <!-- ===== SEAL / ROOM CODE ===== -->
     <div class="seal-wrap">
         <div class="eyebrow">ห้องควบคุมผู้เล่าเรื่อง</div>
@@ -1446,6 +1541,7 @@ html.modal-open body{
             <span class="seal-code" id="room">••••</span>
         </div>
         <div class="seal-hint">บอกรหัสนี้กับผู้เล่นเพื่อเข้าร่วมห้อง</div>
+        <button class="btn btn-tester" id="testerModeBtn" onclick="toggleTesterMode()">🧪 โหมดผู้ทดสอบ: ปิด</button>
         <button class="btn btn-danger btn-close-room" id="closeRoomBtn" onclick="closeRoomManually()">✕ ปิดห้อง</button>
     </div>
 
@@ -2077,7 +2173,68 @@ socket.on("room_update", (room) => {
         reopenBtn.classList.toggle("hidden", !anyModeActive || popupOpen);
     }
 
+    // ===== TESTER MODE BUTTON =====
+    const testerBtn = document.getElementById("testerModeBtn");
+    if (testerBtn) {
+        testerBtn.classList.toggle("active", !!room.testerMode);
+        testerBtn.textContent = room.testerMode ? "🧪 โหมดผู้ทดสอบ: เปิด" : "🧪 โหมดผู้ทดสอบ: ปิด";
+    }
+
+    // ===== GAME OVER SUMMARY =====
+    renderGameOver(room, nonHostPlayers);
+
 });
+
+// เปิด/ปิดโหมดผู้ทดสอบ — ปิดไม่ให้เกมจบอัตโนมัติ ใช้ตอนทดสอบกับคนน้อย
+function toggleTesterMode() {
+    if (!roomId) return;
+    socket.emit("toggle_tester_mode", { roomId });
+}
+
+// แสดง/ซ่อนสรุปผลเกม + รายชื่อผู้เล่นว่าใครแพ้ใครชนะ + ความคืบหน้าการกด "ดำเนินการต่อ"
+function renderGameOver(room, nonHostPlayers) {
+    const overlay = document.getElementById("gameOverOverlay");
+    if (!overlay) return;
+
+    if (!room.gameOver || !room.gameResult) {
+        overlay.classList.add("hidden");
+        document.documentElement.classList.remove("modal-open");
+        return;
+    }
+
+    document.getElementById("gameOverTitle").textContent = `🏁 ${room.gameResult.title}`;
+
+    const winners = new Set(room.gameResult.winners || []);
+    const list = document.getElementById("gameOverList");
+    list.innerHTML = nonHostPlayers.map((p) => {
+        const win = winners.has(p.id);
+        return `
+            <div class="gameOverRow ${win ? "win" : "lose"}">
+                <div>
+                    <div class="goName">${p.name}</div>
+                    <div class="goRole">${p.role || "?"}${!p.alive ? " · 💀" : ""}</div>
+                </div>
+                <div class="goTag">${win ? "ชนะ" : "แพ้"}</div>
+            </div>
+        `;
+    }).join("");
+
+    const ready = room.continueReady || {};
+    const readyCount = nonHostPlayers.filter(p => ready[p.id]).length;
+    const total = nonHostPlayers.length;
+    const allReady = total > 0 && readyCount === total;
+
+    document.getElementById("gameOverProgress").textContent =
+        allReady
+            ? "ผู้เล่นกดดำเนินการต่อครบทุกคนแล้ว — เริ่มเกมใหม่ได้เลย"
+            : `รอผู้เล่นกด "ดำเนินการต่อ"... (${readyCount}/${total})`;
+
+    const restartBtn = document.getElementById("gameOverRestartBtn");
+    restartBtn.disabled = !allReady;
+
+    overlay.classList.remove("hidden");
+    document.documentElement.classList.add("modal-open");
+}
 
 // ===== MODE POPUP HELPERS =====
 let modePopupManuallyClosed = false;

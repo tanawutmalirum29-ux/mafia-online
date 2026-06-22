@@ -518,6 +518,89 @@ button:active{
     color:#94a3b8;
 }
 
+/* GAME OVER OVERLAY */
+#gameOverOverlay{
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    background:rgba(0,0,0,.86);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation:fadeIn .3s ease both;
+}
+
+.gameover-box{
+    width:88%;
+    max-width:360px;
+    background:#0e1320;
+    border:1px solid var(--line);
+    border-radius:var(--r-lg);
+    padding:32px 28px;
+    text-align:center;
+    box-shadow:0 0 50px rgba(124,92,255,.18);
+}
+
+.gameover-icon{
+    font-size:46px;
+    margin-bottom:8px;
+}
+
+.gameover-role-icon{
+    width:64px;
+    height:64px;
+    border-radius:50%;
+    object-fit:cover;
+    margin:0 auto 10px;
+    display:block;
+    border:2px solid var(--line);
+}
+
+.gameover-roleName{
+    font-size:14px;
+    color:var(--ink-dim);
+    margin-bottom:6px;
+}
+
+.gameover-result{
+    font-size:30px;
+    font-weight:700;
+    margin-bottom:6px;
+}
+
+.gameover-result.win{ color:var(--safe); }
+.gameover-result.lose{ color:var(--wolf); }
+
+.gameover-titleLine{
+    font-size:15px;
+    color:var(--ink);
+    font-weight:600;
+    margin-bottom:22px;
+}
+
+.gameover-continue-btn{
+    width:100%;
+    padding:13px;
+    border:none;
+    border-radius:var(--r-md);
+    background:var(--moon);
+    color:#fff;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.gameover-continue-btn:disabled{
+    opacity:.5;
+}
+
+.gameover-waiting{
+    margin-top:14px;
+    font-size:13px;
+    color:var(--ink-dim);
+}
+
+
 .hunt-target-badge{
     position:relative;
     width:26px;
@@ -1920,6 +2003,23 @@ body.vote-open{
     </div>
 </div>
 
+<!-- GAME OVER OVERLAY (สรุปผลเกม แพ้/ชนะ) -->
+<div id="gameOverOverlay" class="hidden">
+    <div class="gameover-box" id="gameOverBox">
+        <div class="gameover-icon" id="gameOverIcon">🏆</div>
+        <img id="gameOverRoleIcon" class="gameover-role-icon hidden" alt="">
+        <div class="gameover-roleName" id="gameOverRoleName"></div>
+        <div class="gameover-result" id="gameOverResult">ชนะ</div>
+        <div class="gameover-titleLine" id="gameOverTitleLine">ทีม...ชนะ</div>
+        <button class="gameover-continue-btn" id="gameOverContinueBtn" onclick="confirmContinue()">
+            ดำเนินการต่อ <span id="gameOverCountdown">(5)</span>
+        </button>
+        <div class="gameover-waiting hidden" id="gameOverWaiting">
+            ✅ พร้อมแล้ว — รอผู้เล่นคนอื่น... (<span id="gameOverReadyCount">0</span>/<span id="gameOverTotalCount">0</span>)
+        </div>
+    </div>
+</div>
+
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -1943,6 +2043,8 @@ function selectTarget(targetId) {
 let joined = false;
 let myRole = "";
 let mySilenced = false;
+let gameOverConfirmed = false; // กดดำเนินการต่อแล้วหรือยังในรอบ gameOver นี้
+let gameOverCountdownTimer = null;
 let myAlive = true;
 let isNight = false;
 let currentChatTab = "global";
@@ -2907,7 +3009,116 @@ socket.on("room_update", (roomData) => {
         info.innerHTML = "";
     }
 
+    // ===== GAME OVER SUMMARY =====
+    if (roomData.gameOver && roomData.gameResult) {
+        showGameOverOverlay(roomData, myPlayer);
+    } else {
+        hideGameOverOverlay();
+    }
+
 });
+
+// แสดงสรุปผลเกม (แพ้/ชนะ ตามทีมของบทตัวเอง) + ปุ่ม "ดำเนินการต่อ" ที่กดอัตโนมัติใน 5 วิ
+// ถ้าไม่กด (กันคนเกรียนค้างหน้าจอไว้ไม่กด ทำให้ห้องเริ่มเกมใหม่ไม่ได้)
+function showGameOverOverlay(roomData, myPlayer) {
+    const overlay = document.getElementById("gameOverOverlay");
+    if (!overlay) return;
+
+    const result = roomData.gameResult;
+    const winners = new Set(result.winners || []);
+    const won = myPlayer ? winners.has(myPlayer.id) : false;
+
+    const resultEl = document.getElementById("gameOverResult");
+    resultEl.textContent = won ? "ชนะ" : "แพ้";
+    resultEl.className = "gameover-result " + (won ? "win" : "lose");
+
+    document.getElementById("gameOverIcon").textContent = won ? "🏆" : "💀";
+    document.getElementById("gameOverTitleLine").textContent = result.title;
+
+    const roleNameEl = document.getElementById("gameOverRoleName");
+    const roleIconEl = document.getElementById("gameOverRoleIcon");
+    if (myPlayer && myPlayer.role) {
+        roleNameEl.textContent = `บทของคุณ: ${myPlayer.role}`;
+        const src = (allRolesData[myPlayer.role] && allRolesData[myPlayer.role].icon) || "/images/default-role.jpg";
+        roleIconEl.src = src;
+        roleIconEl.classList.remove("hidden");
+    } else {
+        roleNameEl.textContent = "";
+        roleIconEl.classList.add("hidden");
+    }
+
+    overlay.classList.remove("hidden");
+
+    // อัปเดตจำนวนคนที่กด "ดำเนินการต่อ" แล้ว
+    const ready = roomData.continueReady || {};
+    const nonHostPlayers = (roomData.players || []).filter(p => !p.isHost);
+    const readyCount = nonHostPlayers.filter(p => ready[p.id]).length;
+    document.getElementById("gameOverReadyCount").textContent = readyCount;
+    document.getElementById("gameOverTotalCount").textContent = nonHostPlayers.length;
+
+    // ถ้าเรากดไปแล้ว (หรือ server บอกว่าเรา ready แล้ว) ให้โชว์สถานะรอคนอื่นแทนปุ่ม
+    const meReady = myPlayer ? !!ready[myPlayer.id] : false;
+    if (meReady) {
+        gameOverConfirmed = true;
+    }
+
+    const btn = document.getElementById("gameOverContinueBtn");
+    const waiting = document.getElementById("gameOverWaiting");
+
+    if (gameOverConfirmed) {
+        btn.classList.add("hidden");
+        waiting.classList.remove("hidden");
+        if (gameOverCountdownTimer) {
+            clearInterval(gameOverCountdownTimer);
+            gameOverCountdownTimer = null;
+        }
+        return;
+    }
+
+    btn.classList.remove("hidden");
+    waiting.classList.add("hidden");
+
+    // เริ่มนับถอยหลัง 5 วิ กดอัตโนมัติให้ ถ้ายังไม่เคยเริ่มนับสำหรับรอบนี้
+    if (!gameOverCountdownTimer) {
+        let secondsLeft = 5;
+        document.getElementById("gameOverCountdown").textContent = `(${secondsLeft})`;
+        gameOverCountdownTimer = setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft <= 0) {
+                confirmContinue();
+                return;
+            }
+            const el = document.getElementById("gameOverCountdown");
+            if (el) el.textContent = `(${secondsLeft})`;
+        }, 1000);
+    }
+}
+
+function hideGameOverOverlay() {
+    const overlay = document.getElementById("gameOverOverlay");
+    if (overlay) overlay.classList.add("hidden");
+    if (gameOverCountdownTimer) {
+        clearInterval(gameOverCountdownTimer);
+        gameOverCountdownTimer = null;
+    }
+    gameOverConfirmed = false;
+}
+
+// ปุ่ม "ดำเนินการต่อ" หลังเห็นสรุปผลเกม — ยืนยันว่าพร้อมให้รีบทบาท/ข้อมูลรอบนี้แล้ว
+function confirmContinue() {
+    if (gameOverConfirmed) return;
+    gameOverConfirmed = true;
+
+    if (gameOverCountdownTimer) {
+        clearInterval(gameOverCountdownTimer);
+        gameOverCountdownTimer = null;
+    }
+
+    document.getElementById("gameOverContinueBtn").classList.add("hidden");
+    document.getElementById("gameOverWaiting").classList.remove("hidden");
+
+    socket.emit("confirm_continue", { roomId: currentRoomId });
+}
 
 // DISCONNECT — แสดงแบนเนอร์เตือนแทน alert (alert จะรบกวนมากถ้าเน็ตสะดุดแค่แป๊บเดียว
 // เพราะ socket.io จะพยายามเชื่อมต่อใหม่ให้อัตโนมัติอยู่แล้ว)
