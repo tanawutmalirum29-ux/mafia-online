@@ -2017,6 +2017,20 @@ function closeRoomManually() {
 socket.on("room_update", (room) => {
 
     currentRoom = room;
+
+    // ===== RESTORE roleConfig จาก room.config (กรณีโฮสต์กลับเข้ามาใหม่/เน็ตหลุด) =====
+    // room.config คือ source of truth บนเซิร์ฟเวอร์ — sync กลับมาที่ client ทุกครั้งที่รับ room_update
+    // เพื่อให้หน้าการ์ด "ตั้งค่าบทบาท" แสดงผลตรงกับที่ตั้งไว้จริง แม้โหลดหน้าใหม่หรือกลับมาจากการหลุด
+    if (room.config && typeof room.config === \"object\") {
+        const configChanged = JSON.stringify(room.config) !== JSON.stringify(roleConfig);
+        if (configChanged) {
+            // เคลียร์ object เดิมแล้ว copy ค่าใหม่จากเซิร์ฟเวอร์เข้ามาแทน
+            Object.keys(roleConfig).forEach(k => delete roleConfig[k]);
+            Object.assign(roleConfig, room.config);
+            renderRoles();
+        }
+    }
+
     renderStatusSummary(room);
     updateNightFlowButtons(room);
 
