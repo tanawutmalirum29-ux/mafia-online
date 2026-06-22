@@ -2026,18 +2026,8 @@ body.vote-open{
 
 const socket = io();
 function selectTarget(targetId) {
-
-    const roomId =
-        document.getElementById("room")
-        .value
-        .trim()
-        .toUpperCase();
-
-    socket.emit("select_target", {
-        roomId,
-        targetId
-    });
-
+    if (!currentRoomId) return;
+    socket.emit("select_target", { roomId: currentRoomId, targetId });
 }
 
 let joined = false;
@@ -2199,34 +2189,28 @@ function preloadRoleImages(rolesData) {
         img.src = src;
     });
 }
-const wolfRoles = [
-    "หมาป่า",
-    "ลูกหมาป่า",
-    "หมาป่าขาว"
-];
-const allWolfRoles = [
-    "หมาป่า",
-    "ลูกหมาป่า",
-    "หมาป่าขาว",
-    "หมาป่าพิทักษ์",
-    "หมาป่าดื้อรั้น",
-    "หมาป่านักเวท"
-];
+// wolfRoles และ allWolfRoles จะถูก populate จาก roles_data event ที่ server ส่งมา
+// (server เก็บ __wolfRoles ไว้ใน buildRolesData()) ไม่ต้อง hardcode ที่นี่
+let wolfRoles = new Set([
+    "หมาป่า", "ลูกหมาป่า", "หมาป่าพิทักษ์", "หมาป่าดื้อรั้น", "หมาป่านักเวท"
+]);
+// allWolfRoles ใช้ชื่อเดิมเพื่อ backward compat กับโค้ดที่ใช้ .includes()
+let allWolfRoles = [...wolfRoles];
 
 function castVote(targetId) {
-    const roomId = document.getElementById("room").value.trim().toUpperCase();
-    socket.emit("cast_vote", { roomId, targetId });
+    if (!currentRoomId) return;
+    socket.emit("cast_vote", { roomId: currentRoomId, targetId });
 }
 
 function castWolfKill(targetId) {
-    const roomId = document.getElementById("room").value.trim().toUpperCase();
-    socket.emit("cast_wolf_kill", { roomId, targetId });
+    if (!currentRoomId) return;
+    socket.emit("cast_wolf_kill", { roomId: currentRoomId, targetId });
 }
 
-// หมาป่าพิทักษ์: วาง/ยกเลิกโล่ป้องกันการประหาร — เลือกได้เฉพาะตอนโหมดโหวตเปิดอยู่
+// หมาป่าพิทักษ์: วาง/ยกเลิกโล่ป้องกันการประหาร
 function castShield(targetId) {
-    const roomId = document.getElementById("room").value.trim().toUpperCase();
-    socket.emit("select_shield", { roomId, targetId });
+    if (!currentRoomId) return;
+    socket.emit("select_shield", { roomId: currentRoomId, targetId });
 }
 
 // สลับโหมด "กำลังจะวางโล่" — เมื่อเปิดอยู่ การแตะชื่อผู้เล่นในกริดจะวางโล่แทนที่จะโหวต
@@ -2527,10 +2511,15 @@ myHuntTargetId = data.huntTargetId || null;
 
 });
 
-// ROLES DATA
+// ROLES DATA — sync wolfRoles จาก server เพื่อให้ตรงเสมอแม้เพิ่มบทใหม่
 socket.on("roles_data", (data) => {
     allRolesData = data;
     preloadRoleImages(allRolesData);
+    // server ฝัง __wolfRoles ไว้ใน roles_data — ใช้ sync ฝั่ง client โดยไม่ต้อง hardcode
+    if (Array.isArray(data.__wolfRoles)) {
+        wolfRoles = new Set(data.__wolfRoles);
+        allWolfRoles = [...wolfRoles];
+    }
 });
 
 // แสดง roles ทั้งหมดในเกมรอบนี้
@@ -2575,11 +2564,11 @@ function showGameInfo(roomData) {
 
     // แยกทีม
     const wolfTeam = {}, villagerTeam = {}, soloTeam = {};
-    const wolfRolesList = ["หมาป่า","ลูกหมาป่า","หมาป่าขาว","หมาป่าพิทักษ์","หมาป่าดื้อรั้น","หมาป่านักเวท"];
+    // ใช้ allWolfRoles ที่ sync มาจาก server แทนการ hardcode
     const soloRolesList = ["คนบ้า","นักล่าหัว","ฆาตกร"];
 
     Object.entries(counts).forEach(([role, n]) => {
-        if (wolfRolesList.includes(role) || role.includes("สุ่มหมาป่า")) wolfTeam[role] = n;
+        if (allWolfRoles.includes(role) || role.includes("สุ่มหมาป่า")) wolfTeam[role] = n;
         else if (soloRolesList.includes(role) || role.includes("สุ่มบทบาทการโหวต")) soloTeam[role] = n;
         else villagerTeam[role] = n;
     });
@@ -3041,7 +3030,8 @@ function showGameOverOverlay(roomData, myPlayer) {
     if (!overlay) return;
 
     const result = roomData.gameResult;
-    const winners = new Set(result.winners || []);
+    // server ส่ง winners เป็น array ของ {id, token} — ตรวจด้วย token (ยังใช้ได้แม้ socket id เปลี่ยน)
+    const winners = new Set((result.winners || []).map(w => w.token ?? w));
     const won = myPlayer ? winners.has(myPlayer.token) : false;
 
     const resultEl = document.getElementById("gameOverResult");
@@ -3252,24 +3242,11 @@ function sendChat() {
         input.value.trim();
 
     if (!text) return;
-
-    const roomId =
-        document.getElementById(
-            "room"
-        ).value
-        .trim()
-        .toUpperCase();
+    if (!currentRoomId) return;
 
     const type = currentChatTab;
 
-socket.emit(
-    "send_chat",
-    {
-        roomId,
-        text,
-        type
-    }
-);
+    socket.emit("send_chat", { roomId: currentRoomId, text, type });
 
     input.value = "";
 
@@ -3364,12 +3341,6 @@ socket.on("kicked", () => {
     ww_store.removeItem("ww_token");
     ww_store.removeItem("ww_lastRoom");
 
-    joined = false;
-    currentRoomId = null;
-    myRole = "";
-    myHuntTargetId = null;
-    shieldModeActive = false;
-
     // แสดง overlay แจ้งถูกเตะ
     const overlay = document.createElement("div");
     overlay.id = "kickedOverlay";
@@ -3382,37 +3353,9 @@ socket.on("kicked", () => {
     `;
     document.body.appendChild(overlay);
 
-    // reset UI กลับสู่หน้าเริ่ม หลัง 2.5 วิ
     setTimeout(() => {
         overlay.remove();
-
-        document.querySelector('.app').classList.remove("game-visible");
-        document.querySelector('.app').classList.remove("game-started");
-        document.getElementById("joinCard").classList.remove("hidden");
-        document.getElementById("playersCard").classList.add("hidden");
-        document.getElementById("chatCard").classList.add("hidden");
-        document.getElementById("bottomBar").classList.add("hidden");
-        document.getElementById("bottomBar").classList.remove("bar-visible");
-        document.getElementById("barRoleName").textContent = "ยังไม่ได้รับบท";
-        document.getElementById("barRoleSub").textContent = "แตะหน้ากากเพื่อดูรายละเอียด";
-        document.getElementById("barHuntBadge").classList.add("hidden");
-        document.getElementById("shieldBtn").classList.add("hidden");
-        document.getElementById("shieldBtn").classList.remove("active");
-        document.getElementById("popupRoleName").textContent = "—";
-        document.getElementById("popupRealRole").classList.add("hidden");
-        document.getElementById("popupHuntInfo").classList.add("hidden");
-        document.getElementById("popupRoleDesc").innerHTML = "";
-        document.getElementById("popupRolesInGame").innerHTML = "";
-        document.getElementById("selectInfo").innerHTML = "";
-        document.getElementById("players").innerHTML = "";
-        document.getElementById("players").classList.remove("mode-active");
-        document.getElementById("chatBoxGlobal").innerHTML = "";
-        document.getElementById("chatBoxWolf").innerHTML = "";
-        document.getElementById("modeBanner").classList.add("hidden");
-        document.body.classList.remove("vote-open");
-        document.getElementById("room").value = "";
-        closeRolePopup();
-        renderRoomSuggestion();
+        resetToJoinScreen(); // ใช้ฟังก์ชันกลาง ไม่ต้องซ้ำโค้ด
     }, 2500);
 });
 

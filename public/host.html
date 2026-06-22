@@ -1285,10 +1285,6 @@ select{
     background:rgba(239,68,68,.07);
 }
 
-
-    margin-top:4px;
-}
-
 .divider{
     height:1px;
     background:var(--line);
@@ -2021,10 +2017,13 @@ socket.on("room_update", (room) => {
     // ===== RESTORE roleConfig จาก room.config (กรณีโฮสต์กลับเข้ามาใหม่/เน็ตหลุด) =====
     // room.config คือ source of truth บนเซิร์ฟเวอร์ — sync กลับมาที่ client ทุกครั้งที่รับ room_update
     // เพื่อให้หน้าการ์ด "ตั้งค่าบทบาท" แสดงผลตรงกับที่ตั้งไว้จริง แม้โหลดหน้าใหม่หรือกลับมาจากการหลุด
-    if (room.config && typeof room.config === \"object\") {
-        const configChanged = JSON.stringify(room.config) !== JSON.stringify(roleConfig);
+    if (room.config && typeof room.config === "object") {
+        // ตรวจว่า config เปลี่ยนจริงๆ ก่อน re-render (ใช้ key count + ค่าแต่ละ key แทน JSON.stringify)
+        const configKeys = Object.keys(room.config);
+        const localKeys = Object.keys(roleConfig);
+        const configChanged = configKeys.length !== localKeys.length ||
+            configKeys.some(k => roleConfig[k] !== room.config[k]);
         if (configChanged) {
-            // เคลียร์ object เดิมแล้ว copy ค่าใหม่จากเซิร์ฟเวอร์เข้ามาแทน
             Object.keys(roleConfig).forEach(k => delete roleConfig[k]);
             Object.assign(roleConfig, room.config);
             renderRoles();
@@ -2331,10 +2330,11 @@ function renderGameOver(room, nonHostPlayers) {
 
     document.getElementById("gameOverTitle").textContent = `🏁 ${room.gameResult.title}`;
 
-    const winners = new Set(room.gameResult.winners || []);
+    // server ส่ง winners เป็น array ของ {id, token} — ตรวจด้วย id
+    const winnerIds = new Set((room.gameResult.winners || []).map(w => w.id ?? w));
     const list = document.getElementById("gameOverList");
     list.innerHTML = nonHostPlayers.map((p) => {
-        const win = winners.has(p.id);
+        const win = winnerIds.has(p.id);
         return `
             <div class="gameOverRow ${win ? "win" : "lose"}">
                 <div>
