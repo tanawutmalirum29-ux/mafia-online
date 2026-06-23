@@ -1768,11 +1768,18 @@ const hostStorage = isTesterMode ? sessionStorage : localStorage;
 
 function getHostToken() {
     let t = hostStorage.getItem("ww_host_token");
+    if (!t && isTesterMode) t = new URLSearchParams(location.search).get("ht");
     if (!t) {
         t = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
-        hostStorage.setItem("ww_host_token", t);
+    }
+    hostStorage.setItem("ww_host_token", t);
+    if (isTesterMode) {
+        const u = new URL(window.location.href);
+        u.searchParams.set("tester", "1");
+        u.searchParams.set("ht", t);
+        history.replaceState(null, "", u.toString());
     }
     return t;
 }
@@ -1842,6 +1849,11 @@ function applyRoomId(id) {
         navigator.clipboard.writeText(roomId);
     };
     hostStorage.setItem("ww_host_room", id);
+    if (isTesterMode) {
+        const u = new URL(window.location.href);
+        u.searchParams.set("r", id);
+        history.replaceState(null, "", u.toString());
+    }
 }
 
 // CREATE ROOM (ห้องใหม่)
@@ -1929,7 +1941,8 @@ function hideRoomPicker() {
 // ให้กลับเข้าคุมอัตโนมัติทันทีโดยไม่ต้องเลือกใหม่ ถ้าไม่มี/ห้องเดิมปิดไปแล้ว แต่ยังมี
 // ห้องอื่นเปิดอยู่ (เช่น เปลี่ยนอุปกรณ์ / ล้างเบราว์เซอร์) ให้เลือกจากกริดเอง
 // ถ้าไม่มีห้องเปิดอยู่เลยค่อยสร้างห้องใหม่ให้อัตโนมัติ
-const savedHostRoom = hostStorage.getItem("ww_host_room");
+const savedHostRoom = hostStorage.getItem("ww_host_room")
+    || (isTesterMode ? new URLSearchParams(location.search).get("r") : null);
 
 socket.emit("list_open_rooms", (list) => {
 
@@ -1975,6 +1988,15 @@ socket.on("connect", () => {
 socket.on("disconnect", () => {
     if (roomId) {
         document.getElementById("connBanner").classList.remove("hidden");
+    }
+});
+
+// VISIBILITY CHANGE — เมื่อสลับกลับมาที่แท็บ/หน้าจอนี้ (สลับแอป/ปลดล็อกสกรีน)
+// บังคับเช็ค-ต่อ socket ใหม่ทันที ไม่รอ backoff ของ socket.io เพียงอย่างเดียว
+// (สำคัญมากสำหรับโฮสต์ที่ใช้มือถือเครื่องเดียวสลับจอไปมาบ่อย ๆ)
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && !socket.connected) {
+        socket.connect();
     }
 });
 

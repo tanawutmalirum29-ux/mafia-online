@@ -2065,11 +2065,23 @@ if (TESTER_MODE) {
 //    เซิร์ฟเวอร์รู้ว่าเป็นผู้เล่นคนเดิม ไม่ใช่คนใหม่ (กันบทบาท/สถานะหาย และกันกริดผู้เล่นไม่อัปเดต)
 function getClientToken() {
     let t = ww_store.getItem("ww_token");
+    // โหมดผู้ทดสอบ: ถ้า sessionStorage ถูกล้าง (มือถือ discard แท็บคืน RAM ตอนสลับจอ/แอป
+    // ซึ่งพบได้บ่อยเวลาทดสอบด้วยมือถือเครื่องเดียวหลายแท็บ) ให้ลองดึง token จาก URL ก่อน
+    // ค่อยสร้างใหม่ถ้าไม่มีจริง ๆ
+    if (!t && TESTER_MODE) t = urlParams.get("t");
     if (!t) {
         t = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
-        ww_store.setItem("ww_token", t);
+    }
+    ww_store.setItem("ww_token", t);
+    if (TESTER_MODE) {
+        // เก็บ token ไว้ใน URL ของแท็บด้วย — URL อยู่รอดผ่านการที่เบราว์เซอร์ discard/รีโหลดแท็บ
+        // ได้น่าเชื่อถือกว่า sessionStorage มาก จึงใช้เป็น fallback ที่สอง
+        const u = new URL(window.location.href);
+        u.searchParams.set("tester", "1");
+        u.searchParams.set("t", t);
+        history.replaceState(null, "", u.toString());
     }
     return t;
 }
@@ -2082,6 +2094,39 @@ const clientToken = getClientToken();
     if (savedName) document.getElementById("name").value = savedName;
     if (savedRoom) document.getElementById("room").value = savedRoom;
 })();
+
+// AUTO-REJOIN ตอนเปิดหน้าใหม่ทั้งหน้า (ไม่ใช่แค่ socket reconnect กลางอากาศ)
+// เคสนี้เกิดบ่อยบนมือถือ: สลับแอป/จอ แล้วเบราว์เซอร์ discard แท็บคืน RAM ทำให้ JS
+// ทั้งหมดรีสตาร์ทใหม่ (joined/currentRoomId ที่เป็นแค่ตัวแปรในหน่วยความจำหายไปด้วย)
+// เดิม flow จะกลับไปอยู่หน้ากรอกห้อง ต้องกดเข้าร่วมเองใหม่ทุกครั้ง — ใช้ ww_joinedRoom
+// ที่บันทึกไว้ตอน join สำเร็จ มาเข้าห้องเดิมให้อัตโนมัติแทน (token เดิมทำให้ server รู้ว่าคนเดิม)
+const ww_autoRejoinRoom = ww_store.getItem("ww_joinedRoom")
+    || (TESTER_MODE ? urlParams.get("jr") : null);
+if (ww_autoRejoinRoom) {
+    socket.emit(
+        "join_room",
+        {
+            roomId: ww_autoRejoinRoom,
+            name: ww_store.getItem("ww_playerName") || "",
+            token: clientToken
+        },
+        (res) => {
+            if (!res || res.error) {
+                ww_store.removeItem("ww_joinedRoom");
+                return; // ห้องถูกปิดไปแล้วจริง — ปล่อยให้อยู่หน้ากรอกห้องตามปกติ
+            }
+            joined = true;
+            currentRoomId = ww_autoRejoinRoom;
+            renderRoomSuggestion();
+            document.getElementById("joinCard").classList.add("hidden");
+            document.getElementById("playersCard").classList.remove("hidden");
+            document.getElementById("chatCard").classList.remove("hidden");
+            document.getElementById("bottomBar").classList.remove("hidden");
+            document.getElementById("bottomBar").classList.add("bar-visible");
+            document.querySelector('.app').classList.add("game-visible");
+        }
+    );
+}
 
 // แสดง/ซ่อนการ์ดแนะนำ ROOM CODE
 function renderRoomSuggestion() {
@@ -2311,6 +2356,15 @@ function join() {
 
             joined = true;
             currentRoomId = roomCode;
+            // จำว่า "กำลังอยู่ในห้องนี้จริง" ไว้ในเครื่องด้วย (ไม่ใช่แค่ autofill ชื่อ/โค้ด)
+            // เพื่อให้ auto-rejoin ได้เองถ้าแท็บถูกรีโหลดทั้งหน้า (ไม่ใช่แค่ socket หลุด)
+            // ซึ่งเกิดได้บ่อยตอนสลับแอป/จอบนมือถือ แล้วเบราว์เซอร์ discard แท็บคืน RAM
+            ww_store.setItem("ww_joinedRoom", roomCode);
+            if (TESTER_MODE) {
+                const u = new URL(window.location.href);
+                u.searchParams.set("jr", roomCode);
+                history.replaceState(null, "", u.toString());
+            }
             renderRoomSuggestion();
 
             // สลับหน้าทันที
@@ -3187,7 +3241,15 @@ socket.on("connect", () => {
 
 });
 
-// รีเซ็ต UI กลับไปหน้ากรอกห้อง/ชื่อ ใช้กลางทั้งกรณี room_closed ปกติ
+// VISIBILITY CHANGE — เมื่อสลับกลับมาที่แท็บ/หน้าจอนี้ (สลับแอป/ปลดล็อกสกรีน)
+// บางครั้ง browser มือถือจะ throttle จนกระบวนการ reconnect ของ socket.io เองทำงานช้า
+// หรือไม่ทำงานจนกว่าจะมี interaction บังคับให้เช็ค-ต่อใหม่ทันทีเมื่อกลับมาเห็นจอ
+// แทนที่จะรอ backoff ของ socket.io เพียงอย่างเดียว
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && !socket.connected) {
+        socket.connect();
+    }
+});
 // และกรณีที่ join_room ตอน reconnect ถูกปฏิเสธ (ห้องถูกปิด/ไม่พบห้อง)
 // เพื่อไม่ให้ผู้เล่นค้างอยู่หน้าเกมทั้งที่ไม่ได้อยู่ในห้องแล้ว
 function resetToJoinScreen(message) {
@@ -3199,6 +3261,7 @@ function resetToJoinScreen(message) {
     myRole = "";
     myHuntTargetId = null;
     shieldModeActive = false;
+    ww_store.removeItem("ww_joinedRoom");
 
     // reset UI กลับสู่หน้าเริ่ม
     document.querySelector('.app').classList.remove("game-visible");
@@ -3356,6 +3419,7 @@ socket.on("kicked", () => {
     // ล้าง token และข้อมูลห้องออก ป้องกัน reconnect กลับเข้ามาใหม่
     ww_store.removeItem("ww_token");
     ww_store.removeItem("ww_lastRoom");
+    ww_store.removeItem("ww_joinedRoom");
 
     // แสดง overlay แจ้งถูกเตะ
     const overlay = document.createElement("div");
