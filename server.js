@@ -4,7 +4,14 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// pingTimeout/pingInterval ที่นานขึ้น เพื่อทนต่อการที่มือถือ "หรี่"/throttle JS
+// ของแท็บที่ไม่ได้อยู่หน้าจอ (สลับแอป/ล็อกสกรีน) ค่า default (ping 25s / timeout 20s)
+// สั้นเกินไปสำหรับเคสนี้ ทำให้ socket หลุดบ่อยกว่าที่ควรจะเป็นจริง ๆ
+const io = new Server(server, {
+    pingInterval: 25_000,
+    pingTimeout: 60_000, // เดิม 20s — เพิ่มเผื่อแท็บถูกพักการทำงานชั่วคราว
+});
 
 // maxAge: ให้เบราว์เซอร์ cache ไฟล์ static (รูปไอคอนอาชีพ ฯลฯ) ไว้ ไม่ต้องโหลดซ้ำทุกครั้งที่เจอ
 app.use(express.static("public", { maxAge: "7d" }));
@@ -19,6 +26,35 @@ const RECONNECT_GRACE_MS = 60_000; // 1 นาที
 // (ห้ามฝัง timer handle ไว้ใน room หรือ player เพราะ object พวกนั้นถูกส่งทั้งก้อนผ่าน
 //  io.emit("room_update", room) ซึ่งต้อง JSON-serialize ได้ ถ้ามี timer handle ติดไปจะพัง)
 const pendingRemovals = {};
+
+// timer "ดำเนินการต่ออัตโนมัติ" หลังเกมจบ — แยกไว้นอก room object เหมือน pendingRemovals
+// เดิม logic นี้ทำฝั่ง client ด้วย setInterval อย่างเดียว (นับ 5 วิแล้วกดให้)
+// ปัญหา: ถ้าจอนั้นไม่ได้เปิดอยู่ (สลับแท็บ/พับจอ) เบราว์เซอร์จะ throttle/หยุด setInterval
+// ทำให้ไม่กดต่อให้ และเกมค้าง รอจนกว่าจะมีคนเปิดจอนั้นเอง
+// ย้าย "นาฬิกาจริง" มาไว้ที่ server แทน เพื่อให้เกมเดินต่อได้แม้ไม่มีจอไหนเปิดอยู่เลย
+// (client ฝั่งหน้าจอที่เปิดอยู่ยังนับโชว์ UI เหมือนเดิม แต่ไม่ใช่ตัวตัดสินอีกต่อไป)
+const gameOverTimers = {};
+
+function clearGameOverTimer(roomId) {
+    if (gameOverTimers[roomId]) {
+        clearTimeout(gameOverTimers[roomId]);
+        delete gameOverTimers[roomId];
+    }
+}
+
+function scheduleAutoContinue(room, roomId) {
+    clearGameOverTimer(roomId);
+    gameOverTimers[roomId] = setTimeout(() => {
+        delete gameOverTimers[roomId];
+        const r = rooms[roomId];
+        if (!r || !r.gameOver) return;
+        r.continueReady = r.continueReady || {};
+        r.players.filter((p) => !p.isHost).forEach((p) => {
+            r.continueReady[p.id] = true;
+        });
+        io.to(roomId).emit("room_update", r);
+    }, 5_000);
+}
 
 // ============================================================
 // CONSTANTS
@@ -422,6 +458,7 @@ function endGame(room, roomId, resultTeam) {
         winners: winners.map((p) => ({ id: p.id, token: p.token })),
     };
     room.continueReady = {};
+    scheduleAutoContinue(room, roomId);
 
     const msg = {
         name: "เกม",
@@ -678,6 +715,7 @@ io.on("connection", (socket) => {
         }
 
         // ล้างสถานะรอบเก่าทั้งหมด
+        clearGameOverTimer(roomId);
         realPlayers.forEach((p) => {
             p.role = null;
             p.displayRole = null;
@@ -1498,6 +1536,7 @@ io.on("connection", (socket) => {
 
         if (room.players.length === 0) {
             delete rooms[roomId];
+            clearGameOverTimer(roomId);
         } else {
             checkGameEndGeneral(room, roomId);
             io.to(roomId).emit("room_update", room);
@@ -1582,6 +1621,7 @@ io.on("connection", (socket) => {
         });
 
         delete rooms[roomId];
+        clearGameOverTimer(roomId);
         broadcastSuggestedRoom();
     }
 
