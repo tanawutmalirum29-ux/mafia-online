@@ -245,6 +245,12 @@ function remapPlayerId(room, oldId, newId) {
         room.continueReady,
     ];
 
+    // murdererKillVote
+    if (room.murdererKillVote) {
+        if (room.murdererKillVote.voterId === oldId) room.murdererKillVote.voterId = newId;
+        if (room.murdererKillVote.targetId === oldId) room.murdererKillVote.targetId = newId;
+    }
+
     maps.forEach((map) => {
         if (!map) return;
         // อัปเดต key ก่อน (คนที่เป็นคน "เลือก")
@@ -688,6 +694,7 @@ io.on("connection", (socket) => {
             selectedTargets: {},
             shieldTargets: {},
             wolfKillVotes: {},
+            murdererKillVote: null,
             wolfChatHistory: [],
             globalChatHistory: [],
             nightCount: 0,
@@ -695,6 +702,7 @@ io.on("connection", (socket) => {
             isNight: false,
             voteMode: false,
             wolfKillMode: false,
+            murdererKillVote: null, // { voterId, targetId }
             gameOver: false,
             gameResult: null,
             continueReady: {},
@@ -929,28 +937,74 @@ io.on("connection", (socket) => {
         if (!room) return;
         if (socket.id !== room.host) return;
 
-        // เปิดโหมดหมาป่าเลือกฆ่าได้เฉพาะตอนกลางคืน (แต่ปิดโหมดที่เปิดค้างได้เสมอ)
+        // เปิดโหมดเลือกฆ่าได้เฉพาะตอนกลางคืน (แต่ปิดโหมดที่เปิดค้างได้เสมอ)
         if (!room.wolfKillMode && !room.isNight) return;
 
         room.wolfKillMode = !room.wolfKillMode;
-        room.wolfKillVotes = {}; // เคลียร์ทุกครั้งทั้งตอนเปิดและปิด
+        room.wolfKillVotes = {};    // เคลียร์ทุกครั้งทั้งตอนเปิดและปิด
+        room.murdererKillVote = null;
 
         if (!room.wolfKillMode) {
             // ปิดโหมด: สรุปผล → ติ๊ก killed
-            const chosenTargets = [...new Set(
+            // หาเป้าหมายที่หมาป่าโหวต (ไม่รวมทีมหมาป่า และไม่รวมฆาตกร)
+            const wolfChosenTargets = [...new Set(
                 Object.values(room.wolfKillVotes || {}).filter((tid) => {
                     const t = room.players.find((p) => p.id === tid);
-                    return t && !WOLF_ROLES.has(t.role);
+                    return t && !WOLF_ROLES.has(t.role) && t.role !== "ฆาตกร";
                 })
             )];
 
-            if (chosenTargets.length > 0) {
-                const finalTargetId = chosenTargets.length === 1
-                    ? chosenTargets[0]
-                    : chosenTargets[Math.floor(Math.random() * chosenTargets.length)];
-                const target = room.players.find((p) => p.id === finalTargetId);
-                if (target) target.killed = true;
+            // ฆาตกรเลือกฆ่าใคร (ถ้ามี)
+            const murdererVote = room.murdererKillVote; // { voterId, targetId }
+
+            // รายการผู้ถูกเลือกฆ่า พร้อม killer type
+            // ถ้าหมาป่ากับฆาตกรเลือกคนเดียวกัน → ฆาตกรเป็นคนฆ่า
+            const killResults = {}; // targetId → "wolf" | "murderer"
+
+            if (wolfChosenTargets.length > 0) {
+                // เลือก 1 เป้าจากหมาป่า (ถ้าเสมอกัน random)
+                const wolfFinalId = wolfChosenTargets.length === 1
+                    ? wolfChosenTargets[0]
+                    : wolfChosenTargets[Math.floor(Math.random() * wolfChosenTargets.length)];
+                killResults[wolfFinalId] = "wolf";
             }
+
+            if (murdererVote) {
+                const mtarget = room.players.find((p) => p.id === murdererVote.targetId);
+                if (mtarget && mtarget.alive) {
+                    // ฆาตกรเลือกคนเดียวกับหมาป่า → ฆาตกรชนะ (override)
+                    // ฆาตกรเลือกหมาป่า → ฆ่าได้ปกติ
+                    killResults[murdererVote.targetId] = "murderer";
+                }
+            }
+
+            // ตรวจว่าหมาป่าเลือกฆาตกร → หมาป่าฆ่าฆาตกรไม่ตาย ส่ง wolf chat แจ้ง
+            Object.entries(killResults).forEach(([targetId, killer]) => {
+                const target = room.players.find((p) => p.id === targetId);
+                if (!target) return;
+
+                if (killer === "wolf" && target.role === "ฆาตกร") {
+                    // หมาป่าฆ่าฆาตกรไม่ตาย
+                    const failMsg = {
+                        name: "เกม",
+                        text: `ไม่สามารถฆ่าผู้เล่น...${target.name} ได้`,
+                        type: "wolf",
+                        isSystem: true,
+                    };
+                    room.wolfChatHistory = room.wolfChatHistory || [];
+                    room.wolfChatHistory.push(failMsg);
+                    room.players.forEach((p) => {
+                        if (WOLF_ROLES.has(p.role) || p.id === room.host) {
+                            io.to(p.id).emit("chat_message", failMsg);
+                        }
+                    });
+                    return;
+                }
+
+                // ติ๊ก killed พร้อมเก็บ killerType ไว้แสดงตอน resolve
+                target.killed = true;
+                target.killedBy = killer; // "wolf" หรือ "murderer"
+            });
         }
 
         io.to(roomId).emit("room_update", room);
@@ -976,7 +1030,31 @@ io.on("connection", (socket) => {
             const target = room.players.find((p) => p.id === targetId);
             if (!target || !target.alive) return;
             if (WOLF_ROLES.has(target.role)) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
+            // หมาป่าฆ่าฆาตกรได้ (แต่ไม่มีผลจริง — จะถูก block ตอน resolve)
             room.wolfKillVotes[socket.id] = targetId;
+        }
+
+        io.to(roomId).emit("room_update", room);
+    });
+
+    // ----------------------------------------------------------------
+    // CAST MURDERER KILL
+    // ----------------------------------------------------------------
+    socket.on("cast_murderer_kill", ({ roomId, targetId }) => {
+        const room = rooms[roomId];
+        if (!room || !room.wolfKillMode) return;
+
+        const voter = room.players.find((p) => p.id === socket.id);
+        if (!voter || !voter.alive || voter.isHost) return;
+        if (voter.role !== "ฆาตกร") return;
+
+        if (!targetId) {
+            room.murdererKillVote = null;
+        } else {
+            if (targetId === socket.id) return;
+            const target = room.players.find((p) => p.id === targetId);
+            if (!target || !target.alive) return;
+            room.murdererKillVote = { voterId: socket.id, targetId };
         }
 
         io.to(roomId).emit("room_update", room);
@@ -1028,9 +1106,13 @@ io.on("connection", (socket) => {
                 // ตาย
                 p.alive = false;
                 allCascadeDeaths.push(...cleanupAfterDeath(room, p));
+                const killerType = p.killedBy || "wolf";
+                const killText = killerType === "murderer"
+                    ? `ฆาตกรได้ฆ่า...${p.name}`
+                    : `เหล่ามนุษย์หมาป่าได้ฆ่า ${p.name}`;
                 nightMessages.push({
                     name: "เกม",
-                    text: `เหล่ามนุษย์หมาป่าได้ฆ่า ${p.name}`,
+                    text: killText,
                     type: "global",
                     isSystem: true,
                 });
@@ -1055,8 +1137,10 @@ io.on("connection", (socket) => {
         // ล้าง killed/protected ทุกคน (silenced คงไว้จนกว่าจะกด start_night)
         room.players.forEach((p) => {
             p.killed = false;
+            p.killedBy = null;
             p.protected = false;
         });
+        room.murdererKillVote = null;
 
         room.dayCount = (room.dayCount || 0) + 1;
         room.isNight = false;
@@ -1393,6 +1477,12 @@ io.on("connection", (socket) => {
         cleanMap(room.shieldTargets);
         cleanMap(room.votes);
         cleanMap(room.wolfKillVotes);
+
+        // ล้าง murdererKillVote ถ้าเกี่ยวกับผู้เล่นนี้
+        if (room.murdererKillVote &&
+            (room.murdererKillVote.voterId === playerId || room.murdererKillVote.targetId === playerId)) {
+            room.murdererKillVote = null;
+        }
 
         // ถอด protected ถ้า player นี้เป็น protector
         const protectRoles = new Set(["หมอ", "บอดี้การ์ด"]);
