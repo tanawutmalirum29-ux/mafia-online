@@ -1739,7 +1739,7 @@ html.modal-open body{
         🗳️ เปิดโหมดโหวต
     </button>
     <button class="btn btn-killmode" id="killModeBtn" onclick="toggleKillMode()">
-        🐺 เปิดโหมดหมาป่าเลือกฆ่า
+        🌙 เปิดโหมดเลือกฆ่า
     </button>
     <button class="btn btn-reopen-popup hidden" id="reopenGameOverBtn" onclick="reopenGameOverPopup()">
         🏁 เปิดสรุปผลเกมอีกครั้ง
@@ -2238,10 +2238,10 @@ socket.on("room_update", (room) => {
 
     const killBtn = document.getElementById("killModeBtn");
     if (killMode) {
-        killBtn.textContent = "🛑 ปิดโหมดหมาป่าเลือกฆ่า";
+        killBtn.textContent = "🛑 ปิดโหมดเลือกฆ่า";
         killBtn.classList.add("active");
     } else {
-        killBtn.textContent = "🐺 เปิดโหมดหมาป่าเลือกฆ่า";
+        killBtn.textContent = "🌙 เปิดโหมดเลือกฆ่า";
         killBtn.classList.remove("active");
     }
 
@@ -2518,39 +2518,67 @@ function renderKillPopup(room, nonHostPlayers) {
     const list = document.getElementById("modePopupList");
 
     panel.classList.add("kill-active");
-    title.textContent = "🐺 โหมดหมาป่าเลือกฆ่า — กำลังเปิดอยู่";
-    info.textContent = "หมาป่าแต่ละตัวเลือกเหยื่อ — เห็นเฉพาะทีมหมาป่าด้วยกัน";
+    title.textContent = "🌙 โหมดเลือกฆ่า — กำลังเปิดอยู่";
+    info.textContent = "หมาป่าและฆาตกรเลือกเหยื่อ — แสดงให้เฉพาะผู้เล่าเรื่องเห็น";
 
     const killVotes = room.wolfKillVotes || {};
     const killTally = {};
     Object.values(killVotes).forEach(tid => { killTally[tid] = (killTally[tid] || 0) + 1; });
 
     const wolfPlayers = nonHostPlayers.filter(p => (roles?.[p.role] || {}).team === "wolf");
+    const murdererPlayers = nonHostPlayers.filter(p => p.role === "ฆาตกร");
 
-    if (wolfPlayers.length === 0) {
-        list.innerHTML = `<div class="modePopupEmpty">ไม่มีผู้เล่นทีมหมาป่าในห้องนี้</div>`;
+    const murdererVote = room.murdererKillVote || null;
+
+    let html = "";
+
+    if (wolfPlayers.length === 0 && murdererPlayers.length === 0) {
+        html = `<div class="modePopupEmpty">ไม่มีผู้เล่นทีมหมาป่าหรือฆาตกรในห้องนี้</div>`;
     } else {
-        list.innerHTML = wolfPlayers.map(p => {
-            const targetId = killVotes[p.id];
-            const target = targetId ? room.players.find(x => x.id === targetId) : null;
-            const receivedCount = killTally[p.id] || 0;
+        if (wolfPlayers.length > 0) {
+            html += `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--wolf);margin-bottom:6px;padding:4px 0;">🐺 หมาป่า</div>`;
+            html += wolfPlayers.map(p => {
+                const targetId = killVotes[p.id];
+                const target = targetId ? room.players.find(x => x.id === targetId) : null;
+                const receivedCount = killTally[p.id] || 0;
+                const choiceHtml = p.alive
+                    ? `🐺 เลือกฆ่า: <b>${target ? target.name : "ยังไม่เลือก"}</b>`
+                    : `💀 ตายแล้ว`;
+                const badgeHtml = receivedCount > 0
+                    ? `<span class="modeBadge kill" style="margin-left:8px;">${receivedCount} ถูกเลือก</span>`
+                    : "";
+                return `
+                    <div class="modePopupRow${!p.alive ? " dead" : ""}">
+                        <div class="modePopupName">${p.name}</div>
+                        <div class="modePopupChoice">${choiceHtml}${badgeHtml}</div>
+                    </div>
+                `;
+            }).join("");
+        }
 
-            const choiceHtml = p.alive
-                ? `🐺 เลือกฆ่า: <b>${target ? target.name : "ยังไม่เลือก"}</b>`
-                : `💀 ตายแล้ว`;
-
-            const badgeHtml = receivedCount > 0
-                ? `<span class="modeBadge kill" style="margin-left:8px;">${receivedCount} ถูกเลือก</span>`
-                : "";
-
-            return `
-                <div class="modePopupRow${!p.alive ? " dead" : ""}">
-                    <div class="modePopupName">${p.name}</div>
-                    <div class="modePopupChoice">${choiceHtml}${badgeHtml}</div>
-                </div>
-            `;
-        }).join("");
+        if (murdererPlayers.length > 0) {
+            html += `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a78bfa;margin:10px 0 6px;padding:4px 0;">🗡️ ฆาตกร</div>`;
+            html += murdererPlayers.map(p => {
+                let choiceHtml;
+                if (!p.alive) {
+                    choiceHtml = `💀 ตายแล้ว`;
+                } else if (murdererVote && murdererVote.voterId === p.id) {
+                    const mt = room.players.find(x => x.id === murdererVote.targetId);
+                    choiceHtml = `🗡️ เลือกฆ่า: <b>${mt ? mt.name : "?"}</b>`;
+                } else {
+                    choiceHtml = `🗡️ เลือกฆ่า: <b>ยังไม่เลือก</b>`;
+                }
+                return `
+                    <div class="modePopupRow${!p.alive ? " dead" : ""}" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05);">
+                        <div class="modePopupName">${p.name}</div>
+                        <div class="modePopupChoice">${choiceHtml}</div>
+                    </div>
+                `;
+            }).join("");
+        }
     }
+
+    list.innerHTML = html;
 
     if (!modePopupManuallyClosed) {
         overlay.classList.remove("hidden");

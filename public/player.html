@@ -2207,6 +2207,11 @@ function castWolfKill(targetId) {
     socket.emit("cast_wolf_kill", { roomId: currentRoomId, targetId });
 }
 
+function castMurdererKill(targetId) {
+    if (!currentRoomId) return;
+    socket.emit("cast_murderer_kill", { roomId: currentRoomId, targetId });
+}
+
 // หมาป่าพิทักษ์: วาง/ยกเลิกโล่ป้องกันการประหาร
 function castShield(targetId) {
     if (!currentRoomId) return;
@@ -2661,7 +2666,8 @@ function renderPlayerGrid(roomData) {
     // โหมดโหวต/โหมดหมาป่าเลือกฆ่า แสดงผล "ภายในกริดผู้เล่นเดิม" นี้เลย แทนที่จะแยกเป็นป๊อปอัป
     // ลำดับความสำคัญ: โหมดโหวต > โหมดหมาป่าเลือกฆ่า (เฉพาะคนที่เป็นทีมหมาป่า) > โหมดปกติ (เลือกเป้าหมายความสามารถกลางคืน)
     const voteMode = !!roomData.voteMode;
-    const killModeActive = !!(roomData.wolfKillMode && amIWolf);
+    const amIMurderer = myRole === "ฆาตกร";
+    const killModeActive = !!(roomData.wolfKillMode && (amIWolf || amIMurderer));
     const mode = voteMode ? "vote" : (killModeActive ? "kill" : "normal");
 
     players.classList.toggle("mode-active", mode !== "normal");
@@ -2689,7 +2695,11 @@ function renderPlayerGrid(roomData) {
 
     // ข้อมูลหมาป่าเลือกฆ่า (ใช้เมื่อ mode === "kill")
     const killVotes = roomData.wolfKillVotes || {};
-    const myKillTarget = killVotes[me];
+    const murdererVote = roomData.murdererKillVote || null;
+    // myKillTarget: ถ้าเป็นฆาตกรใช้ murdererKillVote, ถ้าเป็นหมาป่าใช้ wolfKillVotes
+    const myKillTarget = amIMurderer
+        ? (murdererVote && murdererVote.voterId === me ? murdererVote.targetId : null)
+        : killVotes[me];
     const killTargetName = {};
     Object.entries(killVotes).forEach(([vid, tid]) => {
         const t = roomData.players.find(p => p.id === tid);
@@ -2715,7 +2725,8 @@ function renderPlayerGrid(roomData) {
         const isSelected = mode === "normal" && selected === p.id;
         const isMyVote = mode === "vote" && !shieldModeActive && myVoteTarget === p.id;
         const isMyKill = mode === "kill" && myKillTarget === p.id;
-        const isKillRestricted = mode === "kill" && (p.id === me || isWolfMate);
+        const isMurdererTarget = false; // ฆาตกรฆ่าใครก็ได้ยกเว้นตัวเอง
+        const isKillRestricted = mode === "kill" && (p.id === me || (!amIMurderer && isWolfMate));
         const isMyShieldPick = mode === "vote" && shieldModeActive && myShieldTarget === p.id;
         const isShielded = mode === "vote" && shieldedPlayerIds.has(p.id);
 
@@ -2749,7 +2760,11 @@ function renderPlayerGrid(roomData) {
             } else if (mode === "kill") {
                 if (p.id === me) return; // ห้ามเลือกตัวเอง
                 if (isWolfMate) return; // ห้ามหมาป่าเลือกฆ่ากันเอง
-                if (myKillTarget === p.id) { castWolfKill(null); } else { castWolfKill(p.id); }
+                if (amIMurderer) {
+                    if (myKillTarget === p.id) { castMurdererKill(null); } else { castMurdererKill(p.id); }
+                } else {
+                    if (myKillTarget === p.id) { castWolfKill(null); } else { castWolfKill(p.id); }
+                }
             } else {
                 if (selected === p.id) { selectTarget(null); } else { selectTarget(p.id); }
             }
@@ -2772,9 +2787,9 @@ function renderPlayerGrid(roomData) {
                 ${showShieldIcon ? `<span class="shield-placed-badge" title="คุณวางโล่ป้องกันคนนี้ไว้">🛡️</span>` : ""}
             `;
         } else if (mode === "kill") {
-            const killedFor = killTargetName[p.id] || null;
+            const killedFor = !amIMurderer ? (killTargetName[p.id] || null) : null;
             modeExtraHtml = `
-                ${isWolfMate ? `<div class="vote-voter-list" style="color:var(--wolf);">ห้ามเลือก</div>` : ""}
+                ${(isWolfMate && !amIMurderer) ? `<div class="vote-voter-list" style="color:var(--wolf);">ห้ามเลือก</div>` : ""}
                 ${killedFor ? `<div class="vote-voter-list">➜ ${killedFor}</div>` : ""}
             `;
         }
@@ -2881,9 +2896,10 @@ function updateModeBanner(mode, ctx) {
     } else if (mode === "kill") {
         banner.classList.add("kill-banner");
         if (sub) sub.textContent = "";
-        icon.textContent = "🐺";
-        text.textContent = "ช่วงล่าเหยื่อ";
-        text.style.color = "var(--wolf)";
+        const isMurdererMode = myRole === "ฆาตกร";
+        icon.textContent = isMurdererMode ? "🗡️" : "🐺";
+        text.textContent = isMurdererMode ? "ช่วงฆาตกรออกล่า" : "ช่วงล่าเหยื่อ";
+        text.style.color = isMurdererMode ? "#a78bfa" : "var(--wolf)";
         subText.textContent = "เลือกผู้เล่นเพื่อฆ่า";
         thresholdText.textContent = "";
 
