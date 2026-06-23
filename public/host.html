@@ -1587,14 +1587,14 @@ html.modal-open body{
     <!-- ===== GAME OVER SUMMARY (สรุปผลเกม) ===== -->
     <div class="vote-modal-overlay hidden" id="gameOverOverlay">
         <div class="vote-modal gameover-modal" id="gameOverPanel">
+            <button class="vote-modal-close" onclick="closeGameOverByUser()">✕</button>
             <div class="gameover-title" id="gameOverTitle">🏁 ทีม...ชนะ</div>
             <p class="sub" style="margin:-6px 0 14px;">สรุปผลเกมรอบนี้ — ใครชนะ/แพ้ตามทีมของตัวเอง</p>
             <div id="gameOverList" class="gameOverList"></div>
             <hr class="divider">
             <div class="gameover-progress" id="gameOverProgress">รอผู้เล่นกด "ดำเนินการต่อ"... (0/0)</div>
-            <button class="btn btn-block" id="gameOverRestartBtn" onclick="startGame()" disabled>
-                🌙 เริ่มเกม
-            </button>
+            <p class="sub" style="margin:10px 0 14px;">ปิดป๊อปอัปนี้แล้วไปที่การ์ด "ตั้งค่าบทบาท" เพื่อแก้ไขจำนวนบทบาทได้ถ้าต้องการ แล้วกด "🌙 เริ่มเกม" ที่นั่นเพื่อเริ่มรอบใหม่</p>
+            <button class="btn btn-ghost btn-block" onclick="goEditRolesAfterGameOver()">✏️ ไปแก้ไขบทบาท / เริ่มเกมใหม่</button>
         </div>
     </div>
 
@@ -1615,7 +1615,7 @@ html.modal-open body{
         <!-- ===== LEFT COLUMN ===== -->
         <div class="col">
 
-            <div class="card">
+            <div class="card" id="roleSettingsCard">
                 <div class="card-head">
                     <div>
                         <h2>ตั้งค่าบทบาท</h2>
@@ -1740,6 +1740,9 @@ html.modal-open body{
     </button>
     <button class="btn btn-killmode" id="killModeBtn" onclick="toggleKillMode()">
         🐺 เปิดโหมดหมาป่าเลือกฆ่า
+    </button>
+    <button class="btn btn-reopen-popup hidden" id="reopenGameOverBtn" onclick="reopenGameOverPopup()">
+        🏁 เปิดสรุปผลเกมอีกครั้ง
     </button>
     <button class="btn btn-reopen-popup hidden" id="reopenPopupBtn" onclick="showModePopup()">
         📋 เปิดป๊อปอัปอีกครั้ง
@@ -2325,15 +2328,31 @@ function toggleWinCondition(condition) {
 }
 
 // แสดง/ซ่อนสรุปผลเกม + รายชื่อผู้เล่นว่าใครแพ้ใครชนะ + ความคืบหน้าการกด "ดำเนินการต่อ"
+// ป๊อปอัปนี้ปิดเองได้ — ปุ่ม "เริ่มเกม" จริงๆอยู่ที่การ์ดตั้งค่าบทบาทเดิม (ไม่ทำปุ่มใหม่ซ้ำในนี้)
+// เพื่อให้โฮสต์ปิดป๊อปอัปแล้วกลับไปแก้จำนวนบทบาทก่อนเริ่มรอบใหม่ได้ ถ้ามีการเปลี่ยนแปลง
+let gameOverManuallyClosed = false;
+let wasGameOver = false;
+
 function renderGameOver(room, nonHostPlayers) {
     const overlay = document.getElementById("gameOverOverlay");
     if (!overlay) return;
 
+    const reopenBtn = document.getElementById("reopenGameOverBtn");
+
     if (!room.gameOver || !room.gameResult) {
         overlay.classList.add("hidden");
         document.documentElement.classList.remove("modal-open");
+        if (reopenBtn) reopenBtn.classList.add("hidden");
+        wasGameOver = false;
+        gameOverManuallyClosed = false;
         return;
     }
+
+    // เกมเพิ่งจบรอบใหม่ (จากไม่จบ -> จบ) ให้เด้งป๊อปอัปขึ้นอัตโนมัติ ล้างสถานะ "ปิดเองไว้ก่อนหน้า"
+    if (!wasGameOver) {
+        gameOverManuallyClosed = false;
+    }
+    wasGameOver = true;
 
     document.getElementById("gameOverTitle").textContent = `🏁 ${room.gameResult.title}`;
 
@@ -2364,11 +2383,45 @@ function renderGameOver(room, nonHostPlayers) {
             ? "ผู้เล่นกดดำเนินการต่อครบทุกคนแล้ว — เริ่มเกมใหม่ได้เลย"
             : `รอผู้เล่นกด "ดำเนินการต่อ"... (${readyCount}/${total})`;
 
-    const restartBtn = document.getElementById("gameOverRestartBtn");
-    restartBtn.disabled = !allReady;
+    if (gameOverManuallyClosed) {
+        overlay.classList.add("hidden");
+        document.documentElement.classList.remove("modal-open");
+        if (reopenBtn) reopenBtn.classList.remove("hidden");
+    } else {
+        overlay.classList.remove("hidden");
+        document.documentElement.classList.add("modal-open");
+        if (reopenBtn) reopenBtn.classList.add("hidden");
+    }
+}
 
-    overlay.classList.remove("hidden");
-    document.documentElement.classList.add("modal-open");
+// ปิดป๊อปอัปสรุปผลเกมเอง (ไม่ใช่เกมจบแล้ว แค่ปิดดูไว้ก่อน) — ปุ่ม "เปิดสรุปผลอีกครั้ง" จะโผล่แทน
+function closeGameOverByUser() {
+    gameOverManuallyClosed = true;
+    document.getElementById("gameOverOverlay").classList.add("hidden");
+    document.documentElement.classList.remove("modal-open");
+    const reopenBtn = document.getElementById("reopenGameOverBtn");
+    if (reopenBtn) reopenBtn.classList.remove("hidden");
+}
+
+// เปิดป๊อปอัปสรุปผลเกมกลับมาดูอีกครั้ง (เผื่ออยากเช็คผล/ความคืบหน้าซ้ำ)
+function reopenGameOverPopup() {
+    gameOverManuallyClosed = false;
+    if (currentRoom) {
+        renderGameOver(currentRoom, currentRoom.players.filter(p => !p.isHost));
+    }
+}
+
+// ปิดป๊อปอัปแล้วเด้งกลับไปที่การ์ด "ตั้งค่าบทบาท" — เผื่อโฮสต์อยากแก้จำนวนบทบาทก่อนเริ่มรอบใหม่
+// ปุ่ม "เริ่มเกม" จริงที่จะกดต่อ คือปุ่มเดิมในการ์ดนี้ ไม่ใช่ปุ่มในป๊อปอัป
+function goEditRolesAfterGameOver() {
+    closeGameOverByUser();
+
+    const body = document.getElementById("roleCardBody");
+    if (body && body.classList.contains("is-collapsed")) {
+        toggleRoleCard();
+    }
+
+    document.getElementById("roleSettingsCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ===== MODE POPUP HELPERS =====
