@@ -1546,6 +1546,30 @@ html.modal-open body{
     left:23px;
 }
 
+/* ===== ww-modal: ป็อปอัป alert/confirm แบบ CSS เอง ไม่ใช้ alert()/confirm() ของเบราว์เซอร์
+   เพราะ alert()/confirm() เป็น native dialog ที่ "บล็อก" ทั้งหน้าและ JS thread ทั้งหมด
+   ระหว่างรอกดตกลง ซึ่งทำให้ socket/reconnect/timer อื่น ๆ ค้างไปด้วยจนกว่าจะปิดป็อปอัป ===== */
+.ww-modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65);
+    display:flex; align-items:center; justify-content:center;
+    z-index:99999; padding:20px; animation:wwFadeIn .15s ease-out;
+}
+@keyframes wwFadeIn{ from{opacity:0;} to{opacity:1;} }
+.ww-modal-box{
+    background:#1e2230; color:#fff; border-radius:16px; padding:26px 22px;
+    max-width:360px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.55);
+    text-align:center; border:1px solid rgba(255,255,255,.08);
+}
+.ww-modal-msg{ font-size:15.5px; line-height:1.55; margin-bottom:20px; white-space:pre-line; }
+.ww-modal-actions{ display:flex; gap:10px; }
+.ww-modal-btn{
+    flex:1; padding:12px 14px; border:none; border-radius:10px;
+    font-size:14.5px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.ww-modal-ok{ background:#6366f1; color:#fff; }
+.ww-modal-ok:active{ background:#4f52d6; }
+.ww-modal-cancel{ background:#374151; color:#e5e7eb; }
+.ww-modal-cancel:active{ background:#2b323f; }
 </style>
 
 </head>
@@ -1756,6 +1780,46 @@ html.modal-open body{
 
 const socket = io();
 
+// ===== ww-modal helpers: แทน alert()/confirm() ของเบราว์เซอร์ทั้งหมด =====
+function wwAlert(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "ww-modal-overlay";
+        overlay.innerHTML = `
+            <div class="ww-modal-box">
+                <div class="ww-modal-msg"></div>
+                <div class="ww-modal-actions">
+                    <button class="ww-modal-btn ww-modal-ok">ตกลง</button>
+                </div>
+            </div>`;
+        overlay.querySelector(".ww-modal-msg").textContent = message;
+        document.body.appendChild(overlay);
+        overlay.querySelector(".ww-modal-ok").onclick = () => {
+            overlay.remove();
+            resolve(true);
+        };
+    });
+}
+
+function wwConfirm(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "ww-modal-overlay";
+        overlay.innerHTML = `
+            <div class="ww-modal-box">
+                <div class="ww-modal-msg"></div>
+                <div class="ww-modal-actions">
+                    <button class="ww-modal-btn ww-modal-cancel">ยกเลิก</button>
+                    <button class="ww-modal-btn ww-modal-ok">ยืนยัน</button>
+                </div>
+            </div>`;
+        overlay.querySelector(".ww-modal-msg").textContent = message;
+        document.body.appendChild(overlay);
+        overlay.querySelector(".ww-modal-ok").onclick = () => { overlay.remove(); resolve(true); };
+        overlay.querySelector(".ww-modal-cancel").onclick = () => { overlay.remove(); resolve(false); };
+    });
+}
+
 let roomId = "";
 let currentRoom = null;
 
@@ -1880,7 +1944,7 @@ function loginToRoom(id) {
                 applyRoomId(id);
                 hideRoomPicker();
             } else {
-                alert("เข้าคุมห้องนี้ไม่ได้ (อาจถูกปิดไปแล้ว)");
+                wwAlert("เข้าคุมห้องนี้ไม่ได้ (อาจถูกปิดไปแล้ว)");
                 refreshRoomPicker();
             }
         }
@@ -1972,7 +2036,7 @@ socket.on("connect", () => {
             (res) => {
                 if (!res || res.error) {
                     // ห้องถูกปิดไปแล้วจริงๆ (กดปิดห้องระหว่างที่เราหลุดอยู่)
-                    alert("ห้องถูกปิดไปแล้ว");
+                    wwAlert("ห้องถูกปิดไปแล้ว");
                     roomId = "";
                     hostStorage.removeItem("ww_host_room");
                 }
@@ -2032,10 +2096,10 @@ function startNight() {
 }
 
 // ปุ่ม "ปิดห้อง" — ให้โฮสต์ปิดห้องเองได้ตรงๆ แทนที่จะต้องพึ่งการตรวจจับการหลุดของเน็ต
-function closeRoomManually() {
+async function closeRoomManually() {
     if (!roomId) return;
 
-    const ok = confirm("ต้องการปิดห้องนี้เลยหรือไม่? ผู้เล่นทุกคนในห้องจะถูกเตะออกทันที และย้อนกลับไม่ได้");
+    const ok = await wwConfirm("ต้องการปิดห้องนี้เลยหรือไม่? ผู้เล่นทุกคนในห้องจะถูกเตะออกทันที และย้อนกลับไม่ได้");
     if (!ok) return;
 
     socket.emit("close_room", roomId);
@@ -2614,7 +2678,7 @@ socket.on(
     "host_error",
     (msg) => {
 
-        alert(msg);
+        wwAlert(msg);
 
     }
 );
@@ -2852,8 +2916,9 @@ function startGame() {
 }
 
 // TOGGLE
-function kickPlayer(playerId, playerName) {
-    if (!confirm(`เตะ "${playerName}" ออกจากห้องใช่ไหม?`)) return;
+async function kickPlayer(playerId, playerName) {
+    const ok = await wwConfirm(`เตะ "${playerName}" ออกจากห้องใช่ไหม?`);
+    if (!ok) return;
     socket.emit("kick_player", { roomId, playerId });
 }
 

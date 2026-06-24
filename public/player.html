@@ -1821,6 +1821,30 @@ body.vote-open{
     color:var(--safe);
 }
 
+/* ===== ww-modal: ป็อปอัป alert/confirm แบบ CSS เอง ไม่ใช้ alert()/confirm() ของเบราว์เซอร์
+   เพราะ alert()/confirm() เป็น native dialog ที่ "บล็อก" ทั้งหน้าและ JS thread ทั้งหมด
+   ระหว่างรอผู้เล่นกดตกลง ซึ่งบนมือถือบางทีค้างนานหรือดีเลย์การประมวลผล socket/reconnect ===== */
+.ww-modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65);
+    display:flex; align-items:center; justify-content:center;
+    z-index:99999; padding:20px; animation:wwFadeIn .15s ease-out;
+}
+@keyframes wwFadeIn{ from{opacity:0;} to{opacity:1;} }
+.ww-modal-box{
+    background:#1e2230; color:#fff; border-radius:16px; padding:26px 22px;
+    max-width:360px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.55);
+    text-align:center; border:1px solid rgba(255,255,255,.08);
+}
+.ww-modal-msg{ font-size:15.5px; line-height:1.55; margin-bottom:20px; white-space:pre-line; }
+.ww-modal-actions{ display:flex; gap:10px; }
+.ww-modal-btn{
+    flex:1; padding:12px 14px; border:none; border-radius:10px;
+    font-size:14.5px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.ww-modal-ok{ background:#6366f1; color:#fff; }
+.ww-modal-ok:active{ background:#4f52d6; }
+.ww-modal-cancel{ background:#374151; color:#e5e7eb; }
+.ww-modal-cancel:active{ background:#2b323f; }
 </style>
 
 </head>
@@ -2025,6 +2049,49 @@ body.vote-open{
 <script>
 
 const socket = io();
+
+// ===== ww-modal helpers: แทน alert()/confirm() ของเบราว์เซอร์ทั้งหมด =====
+// alert()/confirm() แบบ native จะ "หยุดทุกอย่าง" ในหน้ารวมถึง JS event loop จนกว่าจะกดตกลง
+// ทำให้ socket/timer ต่าง ๆ ดูเหมือนค้างไปด้วยตอนมีแจ้งเตือนขึ้น โดยเฉพาะบนมือถือ
+// เปลี่ยนมาใช้ป็อปอัปที่ทำเองด้วย CSS/DOM แทน ซึ่งไม่บล็อก thread เลย
+function wwAlert(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "ww-modal-overlay";
+        overlay.innerHTML = `
+            <div class="ww-modal-box">
+                <div class="ww-modal-msg"></div>
+                <div class="ww-modal-actions">
+                    <button class="ww-modal-btn ww-modal-ok">ตกลง</button>
+                </div>
+            </div>`;
+        overlay.querySelector(".ww-modal-msg").textContent = message;
+        document.body.appendChild(overlay);
+        overlay.querySelector(".ww-modal-ok").onclick = () => {
+            overlay.remove();
+            resolve(true);
+        };
+    });
+}
+
+function wwConfirm(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "ww-modal-overlay";
+        overlay.innerHTML = `
+            <div class="ww-modal-box">
+                <div class="ww-modal-msg"></div>
+                <div class="ww-modal-actions">
+                    <button class="ww-modal-btn ww-modal-cancel">ยกเลิก</button>
+                    <button class="ww-modal-btn ww-modal-ok">ยืนยัน</button>
+                </div>
+            </div>`;
+        overlay.querySelector(".ww-modal-msg").textContent = message;
+        document.body.appendChild(overlay);
+        overlay.querySelector(".ww-modal-ok").onclick = () => { overlay.remove(); resolve(true); };
+        overlay.querySelector(".ww-modal-cancel").onclick = () => { overlay.remove(); resolve(false); };
+    });
+}
 function selectTarget(targetId) {
     if (!currentRoomId) return;
     socket.emit("select_target", { roomId: currentRoomId, targetId });
@@ -2318,14 +2385,14 @@ function join() {
 
     if (!playerName) {
 
-        alert("กรอกชื่อก่อน");
+        wwAlert("กรอกชื่อก่อน");
         return;
 
     }
 
     if (!roomCode) {
 
-        alert("กรอก ROOM CODE");
+        wwAlert("กรอก ROOM CODE");
         return;
 
     }
@@ -2346,7 +2413,7 @@ function join() {
 
             if (res.error) {
 
-                alert(
+                wwAlert(
                     "ไม่พบห้อง"
                 );
 
@@ -3254,7 +3321,7 @@ document.addEventListener("visibilitychange", () => {
 // เพื่อไม่ให้ผู้เล่นค้างอยู่หน้าเกมทั้งที่ไม่ได้อยู่ในห้องแล้ว
 function resetToJoinScreen(message) {
 
-    if (message) alert(message);
+    if (message) wwAlert(message);
 
     joined = false;
     currentRoomId = null;
