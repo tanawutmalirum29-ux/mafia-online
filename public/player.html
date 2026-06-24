@@ -102,6 +102,14 @@ body::before{
     to{ opacity:1; transform:translateY(0); }
 }
 
+/* เหมือน rise แต่ไม่มี transform เลย ใช้กับกล่องที่ centering ด้วย left/right
+   (ถ้าใช้ rise ตัวเดิม transform:translateY ของ animation จะไปทับ/ลบ transform
+   ที่ใช้ centering อยู่ทันทีที่ animation จบ เพราะ fill-mode:both ค้างค่าสุดท้ายไว้) */
+@keyframes riseFade{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+
 @media (prefers-reduced-motion: reduce){
     *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
@@ -336,13 +344,12 @@ button:active{
 /* แบนเนอร์แจ้งสถานะขาดการเชื่อมต่อ/กำลังเชื่อมต่อใหม่ */
 .conn-banner{
     position:fixed;
-    top:0;
-    left:50%;
-    transform:translateX(-50%);
+    top:8px;
+    left:12px;
+    right:12px;
     z-index:50;
     max-width:560px;
-    width:calc(100% - 24px);
-    margin-top:8px;
+    margin:0 auto;
     padding:9px 14px;
     border-radius:var(--r-sm);
     background:var(--mark-soft);
@@ -351,7 +358,7 @@ button:active{
     font-size:12.5px;
     font-weight:600;
     text-align:center;
-    animation:rise .3s ease both;
+    animation:riseFade .3s ease both;
 }
 
 /* แบนเนอร์แจ้งว่ากำลังอยู่ในโหมดผู้ทดสอบ (token ผูกกับแท็บนี้เท่านั้น) */
@@ -2551,8 +2558,16 @@ socket.on(
     (data) => {
 
     // เล่นอนิเมชั่นเปิดเผยบท (ข้ามถ้าเป็นการส่งซ้ำแบบ "เงียบ" ตอนเชื่อมต่อใหม่ ไม่ใช่ได้บทครั้งแรก)
+    // ถ้าตอนนี้ไม่ได้อยู่หน้าจอ (สลับแอป/ปิดจอ) ให้ข้ามอนิเมชั่นไปเลย ไม่เล่นมัน เพราะ
+    // setTimeout/setInterval ที่ทยอยเล่นอนิเมชั่นจะถูกเบราว์เซอร์ throttle จนค้างกลางทาง
+    // ทำให้ overlay บังหน้าจอค้างอยู่จนกว่าจะเปิดแท็บกลับมาเอง (ดูเหมือน "บทต้องรอเปิดจอก่อนถึงโหลด")
+    // ข้อมูลบทจริง (myRole ฯลฯ) ด้านล่างจะถูกตั้งค่าทันทีอยู่แล้วไม่ว่าจะข้ามอนิเมชั่นหรือไม่
     if (!data.silent) {
-        playRoleReveal(data);
+        if (document.visibilityState === "visible") {
+            playRoleReveal(data);
+        } else {
+            document.getElementById("roleRevealOverlay").classList.add("hidden");
+        }
     }
 
 myRole = data.role;
@@ -3315,6 +3330,15 @@ socket.on("connect", () => {
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && !socket.connected) {
         socket.connect();
+    }
+    // ถ้าสลับออกไประหว่างอนิเมชั่นเปิดเผยบทกำลังเล่นอยู่ ให้ปิด overlay ทิ้งไปเลยทันที
+    // ไม่งั้น setTimeout ของอนิเมชั่นที่เหลือจะถูก throttle ค้างกลางทาง ทำให้กลับมาเจอจอ
+    // ค้างบังอยู่ (ข้อมูลบทจริงถูกตั้งไว้แล้วตั้งแต่ตอนได้รับ your_role อยู่แล้ว ไม่กระทบ)
+    if (document.visibilityState === "hidden") {
+        const overlay = document.getElementById("roleRevealOverlay");
+        if (overlay && !overlay.classList.contains("hidden")) {
+            overlay.classList.add("hidden");
+        }
     }
 });
 // และกรณีที่ join_room ตอน reconnect ถูกปฏิเสธ (ห้องถูกปิด/ไม่พบห้อง)
